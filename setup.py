@@ -1,14 +1,23 @@
 import setuptools
 
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
 setuptools.setup(
-    name='hsim',
-    version='0.0.3',
-    author='Lorenzo',
-    author_email='_',
-    description='_',
-    long_description='0',
+    name="hsim",
+    version="0.0.1",
+    author="Lorenzo",
+    author_email="@",
+    description="hsim",
+    long_description=long_description,
     long_description_content_type="text/markdown",
-    url='https://github.com/lorenzo-ragazzini/hsim',
-    license='MIT',
+    url="https://github.com/lorenzo-ragazzini/hsim",
     packages=setuptools.find_packages(),
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Operating System :: OS Independent",
+    ],
+    python_requires='>=3.6',
+    license="MIT",
+    platforms="Python 3",
 )
