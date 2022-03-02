@@ -10,8 +10,4 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url='https://github.com/lorenzo-ragazzini/hsim',
     license='MIT',
-    packages=setuptools.find_packages(where='src'),
-    package_dir={'': 'src'},
-    include_package_data=True,
-    # install_requires=['requests'],
 )
