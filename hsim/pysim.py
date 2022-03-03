@@ -7,6 +7,7 @@ import pandas as pd
 import plotly.express as px
 import numpy as np
 import random as rnd
+import re
 
 
 class Environment(Environment):
@@ -139,7 +140,7 @@ class Element(object):
   
     
 class Server(object):
-    def __init__(self, env, name, route=None, failureProb=0, maxCapacity=1, serviceTime=None, serviceTimeFunction=None):
+    def __init__(self, env, name, route=None, serviceTime=None, serviceTimeFunction=None):
         self.env = env
         self._objectType = 'active'
         self.name = name
@@ -161,7 +162,7 @@ class Server(object):
     def _load(self,x):
         self.state, self.entity = x['state'], x['entity']
     def set_state(self,state): # identical to __call__(state)
-        return self(state)
+        self.state = self.env.process(state)
     def calcServiceTime(self):
         if self.serviceTimeFunction == None:
             if type(self.serviceTime)==int or type(self.serviceTime)==float:
@@ -178,7 +179,7 @@ class Server(object):
             elif self.serviceTime==None:
                 return self.serviceTimeFunction(*self.entity.pt[self.name])
             elif len(self.serviceTime)==0:
-                return self.serviceTimeFunction(*self.entity.pt[self.name])
+                return self.serviceTimeFunction()
             elif len(self.serviceTime)>0:
                 return self.serviceTimeFunction(*self.serviceTime)
     def put(self,entity):
@@ -197,36 +198,60 @@ class Server(object):
         self.request = self.store.subscribe()
         yield self.request
         self.entity = self.request.read()
-        return self.env.process(self.Work())
+        return self.set_state(self.Work())
     def Work(self):
         self.env.logF(self.entity.ID, self.name, None, "Work")
         pt = self.calcServiceTime()
         yield self.env.timeout(pt)
-        return self.env.process(self.Block())
+        return self.set_state(self.Block())
     def Block(self):
         self.env.logF(self.entity.ID, self.name, None, "Block")
         yield self.connections['after'].put(self.entity)
         self.request.confirm()
-        return self.env.process(self.Starve())
-    def WorkOld(self):
+        return self.set_state(self.Starve())
+
+class Assembly(Server):
+    def __init__(self, env, name, route=None, failureProb=0, maxCapacity=1, serviceTime=None, serviceTimeFunction=None):
+        super().__init__(env, name, route, serviceTime, serviceTimeFunction)
+        self.waitOp = env.event()
+        self.waitOp.succeed()
+        self.operator = []
+        self.operatorResource = simpy.Resource(env, capacity=maxCapacity)
+    def OpIn(self,operator):
+        self.operator.append(operator)
+        self.operatorResource.request()
+        try:
+            self.waitOp.succeed()
+        except:
+            print('WARNING: %s %s' %(self.name,operator))                
+    def OpOut(self):
+        self.operatorResource.release(self.operatorResource.users[0])
+        operator = self.operator.pop()
+        operator.ctrl.succeed()
+        operator = None
+    def Starve(self):
+        self.env.logF(None, self.name, None, "Starve")
+        self.request = self.store.subscribe()
+        yield self.request
+        self.entity = self.request.read()
+        return self.set_state(self.Idle())
+    def Idle(self):
+        self.env.logF(None, self.name, None, "Idle")
+        self.waitOp = self.env.event()
+        yield self.waitOp
+        return self.set_state(self.Work())
+    def Work(self):
         self.env.logF(self.entity.ID, self.name, None, "Work")
         pt = self.calcServiceTime()
         yield self.env.timeout(pt)
-        if self.store.get_queue:
-            return self.env.process(self.Starve())
-        else:
-            return self.env.process(self.Block())
-    def BlockOld(self):
+        self.OpOut()
+        return self.set_state(self.Block())
+    def Block(self):
         self.env.logF(self.entity.ID, self.name, None, "Block")
-        self.store.put(self.entity)
-        yield self.store.subscribe(False)
-        return self.Starve()
-        return self.env.process(self.Starve())
-    def StarveOld(self):
-        self.env.logF(None, self.name, None, "Starve")
-        self.entity = yield self.connections['before'].get(self.name,self.route)
-        unlock(self.env,self.connections['before'],self.entity)
-        return self.env.process(self.Work())
+        yield self.connections['after'].put(self.entity)
+        self.request.confirm()
+        return self.set_state(self.Starve())
+
 
 class repeatMachine(Server):
     def __init__(self, env, name, route=None, failureProb=0, maxCapacity=1, serviceTime=None, serviceTimeFunction=None):
@@ -275,7 +300,7 @@ class repeatMachine(Server):
 
 class AssemblyStation(Server):
     def __init__(self, env, name, route=None, failureProb=0, maxCapacity=1, serviceTime=None, serviceTimeFunction=None):
-        super().__init__(env, name, route, failureProb, maxCapacity, serviceTime, serviceTimeFunction)
+        super().__init__(env, name, route, serviceTime, serviceTimeFunction)
         self.waitOp = env.event()
         self.waitOp.succeed()
         self.operator = []
@@ -391,9 +416,10 @@ class Operator(object):
         self.name = name
         self.currentStation = []
         self.target = None
+        self.env.process(self.statemachine())
     def monitor(self):
         for i in reversed(self.station):
-            if i.state == 'Idle' and i.operatorResource.users == []:
+            if re.search('\(([^)]+)', i.state.__repr__()).group(1) == 'Idle' and i.operatorResource.users == []:
                 self.target = i
                 return
         self.target = None
@@ -419,7 +445,7 @@ class Operator(object):
         # return self.env.process(self.statemachine())
         return self.statemachine()
     def wait(self):
-        lag = 1e-9 # was working with: lag = 0.0123456789
+        lag = 1 # was working with: lag = 0.0123456789
         # # print('Operator %s passivates at %f to %f' %(self.name,self.env.now,self.env.peek()))
         timeList = [i[0] for i in self.env._queue if i[3].value != 'Operator']
         timeList = sorted(i for i in timeList if i>=self.env.now  and i < max(timeList)) #i-env.now>0

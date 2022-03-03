@@ -6,12 +6,15 @@
 
 # %% test switchOut FirstPortAvailable
 
-import pysim_new as sim
+if True:
+    import pysim as sim
+else:
+    import hsim as sim
 import numpy as np
 
 # %% single server
 
-if 1:
+if 0:
 
     env = sim.Environment()
     Q1 = sim.Queue(env,'Q1',100)
@@ -21,18 +24,20 @@ if 1:
     M1.connections = {'after':Q2}
     Q1.connections = {'after':M1}
     
-    for i in range(1,10,1):
+    for i in range(1,11,1):
         e=sim.Entity(i)
         Q1.put(e)
         
     env.run(100)
     
     data = sim.refineLog(env.log,env.now)
-    sim.createGantt(data)
+    # sim.createGantt(data)
+    if len(Q2.items)==10:
+        print('OK')
 
 # %% Switch-in
 
-if 1:
+if 0:
 
     env = sim.Environment()
     Q1 = sim.Queue(env,'Q1',100)
@@ -55,33 +60,65 @@ if 1:
     env.run(100)
     
     data = sim.refineLog(env.log,env.now)
-    sim.createGantt(data)
+    # sim.createGantt(data)
+    
+    if len(Q3.items)==18:
+        print('OK')
 
 # %% Switch-out
-if 1:
+if 0:
     env = sim.Environment()
     Q1 = sim.Queue(env,'Q',100)
-    M1 = sim.Server(env,'M1',serviceTime=1)
-    M2 = sim.Server(env,'M2',serviceTime=1)
+    M1 = sim.Server(env,'M1',serviceTime=[],serviceTimeFunction=np.random.uniform)
+    M2 = sim.Server(env,'M2',serviceTime=0.5)
     
     Q2 = sim.Store(env)
     Q3 = sim.Store(env)
     
-    S=sim.SwitchFirst(env)
+    S=sim.Switch(env)
     
-    M1.connections = {'after':Q3}
+    M1.connections = {'after':Q2}
     M2.connections = {'after':Q3}
     
     Q1.connections = {'after':S}
     S.connections = {'after':[M1,M2]}
     
-    for i in range(1,10,1):
+    for i in range(1,11,1):
         e=sim.Entity(i)
         Q1.put(e)
     env.run(10)
     
     data = sim.refineLog(env.log,env.now)
-    sim.createGantt(data)
+    # sim.createGantt(data)
+    
+    if len(Q3.items)+len(Q2.items)==10:
+        print('OK')
+
+
+# %% test operatori
+
+if True:
+    env = sim.Environment()
+    Q1 = sim.Queue(env,'Q',100)
+    M1 = sim.Assembly(env,'M1',serviceTime=[],serviceTimeFunction=np.random.uniform)
+    
+    Q2 = sim.Store(env)
+    
+    M1.connections = {'after':Q2}
+    Q1.connections = {'after':M1}
+    
+    O1 = sim.Operator(env, 'O1', [M1])
+    
+    for i in range(1,11,1):
+        e=sim.Entity(i)
+        Q1.put(e)
+    env.run(30)
+    
+    data = sim.refineLog(env.log,env.now)
+    # sim.createGantt(data)
+    
+    if len(Q2.items)==10:
+        print('OK')
 
 # %%
 
