@@ -211,12 +211,12 @@ class Server(object):
         return self.set_state(self.Starve())
 
 class Assembly(Server):
-    def __init__(self, env, name, route=None, failureProb=0, maxCapacity=1, serviceTime=None, serviceTimeFunction=None):
+    def __init__(self, env, name, route=None, maxOperators=1, serviceTime=None, serviceTimeFunction=None):
         super().__init__(env, name, route, serviceTime, serviceTimeFunction)
         self.waitOp = env.event()
         self.waitOp.succeed()
         self.operator = []
-        self.operatorResource = simpy.Resource(env, capacity=maxCapacity)
+        self.operatorResource = simpy.Resource(env, capacity=maxOperators)
     def OpIn(self,operator):
         self.operator.append(operator)
         self.operatorResource.request()
@@ -241,7 +241,7 @@ class Assembly(Server):
         yield self.waitOp
         return self.set_state(self.Work())
     def Work(self):
-        self.env.logF(self.entity.ID, self.name, None, "Work")
+        self.env.logF(self.entity.ID, self.name, self.operator, "Work")
         pt = self.calcServiceTime()
         yield self.env.timeout(pt)
         self.OpOut()
@@ -702,6 +702,9 @@ class EntityGenerator(object):
         self.waitOrders = env.event()
         self.timeoutValue = timeoutValue
         self.counter = 0
+        self.connections={'before':None,'after':None}
+    def set_state(self,state):
+        self.state = self.env.process(state)
     def put(self,entity):
         return self.store.put(entity)
     def get(self,caller):
