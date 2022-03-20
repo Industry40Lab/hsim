@@ -336,6 +336,7 @@ from simpy import Process, Interrupt
 from simpy.core import BoundClass
 from simpy.events import PENDING, Initialize
 from core import Environment
+import sys
 
 def addto(instance):
     def decorator(f):
@@ -408,6 +409,11 @@ class State(State,Process):
         self.env = None
         self._generator = None
         self._generator_function = None
+    def __repr__(self):
+        return f"State({self.name})"
+    @property()
+    def name(self):
+        return self.name()
     def start(self):
         logging.debug(f"Entering {self._name}")
         for callback in self._entry_callbacks:
@@ -415,7 +421,7 @@ class State(State,Process):
         if self._child_state_machine is not None:
             self._child_state_machine.start()
         self._do_start()
-    def stop(self):
+    def close(self):
         logging.debug(f"Exiting {self._name}")
         for callback in self._exit_callbacks:
             callback()
@@ -426,7 +432,7 @@ class State(State,Process):
         self._value = PENDING
         self._generator = self.safe_generator(self._generator_function())
         self._target = Initialize(env, self)
-    def close(self):
+    def stop(self):
         for state in self.substates:
             state.close()
         self.interrupt()
@@ -437,8 +443,58 @@ class State(State,Process):
             for event in self.env._queue: 
                 if event[-1] == self._target:
                     self.env._queue.remove(event)
-            if self.on_interrupt:
-                self.on_interrupt()
+            for callback in self._interrupt_callback:
+                callback()
+    def _resume(self, event):
+        self.env._active_proc = self
+
+        while True:
+            # Get next event from process
+            try:
+                if event._ok:
+                    event = self._generator.send(event._value)
+                else:
+                    event._defused = True
+                    exc = type(event._value)(*event._value.args)
+                    exc.__cause__ = event._value
+                    event = self._generator.throw(exc)
+            except StopIteration as e:
+                event = None
+                self._ok = True
+                self._value = e.args[0] if len(e.args) else None
+                self.env.schedule(self)
+                break
+            except BaseException as e:
+                event = None
+                self._ok = False
+                tb = e.__traceback__
+                # Strip the frame of this function from the traceback as it
+                # does not add any useful information.
+                e.__traceback__ = tb.tb_next
+                self._value = e
+                self.env.schedule(self)
+                break
+
+            # Process returned another event to wait upon.
+            try:
+                # Be optimistic and blindly access the callbacks attribute.
+                if event.callbacks is not None:
+                    # The event has not yet been triggered. Register callback
+                    # to resume the process if that happens.
+                    event.callbacks.append(self._resume)
+                    break
+            except AttributeError:
+                if not hasattr(event, 'callbacks'):
+                    msg = 'Invalid yield value "%s"' % event
+
+                descr = '0' #_describe_frame(self._generator.gi_frame)
+                error = RuntimeError('\n%s%s' % (descr, msg))
+                # Drop the AttributeError as the cause for this exception.
+                error.__cause__ = None
+                raise error
+
+        self._target = event
+        self.env._active_proc = None
 
                 
 class Boh(StateMachine):
@@ -460,7 +516,7 @@ Idle = State('Idle')
 def test(self):
     print('Test working')
     yield self.env.timeout(1)
-    print('FAIL')
+    print('FAIL')    
 @on_exit(Idle)
 def print_ciao(self):
     print('ciao') 
@@ -471,9 +527,9 @@ class Environment(Environment):
 env = Environment()
 Idle.env = env
 Idle.start()
-env.run(2)
-Idle._do_start()
-env.run(5)
+env.run(2.5)
+Idle.interrupt()
+env.run(50)
 # foo = Boh(None,1)
 
 @addto(Boh)
