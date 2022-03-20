@@ -6,7 +6,7 @@
 
 # %% test switchOut FirstPortAvailable
 
-if True:
+if 0:
     import pysim as sim
 else:
     import hsim as sim
@@ -14,7 +14,7 @@ import numpy as np
 
 # %% single server
 
-if 0:
+if 10:
 
     env = sim.Environment()
     Q1 = sim.Queue(env,'Q1',100)
@@ -37,7 +37,7 @@ if 0:
 
 # %% Switch-in
 
-if 0:
+if 1:
 
     env = sim.Environment()
     Q1 = sim.Queue(env,'Q1',100)
@@ -66,7 +66,7 @@ if 0:
         print('OK')
 
 # %% Switch-out
-if 0:
+if 1:
     env = sim.Environment()
     Q1 = sim.Queue(env,'Q',100)
     M1 = sim.Server(env,'M1',serviceTime=[],serviceTimeFunction=np.random.uniform)
@@ -97,7 +97,7 @@ if 0:
 
 # %% test operatori
 
-if True:
+if 1:
     env = sim.Environment()
     Q1 = sim.Queue(env,'Q',100)
     M1 = sim.Assembly(env,'M1',serviceTime=[],serviceTimeFunction=np.random.uniform)
@@ -119,6 +119,25 @@ if True:
     
     if len(Q2.items)==10:
         print('OK')
+
+
+# %%
+if True:
+    env = sim.Environment()
+    
+    def ciao():
+        print('OK')
+
+    def test(env):
+        print('Test working')
+        yield env.timeout(1)
+        print('FAIL')
+    
+    a = env.state(test(env),on_interrupt=ciao)
+    # b = State(env,test(env),on_interrupt=ciao)
+    env.run(0.5)
+    a.interrupt()
+    env.run(2)
 
 # %%
 
