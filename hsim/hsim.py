@@ -12,6 +12,7 @@ import re
 
 from stores import Subscription, Store, Box
 from core import Environment 
+from states import *
 
 
 
@@ -37,8 +38,6 @@ class Batch(Entity):
             super().__init__(ID,pt={},route=None,Tin=None,Tout=None,ProductCode=None)
 
 
-            
-        
     
 class Element(object):
     def __init__(self,env,_objectType,name,capacity=1):
@@ -48,9 +47,7 @@ class Element(object):
         self.store = Store(env,capacity)
         # self.resource = simpy.Resource(env,capacity)
     
-   
-  
-    
+       
 class Server(object):
     def __init__(self, env, name, route=None, serviceTime=None, serviceTimeFunction=None, queueCapacity=1):
         self.env = env
