@@ -22,6 +22,12 @@ class Environment(Environment):
         [entity,operator]=[x if x is not None else "" for x in [entity,operator]]
         self.log.loc[(self.log["timeOut"]==-1) & (self.log["resource"]==resource),"timeOut"]=time
         self.log.loc[len(self.log)] = [entity,resource,operator,activity,time,-1]
+    def run(self,until=None):
+        at = float(until)
+        if at < self.now:
+            print('Time %d <= %d (current time) --> executing until %d' %(at, self.now, at+self.now))
+            at += self.now
+        super().run(until)
     state = BoundClass(State)
 
 
