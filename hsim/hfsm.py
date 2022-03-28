@@ -20,11 +20,11 @@ class State(object):
     def __repr__(self):
         return f"State({self.name})"
 
-    def __eq__(self, other):
-        if other.name == self._name:
-            return True
-        else:
-            return False
+    # def __eq__(self, other):
+    #     if other.name == self._name:
+    #         return True
+    #     else:
+    #         return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -41,16 +41,14 @@ class State(object):
     def set_child_sm(self, child_sm):
         if not isinstance(child_sm, StateMachine):
             raise TypeError("child_sm must be the type of StateMachine")
-        if self._parent_state_machine and self._parent_state_machine == \
-                child_sm:
+        if self._parent_state_machine and self._parent_state_machine == child_sm:
             raise ValueError("child_sm and parent_sm must be different")
         self._child_state_machine = child_sm
 
     def set_parent_sm(self, parent_sm):
         if not isinstance(parent_sm, StateMachine):
             raise TypeError("parent_sm must be the type of StateMachine")
-        if self._child_state_machine and self._child_state_machine == \
-                parent_sm:
+        if self._child_state_machine and self._child_state_machine == parent_sm:
             raise ValueError("child_sm and parent_sm must be different")
         self._parent_state_machine = parent_sm
         self.env = parent_sm.env
@@ -213,10 +211,10 @@ class StateMachine(object):
         self._transitions: List[Transition] = []
         self._initial_state: Optional[List[State]] = None
         self._current_state: Optional[List[State]] = None
-        self._exit_callback: Optional[Callable[[ExitState, Any], None]] = None
-        self._exit_state = ExitState()
-        self.add_state(self._exit_state)
-        self._exited = True
+        # self._exit_callback: Optional[Callable[[ExitState, Any], None]] = None
+        # self._exit_state = ExitState()
+        # self.add_state(self._exit_state)
+        # self._exited = True
         
     def __eq__(self, other):
         if other.name == self._name:
@@ -237,7 +235,7 @@ class StateMachine(object):
         self._exited = False
         self._current_state.start(data)
 
-    def stop(self, data: Any):
+    def stop(self,data):
         if not self._initial_state:
             raise ValueError("initial state is not set")
         if self._current_state is None:
@@ -319,9 +317,9 @@ class StateMachine(object):
                 logging.warning(f"Event {evt} is not valid in state "
                                 f"{self._current_state}")
 
-    @property
-    def exit_state(self):
-        return self._exit_state
+    # @property
+    # def exit_state(self):
+    #     return self._exit_state
 
     @property
     def current_state(self):
@@ -356,18 +354,24 @@ def Generator(instance):
 
 def on_entry(instance):
     def decorator(f):
+        import types
+        f = types.MethodType(f, instance)
         instance._entry_callbacks.append(f)
         return f
     return decorator
 
 def on_exit(instance):
     def decorator(f):
+        import types
+        f = types.MethodType(f, instance)
         instance._exit_callbacks.append(f)
         return f
     return decorator
 
 def on_interrupt(instance):
     def decorator(f):
+        import types
+        f = types.MethodType(f, instance)
         instance._interrupt_callback.append(f)
         return f
     return decorator
@@ -382,7 +386,6 @@ def prova(instance):
 
  
 
-
 # class StateMachine(StateMachine):
 @staticmethod
 def set_state(name,initial_state=False):
@@ -395,12 +398,64 @@ def set_state(name,initial_state=False):
 class StateMachine(StateMachine):
     def __init__(self, env, name):
         self.env = env
-        super().__init__(name)
+        self._name = name
+        self._states: List[State] = []
+        self._transitions: List[Transition] = []
+        self._initial_state: Optional[List[State]] = None
+        self._current_state: Optional[List[State]] = None
+        self.copy_states()
+        self.start()
+    def start(self):
+        for state in self._states:
+            if state.initial_state == True:
+                state.start()
+    def interrupt(self):
+        for state in self._states:
+            if state.is_alive:
+                state.interrupt()
+    def stop(self):
+        return self.interrupt()
+    def copy_states(self):
         for element in dir(self):
             x = getattr(self, element)
             if type(x) == State:
                 x.set_parent_sm(self)
                 self.add_state(x)
+    @property
+    def current_state(self):
+        return [state for state in self._states if state.is_alive]
+    @property
+    def is_alive(self):
+        if self.current_state == []:
+            return False
+        else:
+            return True
+
+class CompositeState(StateMachine):
+    def __init__(self, env, name, parent_state):
+        self.env = env
+        self.parent_state = parent_state
+        self._name = name
+        self._states: List[State] = []
+        self._transitions: List[Transition] = []
+        self._initial_state: Optional[List[State]] = None
+        self._current_state: Optional[List[State]] = None
+    def check_env(self):
+        if not self.env:
+            self.env = self.parent_state.env
+            self.copy_states()
+    def start(self):
+        self.check_env()
+        super().start()
+    def copy_states(self):
+        var = dir(self)
+        var.remove('parent_state')
+        for element in var:
+            x = getattr(self, element)
+            if type(x) == State:
+                x.set_parent_sm(self)
+                self.add_state(x)
+
 
 class State(State,Process):
     def __init__(self, name, initial_state=False):
@@ -409,11 +464,18 @@ class State(State,Process):
         self.env = None
         self._generator = None
         self._generator_function = None
+        self.initial_state = initial_state
     def __repr__(self):
-        return f"State({self.name})"
-    @property()
+        return '<%s (State) object at 0x%x>' % (self._name, id(self))
+    def __call__(self):
+        return self.start()
+    @property
     def name(self):
         return self.name()
+    def set_substate(self,StateMachine):
+        sm = StateMachine(self.env, 'Prova', parent_state=True)
+        sm.parent_state = self
+        self._child_state_machine = sm
     def start(self):
         logging.debug(f"Entering {self._name}")
         for callback in self._entry_callbacks:
@@ -421,7 +483,7 @@ class State(State,Process):
         if self._child_state_machine is not None:
             self._child_state_machine.start()
         self._do_start()
-    def close(self):
+    def stop(self):
         logging.debug(f"Exiting {self._name}")
         for callback in self._exit_callbacks:
             callback()
@@ -431,11 +493,11 @@ class State(State,Process):
         self.callbacks = []
         self._value = PENDING
         self._generator = self.safe_generator(self._generator_function())
-        self._target = Initialize(env, self)
-    def stop(self):
-        for state in self.substates:
-            state.close()
-        self.interrupt()
+        self._target = Initialize(self.env, self)
+    def interrupt(self):
+        super().interrupt()
+        if self._child_state_machine is not None:
+            self._child_state_machine.stop()
     def safe_generator(self,generator):
         try:
             yield from generator
@@ -447,9 +509,7 @@ class State(State,Process):
                 callback()
     def _resume(self, event):
         self.env._active_proc = self
-
         while True:
-            # Get next event from process
             try:
                 if event._ok:
                     event = self._generator.send(event._value)
@@ -463,36 +523,31 @@ class State(State,Process):
                 self._ok = True
                 self._value = e.args[0] if len(e.args) else None
                 self.env.schedule(self)
+                if 'exc' in locals():
+                    if type(exc) is not Interrupt:
+                        self.stop()
+                else:
+                    self.stop()
                 break
             except BaseException as e:
                 event = None
                 self._ok = False
                 tb = e.__traceback__
-                # Strip the frame of this function from the traceback as it
-                # does not add any useful information.
                 e.__traceback__ = tb.tb_next
                 self._value = e
                 self.env.schedule(self)
                 break
-
-            # Process returned another event to wait upon.
             try:
-                # Be optimistic and blindly access the callbacks attribute.
                 if event.callbacks is not None:
-                    # The event has not yet been triggered. Register callback
-                    # to resume the process if that happens.
                     event.callbacks.append(self._resume)
                     break
             except AttributeError:
                 if not hasattr(event, 'callbacks'):
                     msg = 'Invalid yield value "%s"' % event
-
-                descr = '0' #_describe_frame(self._generator.gi_frame)
+                descr = self._generator #_describe_frame(self._generator.gi_frame)
                 error = RuntimeError('\n%s%s' % (descr, msg))
-                # Drop the AttributeError as the cause for this exception.
                 error.__cause__ = None
                 raise error
-
         self._target = event
         self.env._active_proc = None
 
@@ -501,14 +556,25 @@ class Boh(StateMachine):
     pass
     # @prova(self)
 
-    Idle = State('Idle')
+    Idle = State('Idle',True)
     @Generator(Idle)
     def printt(self):
-        yield self.env.timeout(1)
-        print('ciao')
+        yield self.env.timeout(10)
+        print('Idle state print')
     @on_exit(Idle)
     def print_ciao(self):
-        print('ciao') 
+        print('Idle state exit')
+    
+    class Idle_SM(CompositeState):
+        Sub = State('Sub',True)
+        @Generator(Sub)
+        def printt(self):
+            yield self.env.timeout(2)
+            print('Substate print')
+        @on_exit(Sub)
+        def print_ciao(self):
+            print('Substate exit')
+    Idle.set_substate(Idle_SM)
     
 
 Idle = State('Idle')
@@ -518,8 +584,9 @@ def test(self):
     yield self.env.timeout(1)
     print('FAIL')    
 @on_exit(Idle)
-def print_ciao(self):
-    print('ciao') 
+def print_ciao():
+    print('ciao')
+
      
 class Environment(Environment):
     state = BoundClass(State)
@@ -527,12 +594,25 @@ class Environment(Environment):
 env = Environment()
 Idle.env = env
 Idle.start()
-env.run(2.5)
+env.run(0.5)
 Idle.interrupt()
+env.run(0.6)
+
 env.run(50)
-# foo = Boh(None,1)
+
+env = Environment()
+foo = Boh(env,1)
+env.run(1)
+# foo.interrupt()
+# env.run(1)
 
 @addto(Boh)
 def print_ciao(self):
     print('ciao')
+    
+def Composite(instance):
+    def decorator(f):
+        setattr(instance, '_child_state_machine', f)
+        return f
+    return decorator
     
