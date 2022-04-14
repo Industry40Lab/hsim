@@ -575,7 +575,7 @@ class Boh(StateMachine):
         def print_ciao(self):
             print('Substate exit')
     Idle.set_substate(Idle_SM)
-    
+     
 
 Idle = State('Idle')
 @Generator(Idle)
