@@ -26,8 +26,8 @@ class State(object):
     #     else:
     #         return False
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
+    # def __ne__(self, other):
+    #     return not self.__eq__(other)
 
     def __call__(self, data: Any):
         pass
@@ -228,30 +228,12 @@ class StateMachine(object):
     def __str__(self):
         return self._name
 
-    def start(self, data: Any):
-        if not self._initial_state:
-            raise ValueError("initial state is not set")
-        self._current_state = self._initial_state
-        self._exited = False
-        self._current_state.start(data)
 
-    def stop(self,data):
-        if not self._initial_state:
-            raise ValueError("initial state is not set")
-        if self._current_state is None:
-            raise ValueError("state machine has not been started")
-        self._current_state.stop(data)
-        self._current_state = self._exit_state
-        self._exited = True
 
     def on_exit(self, callback):
         self._exit_callback = callback
 
-    def is_running(self) -> bool:
-        if self._current_state and self._current_state != self._exit_state:
-            return True
-        else:
-            return False
+
 
     def add_state(self, state: State, initial_state: bool = False):
         if state in self._states:
@@ -321,13 +303,9 @@ class StateMachine(object):
     # def exit_state(self):
     #     return self._exit_state
 
-    @property
-    def current_state(self):
-        return self._current_state
 
-    @property
-    def name(self):
-        return self._name
+
+
 
 
 from simpy import Process, Interrupt
@@ -415,12 +393,22 @@ class StateMachine(StateMachine):
                 state.interrupt()
     def stop(self):
         return self.interrupt()
+    def add_state(self, state: State, initial_state: bool = False):
+        if state in self._states:
+            raise ValueError("attempting to add same state twice")
+        self._states.append(state)
+        state.set_parent_sm(self)
+        if not self._initial_state and initial_state:
+            self._initial_state = state
     def copy_states(self):
         for element in dir(self):
             x = getattr(self, element)
             if type(x) == State:
                 x.set_parent_sm(self)
                 self.add_state(x)
+    @property
+    def name(self):
+        return self._name
     @property
     def current_state(self):
         return [state for state in self._states if state.is_alive]
@@ -440,19 +428,15 @@ class CompositeState(StateMachine):
         self._transitions: List[Transition] = []
         self._initial_state: Optional[List[State]] = None
         self._current_state: Optional[List[State]] = None
-    def check_env(self):
-        if not self.env:
-            self.env = self.parent_state.env
-            self.copy_states()
     def start(self):
-        self.check_env()
+        self.env = self.parent_state.env
+        self.copy_states()
         super().start()
     def copy_states(self):
         var = dir(self)
-        var.remove('parent_state')
         for element in var:
             x = getattr(self, element)
-            if type(x) == State:
+            if type(x) == State and x is not self.parent_state:
                 x.set_parent_sm(self)
                 self.add_state(x)
 
@@ -472,9 +456,9 @@ class State(State,Process):
     @property
     def name(self):
         return self.name()
-    def set_substate(self,StateMachine):
-        sm = StateMachine(self.env, 'Prova', parent_state=True)
-        sm.parent_state = self
+    def set_composite_state(self, CompositeState):
+        sm = CompositeState(self.env, 'Prova', parent_state=self) #was parent_state=True
+        # sm.parent_state = self
         self._child_state_machine = sm
     def start(self):
         logging.debug(f"Entering {self._name}")
@@ -574,7 +558,7 @@ class Boh(StateMachine):
         @on_exit(Sub)
         def print_ciao(self):
             print('Substate exit')
-    Idle.set_substate(Idle_SM)
+    Idle.set_composite_state(Idle_SM)
      
 
 Idle = State('Idle')
@@ -588,8 +572,8 @@ def print_ciao():
     print('ciao')
 
      
-class Environment(Environment):
-    state = BoundClass(State)
+# class Environment(Environment):
+#     state = BoundClass(State)
 
 env = Environment()
 Idle.env = env
