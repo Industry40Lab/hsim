@@ -488,11 +488,14 @@ class State(Process):
         self._generator = self.safe_generator(self._generator_function())
         self._target = Initialize(self.env, self)
     def interrupt(self):
-        super().interrupt()
-        for callback in self._interrupt_callbacks:
-            callback()
-        if self._child_state_machine is not None:
-            self._child_state_machine.stop()
+        if self.is_alive:
+            super().interrupt()
+            for callback in self._interrupt_callbacks:
+                callback()
+            if self._child_state_machine is not None:
+                self._child_state_machine.stop()
+        else:
+            print('Warning - interrupted state was not active')
     def safe_generator(self,generator):
         try:
             yield from generator
