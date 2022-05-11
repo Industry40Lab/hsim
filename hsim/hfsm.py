@@ -351,7 +351,7 @@ def on_interrupt(instance):
     def decorator(f):
         import types
         f = types.MethodType(f, instance)
-        instance._interrupt_callback.append(f)
+        instance._interrupt_callbacks.append(f)
         return f
     return decorator
 
@@ -446,7 +446,7 @@ class State(Process):
         self._exit_callbacks: List[Callable[[Any], None]] = []
         self._child_state_machine: Optional[StateMachine] = None
         self._parent_state_machine: Optional[StateMachine] = None
-        self._interrupt_callback: List[Callable[[Any], None]] = []
+        self._interrupt_callbacks: List[Callable[[Any], None]] = []
         self.env = None
         self._generator = None
         self._generator_function = None
@@ -489,6 +489,8 @@ class State(Process):
         self._target = Initialize(self.env, self)
     def interrupt(self):
         super().interrupt()
+        for callback in self._interrupt_callbacks:
+            callback()
         if self._child_state_machine is not None:
             self._child_state_machine.stop()
     def safe_generator(self,generator):
