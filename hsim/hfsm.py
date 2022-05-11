@@ -495,6 +495,12 @@ class State(State,Process):
             try:
                 if event._ok:
                     event = self._generator.send(event._value)
+                elif isinstance(event,Interrupt):
+                    event = None
+                    self._ok = True
+                    self._value = None
+                    self.env.schedule(self)
+                    break
                 else:
                     event._defused = True
                     exc = type(event._value)(*event._value.args)
@@ -505,11 +511,7 @@ class State(State,Process):
                 self._ok = True
                 self._value = e.args[0] if len(e.args) else None
                 self.env.schedule(self)
-                if 'exc' in locals():
-                    if type(exc) is not Interrupt:
-                        self.stop()
-                else:
-                    self.stop()
+                self.stop()
                 break
             except BaseException as e:
                 event = None
@@ -566,7 +568,7 @@ def test(self):
     yield self.env.timeout(1)
     print('FAIL')    
 @on_exit(Idle)
-def print_ciao():
+def print_ciao(self):
     print('ciao')
 
      
@@ -577,7 +579,7 @@ env = Environment()
 Idle.env = env
 Idle.start()
 env.run(0.5)
-Idle.interrupt()
+# Idle.interrupt()
 env.run(0.6)
 
 env.run(50)
