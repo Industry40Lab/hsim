@@ -378,7 +378,6 @@ class StateMachine(StateMachine):
         self.env = env
         self._name = name
         self._states: List[State] = []
-        self._transitions: List[Transition] = []
         self._initial_state: Optional[List[State]] = None
         self._current_state: Optional[List[State]] = None
         self.copy_states()
@@ -425,7 +424,6 @@ class CompositeState(StateMachine):
         self.parent_state = parent_state
         self._name = name
         self._states: List[State] = []
-        self._transitions: List[Transition] = []
         self._initial_state: Optional[List[State]] = None
         self._current_state: Optional[List[State]] = None
     def start(self):
