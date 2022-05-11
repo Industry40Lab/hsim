@@ -8,6 +8,7 @@ Created on Sat Mar 19 16:15:38 2022
 from typing import List, Any, Optional, Callable
 import logging 
 
+'''
 class State(object):
 
     def __init__(self, name, child_sm=None):
@@ -304,13 +305,13 @@ class StateMachine(object):
     #     return self._exit_state
 
 
-
+'''
 
 
 
 from simpy import Process, Interrupt
 from simpy.core import BoundClass
-from simpy.events import PENDING, Initialize
+from simpy.events import PENDING, Initialize, Interruption
 from core import Environment
 import sys
 
@@ -372,8 +373,7 @@ def set_state(name,initial_state=False):
     StateMachine.add_state(state,initial_state)
         # return State
         
-        
-class StateMachine(StateMachine):
+class StateMachine(object):
     def __init__(self, env, name):
         self.env = env
         self._name = name
@@ -392,7 +392,7 @@ class StateMachine(StateMachine):
                 state.interrupt()
     def stop(self):
         return self.interrupt()
-    def add_state(self, state: State, initial_state: bool = False):
+    def add_state(self, state, initial_state: bool = False):
         if state in self._states:
             raise ValueError("attempting to add same state twice")
         self._states.append(state)
@@ -439,9 +439,13 @@ class CompositeState(StateMachine):
                 self.add_state(x)
 
 
-class State(State,Process):
+class State(Process):
     def __init__(self, name, initial_state=False):
-        super().__init__(name)
+        self._name = name
+        self._entry_callbacks: List[Callable[[Any], None]] = []
+        self._exit_callbacks: List[Callable[[Any], None]] = []
+        self._child_state_machine: Optional[StateMachine] = None
+        self._parent_state_machine: Optional[StateMachine] = None
         self._interrupt_callback: List[Callable[[Any], None]] = []
         self.env = None
         self._generator = None
@@ -458,6 +462,13 @@ class State(State,Process):
         sm = CompositeState(self.env, 'Prova', parent_state=self) #was parent_state=True
         # sm.parent_state = self
         self._child_state_machine = sm
+    def set_parent_sm(self, parent_sm):
+        if not isinstance(parent_sm, StateMachine):
+            raise TypeError("parent_sm must be the type of StateMachine")
+        if self._child_state_machine and self._child_state_machine == parent_sm:
+            raise ValueError("child_sm and parent_sm must be different")
+        self._parent_state_machine = parent_sm
+        self.env = parent_sm.env
     def start(self):
         logging.debug(f"Entering {self._name}")
         for callback in self._entry_callbacks:
@@ -495,7 +506,7 @@ class State(State,Process):
             try:
                 if event._ok:
                     event = self._generator.send(event._value)
-                elif isinstance(event,Interrupt):
+                elif isinstance(event,Interruption):
                     event = None
                     self._ok = True
                     self._value = None
@@ -548,7 +559,9 @@ class Boh(StateMachine):
     @on_exit(Idle)
     def print_ciao(self):
         print('Idle state exit')
-    
+    @on_interrupt(Idle)
+    def interrupted_ok(self):
+        print('Idle state interrupted ok')
     class Idle_SM(CompositeState):
         Sub = State('Sub',True)
         @Generator(Sub)
@@ -575,20 +588,21 @@ def print_ciao(self):
 # class Environment(Environment):
 #     state = BoundClass(State)
 
-env = Environment()
-Idle.env = env
-Idle.start()
-env.run(0.5)
-# Idle.interrupt()
-env.run(0.6)
 
-env.run(50)
+# env = Environment()
+# Idle.env = env
+# Idle.start()
+# env.run(0.5)
+# Idle.interrupt()
+# env.run(0.6)
+
+# env.run(50)
 
 env = Environment()
 foo = Boh(env,1)
 env.run(1)
-# foo.interrupt()
-# env.run(1)
+foo.interrupt()
+env.run(20)
 
 @addto(Boh)
 def print_ciao(self):
