@@ -24,10 +24,10 @@ class Environment(Environment):
         self.log.loc[len(self.log)] = [entity,resource,operator,activity,time,-1]
     def run(self,until=None):
         at = float(until)
-        if at < self.now:
+        if at <= self.now:
             print('Time %d <= %d (current time) --> executing until %d' %(at, self.now, at+self.now))
             at += self.now
-        super().run(until)
+        super().run(at)
     state = BoundClass(State)
 
 
