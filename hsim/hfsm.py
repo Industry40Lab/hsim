@@ -94,7 +94,7 @@ class ExitState(State):
     def status(self):
         return self._status
 
-
+'''
 class Event(object):
 
     def __init__(self, name):
@@ -202,7 +202,7 @@ class NullTransition(Transition):
     def __repr__(self):
         return f"NullTransition on {self._state}"
 
-
+'''
 class StateMachine(object):
 
     def __init__(self, name):
@@ -242,7 +242,7 @@ class StateMachine(object):
         state.set_parent_sm(self)
         if not self._initial_state and initial_state:
             self._initial_state = state
-
+    '''
     def add_event(self, event: Event):
         self._events.append(event)
 
@@ -298,6 +298,7 @@ class StateMachine(object):
             if not transition_valid:
                 logging.warning(f"Event {evt} is not valid in state "
                                 f"{self._current_state}")
+'''
 
     # @property
     # def exit_state(self):
@@ -308,7 +309,7 @@ class StateMachine(object):
 
 
 
-from simpy import Process, Interrupt
+from simpy import Process, Interrupt, Event
 from simpy.core import BoundClass
 from simpy.events import PENDING, Initialize
 from core import Environment
@@ -326,7 +327,7 @@ def Generator(instance):
     def decorator(f):
         import types
         f = types.MethodType(f, instance)
-        setattr(instance, '_generator_function', f)
+        setattr(instance, '_function', f)
         return f
     return decorator
 
@@ -373,7 +374,7 @@ def set_state(name,initial_state=False):
         # return State
         
         
-class StateMachine(StateMachine):
+class StateMachine():
     def __init__(self, env, name):
         self.env = env
         self._name = name
@@ -383,6 +384,15 @@ class StateMachine(StateMachine):
         self._current_state: Optional[List[State]] = None
         self.copy_states()
         self.start()
+    def __eq__(self, other):
+        if other.name == self._name:
+            return True
+        else:
+            return False
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    def __str__(self):
+        return self._name
     def start(self):
         for state in self._states:
             if state.initial_state == True:
@@ -394,8 +404,8 @@ class StateMachine(StateMachine):
     def stop(self):
         return self.interrupt()
     def add_state(self, state: State, initial_state: bool = False):
-        if state in self._states:
-            raise ValueError("attempting to add same state twice")
+        # if state in self._states:
+        #     raise ValueError("attempting to add same state twice")
         self._states.append(state)
         state.set_parent_sm(self)
         if not self._initial_state and initial_state:
@@ -441,21 +451,33 @@ class CompositeState(StateMachine):
                 self.add_state(x)
 
 
-class State(State,Process):
+class State(Process):
     def __init__(self, name, initial_state=False):
-        super().__init__(name)
+        self._name = name
+        self._entry_callbacks: List[Callable[[Any], None]] = []
+        self._exit_callbacks: List[Callable[[Any], None]] = []
+        self._child_state_machine: Optional[StateMachine] = None
+        self._parent_state_machine: Optional[StateMachine] = None
         self._interrupt_callback: List[Callable[[Any], None]] = []
         self.env = None
         self._generator = None
-        self._generator_function = None
+        self._function = None
         self.initial_state = initial_state
+        self.time = None
     def __repr__(self):
         return '<%s (State) object at 0x%x>' % (self._name, id(self))
     def __call__(self):
         return self.start()
     @property
     def name(self):
-        return self.name()
+        return self._name
+    def set_parent_sm(self, parent_sm):
+        if not isinstance(parent_sm, StateMachine):
+            raise TypeError("parent_sm must be the type of StateMachine")
+        if self._child_state_machine and self._child_state_machine == parent_sm:
+            raise ValueError("child_sm and parent_sm must be different")
+        self._parent_state_machine = parent_sm
+        self.env = parent_sm.env
     def set_composite_state(self, CompositeState):
         sm = CompositeState(self.env, 'Prova', parent_state=self) #was parent_state=True
         # sm.parent_state = self
@@ -467,6 +489,7 @@ class State(State,Process):
         if self._child_state_machine is not None:
             self._child_state_machine.start()
         self._do_start()
+        self.time = self.env.now
     def stop(self):
         logging.debug(f"Exiting {self._name}")
         for callback in self._exit_callbacks:
@@ -476,13 +499,13 @@ class State(State,Process):
     def _do_start(self):
         self.callbacks = []
         self._value = PENDING
-        self._generator = self.safe_generator(self._generator_function())
+        self._generator = self.safeGenerator(self._function())
         self._target = Initialize(self.env, self)
     def interrupt(self):
         super().interrupt()
         if self._child_state_machine is not None:
             self._child_state_machine.stop()
-    def safe_generator(self,generator):
+    def safeGenerator(self,generator):
         try:
             yield from generator
         except Interrupt:
