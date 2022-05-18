@@ -310,18 +310,9 @@ class StateMachine(object):
 
 
 from simpy import Process, Interrupt
-from simpy.core import BoundClass
 from simpy.events import PENDING, Initialize, Interruption
 from core import Environment
-import sys
 
-def addto(instance):
-    def decorator(f):
-        import types
-        f = types.MethodType(f, instance)
-        setattr(instance, f.__name__, f)
-        return f
-    return decorator
 
 def Generator(instance):
     def decorator(f):
@@ -378,8 +369,11 @@ class StateMachine(object):
         self.env = env
         self._name = name
         self._states: List[State] = []
-        self._initial_state: Optional[List[State]] = None
-        self._current_state: Optional[List[State]] = None
+        self._initial_state = None
+        self._current_state = None
+        states = self.build()
+        for state in states:
+            setattr(self, state._name, state)
         self.copy_states()
         self.start()
     def start(self):
@@ -392,11 +386,15 @@ class StateMachine(object):
                 state.interrupt()
     def stop(self):
         return self.interrupt()
-    def add_state(self, state, initial_state: bool = False):
+    def build(self):
+        return []
+    def add_state(self, state, initial_state = False):
         if state in self._states:
-            raise ValueError("attempting to add same state twice")
-        self._states.append(state)
-        state.set_parent_sm(self)
+            print(1)
+            # raise ValueError("attempting to add same state twice")
+        else:
+            self._states.append(state)
+            state.set_parent_sm(self)
         if not self._initial_state and initial_state:
             self._initial_state = state
     def copy_states(self):
@@ -424,8 +422,8 @@ class CompositeState(StateMachine):
         self.parent_state = parent_state
         self._name = name
         self._states: List[State] = []
-        self._initial_state: Optional[List[State]] = None
-        self._current_state: Optional[List[State]] = None
+        self._initial_state = None
+        self._current_state = None
     def start(self):
         self.env = self.parent_state.env
         self.copy_states()
@@ -442,15 +440,16 @@ class CompositeState(StateMachine):
 class State(Process):
     def __init__(self, name, initial_state=False):
         self._name = name
-        self._entry_callbacks: List[Callable[[Any], None]] = []
-        self._exit_callbacks: List[Callable[[Any], None]] = []
-        self._child_state_machine: Optional[StateMachine] = None
-        self._parent_state_machine: Optional[StateMachine] = None
-        self._interrupt_callbacks: List[Callable[[Any], None]] = []
+        self._entry_callbacks = []
+        self._exit_callbacks = []
+        self._child_state_machine = None
+        self._parent_state_machine = None
+        self._interrupt_callbacks = []
         self.env = None
         self._generator = None
         self._generator_function = None
         self.initial_state = initial_state
+        self.callbacks = []
     def __repr__(self):
         return '<%s (State) object at 0x%x>' % (self._name, id(self))
     def __call__(self):
@@ -526,6 +525,7 @@ class State(Process):
                 event = None
                 self._ok = True
                 self._value = e.args[0] if len(e.args) else None
+                self.callbacks = []
                 self.env.schedule(self)
                 self.stop()
                 break
@@ -535,6 +535,7 @@ class State(Process):
                 tb = e.__traceback__
                 e.__traceback__ = tb.tb_next
                 self._value = e
+                self.callbacks = []
                 self.env.schedule(self)
                 break
             try:
@@ -553,41 +554,39 @@ class State(Process):
 
                 
 class Boh(StateMachine):
-    pass
-    # @prova(self)
-
-    Idle = State('Idle',True)
-    @Generator(Idle)
-    def printt(self):
-        yield self.env.timeout(10)
-        print('Idle state print')
-    @on_exit(Idle)
-    def print_ciao(self):
-        print('Idle state exit')
-    @on_interrupt(Idle)
-    def interrupted_ok(self):
-        print('Idle state interrupted ok')
-    class Idle_SM(CompositeState):
-        Sub = State('Sub',True)
-        @Generator(Sub)
+    def build(self):
+        Idle = State('Idle',True)
+        @Generator(Idle)
         def printt(self):
-            yield self.env.timeout(2)
-            print('Substate print')
-        @on_exit(Sub)
+            yield self.env.timeout(10)
+            print('Idle state print')
+        @on_exit(Idle)
         def print_ciao(self):
-            print('Substate exit')
-    Idle.set_composite_state(Idle_SM)
-     
+            print('Idle state exit')
+        @on_interrupt(Idle)
+        def interrupted_ok(self):
+            print('Idle state interrupted ok')
+        class Idle_SM(CompositeState):
+            Sub = State('Sub',True)
+            @Generator(Sub)
+            def printt(self):
+                yield self.env.timeout(2)
+                print('Substate print')
+            @on_exit(Sub)
+            def print_ciao(self):
+                print('Substate exit')
+        Idle.set_composite_state(Idle_SM)
+        return [Idle]
 
-Idle = State('Idle')
-@Generator(Idle)
-def test(self):
-    print('Test working')
-    yield self.env.timeout(1)
-    print('FAIL')    
-@on_exit(Idle)
-def print_ciao(self):
-    print('ciao')
+# Idle = State('Idle')
+# @Generator(Idle)
+# def test(self):
+#     print('Test working')
+#     yield self.env.timeout(1)
+#     print('FAIL')    
+# @on_exit(Idle)
+# def print_ciao(self):
+#     print('ciao')
 
      
 # class Environment(Environment):
@@ -605,13 +604,14 @@ def print_ciao(self):
 
 env = Environment()
 foo = Boh(env,1)
+foo2 = Boh(env,1)
+foo3 = Boh(env,1)
+
 env.run(1)
+
 foo.interrupt()
 env.run(20)
 
-@addto(Boh)
-def print_ciao(self):
-    print('ciao')
     
 def Composite(instance):
     def decorator(f):
