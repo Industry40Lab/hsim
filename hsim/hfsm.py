@@ -312,11 +312,10 @@ class StateMachine(object):
 from simpy import Process, Interrupt
 from simpy.events import PENDING, Initialize, Interruption
 from core import Environment
-
+import types
 
 def Generator(instance):
     def decorator(f):
-        import types
         f = types.MethodType(f, instance)
         setattr(instance, '_generator_function', f)
         return f
@@ -324,7 +323,6 @@ def Generator(instance):
 
 def on_entry(instance):
     def decorator(f):
-        import types
         f = types.MethodType(f, instance)
         instance._entry_callbacks.append(f)
         return f
@@ -332,7 +330,6 @@ def on_entry(instance):
 
 def on_exit(instance):
     def decorator(f):
-        import types
         f = types.MethodType(f, instance)
         instance._exit_callbacks.append(f)
         return f
@@ -340,7 +337,6 @@ def on_exit(instance):
 
 def on_interrupt(instance):
     def decorator(f):
-        import types
         f = types.MethodType(f, instance)
         instance._interrupt_callbacks.append(f)
         return f
@@ -348,13 +344,18 @@ def on_interrupt(instance):
 
 def prova(instance):
     def decorator(f):
-        import types
         f = types.MethodType(f, instance)
         setattr(instance, '_generator', f)
         return f
     return decorator
 
- 
+def do(instance):
+    def decorator(f):
+        f = types.MethodType(f, instance)
+        setattr(instance, '_do', f)
+        return f
+    return decorator
+
 
 # class StateMachine(StateMachine):
 @staticmethod
@@ -440,6 +441,7 @@ class CompositeState(StateMachine):
 class State(Process):
     def __init__(self, name, initial_state=False):
         self._name = name
+        self._time = None
         self._entry_callbacks = []
         self._exit_callbacks = []
         self._child_state_machine = None
@@ -484,7 +486,7 @@ class State(Process):
     def _do_start(self):
         self.callbacks = []
         self._value = PENDING
-        self._generator = self.safe_generator(self._generator_function())
+        self._generator = self._generator_function
         self._target = Initialize(self.env, self)
     def interrupt(self):
         if self.is_alive:
@@ -508,8 +510,16 @@ class State(Process):
         self.env._active_proc = self
         while True:
             try:
-                if event._ok:
-                    event = self._generator.send(event._value)
+                if isinstance(event,Initialize):
+                    event = self._generator_function()
+                elif event._ok:
+                    event = self._do(event)
+                    if event is None:
+                        event = Initialize(self.env,self)
+                        break
+                    else:
+                        event()
+                        raise StopIteration
                 elif isinstance(event,Interruption):
                     event = None
                     self._ok = True
@@ -578,6 +588,24 @@ class Boh(StateMachine):
         Idle.set_composite_state(Idle_SM)
         return [Idle]
 
+class Boh2(StateMachine):
+    def build(self):
+        Idle = State('Idle',True)
+        @Generator(Idle)
+        def printt(self):
+            print('Will print "ciao" in 10s')
+            return self.env.timeout(10)
+        @do(Idle)
+        def d(self,Event):
+            print("Ciao")
+            return Idle
+        @on_exit(Idle)
+        def exiting(self):
+            print('Idle state exit')
+        @on_entry(Idle)
+        def entering(self):
+            print('Idle state entry')
+        return [Idle]
 # Idle = State('Idle')
 # @Generator(Idle)
 # def test(self):
@@ -602,15 +630,21 @@ class Boh(StateMachine):
 
 # env.run(50)
 
-env = Environment()
-foo = Boh(env,1)
-foo2 = Boh(env,1)
-foo3 = Boh(env,1)
+if 1:
+    env = Environment()
+    foo = Boh2(env,1)
+    env.run(21)
+    
+if False:
+    env = Environment()
+    foo = Boh(env,1)
+    foo2 = Boh(env,1)
+    foo3 = Boh(env,1)
 
-env.run(1)
-
-foo.interrupt()
-env.run(20)
+    env.run(1)
+    
+    foo.interrupt()
+    env.run(20)
 
     
 def Composite(instance):
