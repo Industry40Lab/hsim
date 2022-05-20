@@ -313,6 +313,7 @@ from simpy import Process, Interrupt
 from simpy.events import PENDING, Initialize, Interruption
 from core import Environment
 import types
+from stores import Store
 
 def Generator(instance):
     def decorator(f):
@@ -491,6 +492,10 @@ class State(Process):
     def interrupt(self):
         if self.is_alive:
             super().interrupt()
+            # for event in self.env._queue:
+            #     for callback in event[-1].callbacks:
+            #         if callback == self._resume:
+            #             event[-1].callbacks.remove(callback)
             for callback in self._interrupt_callbacks:
                 callback()
             if self._child_state_machine is not None:
@@ -513,17 +518,24 @@ class State(Process):
                 if isinstance(event,Initialize):
                     event = self._generator_function()
                 elif event._ok:
-                    event = self._do(event)
+                    try:
+                        event = self._do(event)
+                    except:
+                        raise StopIteration
                     if event is None:
                         event = Initialize(self.env,self)
                         break
                     else:
                         event()
-                        raise StopIteration
+                        if type(event) is type(self):
+                            self.stop()
+                        else:
+                            raise StopIteration
                 elif isinstance(event,Interruption):
                     event = None
                     self._ok = True
                     self._value = None
+                    self.callbacks = []
                     self.env.schedule(self)
                     break
                 else:
@@ -568,20 +580,27 @@ class Boh(StateMachine):
         Idle = State('Idle',True)
         @Generator(Idle)
         def printt(self):
-            yield self.env.timeout(10)
-            print('Idle state print')
+            print('%s is Idle' %self._parent_state_machine._name)
+            return self.env.timeout(10)
+        @do(Idle)
+        def todo(self,Event):
+            print('%s waited 10s' %self._parent_state_machine._name)
         @on_exit(Idle)
         def print_ciao(self):
             print('Idle state exit')
         @on_interrupt(Idle)
         def interrupted_ok(self):
-            print('Idle state interrupted ok')
+            print('%s idle state interrupted ok'  %self._parent_state_machine._name)
         class Idle_SM(CompositeState):
             Sub = State('Sub',True)
             @Generator(Sub)
             def printt(self):
-                yield self.env.timeout(2)
-                print('Substate print')
+                print('%s will print this something in 20 s'  %self._parent_state_machine._name)
+                return self.env.timeout(20)
+            @do(Sub)
+            def todo(self,Event):
+                print('Printing this only once')
+                raise
             @on_exit(Sub)
             def print_ciao(self):
                 print('Substate exit')
@@ -590,22 +609,22 @@ class Boh(StateMachine):
 
 class Boh2(StateMachine):
     def build(self):
-        Idle = State('Idle',True)
-        @Generator(Idle)
+        Work = State('Idle',True)
+        @Generator(Work)
         def printt(self):
-            print('Will print "ciao" in 10s')
+            print('Start working. Will finish in 10s')
             return self.env.timeout(10)
-        @do(Idle)
+        @do(Work)
         def d(self,Event):
-            print("Ciao")
-            return Idle
-        @on_exit(Idle)
+            print("Finished!")
+            return Work
+        @on_exit(Work)
         def exiting(self):
-            print('Idle state exit')
-        @on_entry(Idle)
+            print('Leaving working state')
+        @on_entry(Work)
         def entering(self):
-            print('Idle state entry')
-        return [Idle]
+            print('Entering working state')
+        return [Work]
 # Idle = State('Idle')
 # @Generator(Idle)
 # def test(self):
@@ -630,21 +649,24 @@ class Boh2(StateMachine):
 
 # env.run(50)
 
-if 1:
+if False:
     env = Environment()
     foo = Boh2(env,1)
-    env.run(21)
+    env.run(20)
+    foo.interrupt()
+    for i in range(10):
+        env.step()
+    env.run(200)
     
 if False:
     env = Environment()
-    foo = Boh(env,1)
-    foo2 = Boh(env,1)
-    foo3 = Boh(env,1)
+    foo = Boh(env,'Foo 1')
+    foo2 = Boh(env,'Foo 2')
 
-    env.run(1)
+    env.run(11)
     
     foo.interrupt()
-    env.run(20)
+    env.run(30)
 
     
 def Composite(instance):
