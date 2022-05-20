@@ -7,21 +7,21 @@ Created on Fri May 20 16:27:22 2022
 
 import hfsm
 import types
+from core import Environment
+from stores import Store
+
 
 class CFSM(hfsm.StateMachine):
-    pass
+    def __init__(self,env,name):
+        super().__init__(env)
+        self.message_ports = self.create_ports()
+        for port in self.message_ports:
+            setattr(self, port._name, port)
 
 
-
-def do(instance):
-    def decorator(f):
-        f = types.MethodType(f, instance)
-        setattr(instance, '_do', f)
-        return f
-    return decorator
-
-
-def openport(obj,store,*args):
-    setattr(obj,store(obj.env,*args),1)
+class Boh3(CFSM):
+    def create_ports(self):
+        return Store(self.env,'name',2)
     
-openport(CFSM,hfsm.Store,'ciao')
+env = Environment()
+foo = Boh3(env,'foo')
