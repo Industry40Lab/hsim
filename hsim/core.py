@@ -13,6 +13,7 @@ from states import State
 class Environment(Environment):
     def __init__(self,log=None,initial_time=0):
         super().__init__(initial_time)
+        self._objects = list()
         self.log = log
         if log==None:
             self.log = createLog()           
@@ -28,6 +29,8 @@ class Environment(Environment):
             print('Time %d <= %d (current time) --> executing until %d' %(at, self.now, at+self.now))
             at += self.now
         super().run(at)
+    def add_object(self,obj):
+        self._objects.append(obj)
     state = BoundClass(State)
 
 
