@@ -276,7 +276,7 @@ class State(Process):
         self.env._active_proc = None
 
 
-class CFSM(StateMachine):
+class CHFSM(StateMachine):
     def __init__(self,env,name):
         super().__init__(env,name)
         # self.message_ports = self.create_ports()
@@ -386,9 +386,9 @@ if 1:
     env.run(30)
 
     
-def Composite(instance):
-    def decorator(f):
-        setattr(instance, '_child_state_machine', f)
-        return f
-    return decorator
+# def Composite(instance):
+#     def decorator(f):
+#         setattr(instance, '_child_state_machine', f)
+#         return f
+#     return decorator
     
