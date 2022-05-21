@@ -8,7 +8,7 @@ Created on Sat Mar 19 16:07:24 2022
 from simpy import Environment
 from simpy.core import BoundClass
 import pandas as pd
-from states import State
+# from states import State
 
 class Environment(Environment):
     def __init__(self,log=None,initial_time=0):
@@ -31,7 +31,7 @@ class Environment(Environment):
         super().run(at)
     def add_object(self,obj):
         self._objects.append(obj)
-    state = BoundClass(State)
+    # state = BoundClass(State)
 
 
 # global log
