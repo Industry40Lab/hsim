@@ -5,7 +5,7 @@ Created on Sat Jan 15 14:54:49 2022
 @author: Lorenzo
 """
 
-from simpy import Event, FilterStore
+from simpy import Event, FilterStore, Resource
 from heapq import heappop
 
 
@@ -48,6 +48,8 @@ class Subscription(Event):
     
     
 class Store(FilterStore):
+    def __len__(self):
+        return len(self.items)
     def subscribe(self,item=None):
         return Subscription(self,item)
     def _do_get(self, event):        
@@ -94,6 +96,8 @@ class Box(Store):
 
 
 
+class Resource(Resource):
+    pass
 
 
 
