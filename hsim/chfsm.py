@@ -9,7 +9,7 @@ from typing import List, Any, Optional, Callable
 import logging 
 from simpy import Process, Interrupt
 from simpy.events import PENDING, Initialize, Interruption
-from core import Environment
+from core import Environment, dotdict
 import types
 from stores import Store
 from collections import OrderedDict
@@ -69,6 +69,7 @@ def set_state(name,initial_state=False):
 class StateMachine(object):
     def __init__(self, env, name):
         self.env = env
+        self.var = dotdict()
         self._name = name
         self._states: List[State] = []
         self._initial_state = None
@@ -147,7 +148,7 @@ class State(Process):
         self._entry_callbacks = []
         self._exit_callbacks = []
         self._child_state_machine = None
-        self._parent_state_machine = None
+        self.sm = None
         self._interrupt_callbacks = []
         self.env = None
         self._generator = None
@@ -170,7 +171,7 @@ class State(Process):
             raise TypeError("parent_sm must be the type of StateMachine")
         if self._child_state_machine and self._child_state_machine == parent_sm:
             raise ValueError("child_sm and parent_sm must be different")
-        self._parent_state_machine = parent_sm
+        self.sm = parent_sm
         self.env = parent_sm.env
     def start(self):
         logging.debug(f"Entering {self._name}")
@@ -279,16 +280,19 @@ class State(Process):
 class CHFSM(StateMachine):
     def __init__(self,env,name):
         super().__init__(env,name)
-        # self.message_ports = self.create_ports()
-        # for port in self.message_ports:
-        #     setattr(self, port._name, port)
+        self._messages = OrderedDict()
         temp=list(self.__dict__.keys())
-        self.message_ports()
-        self.messages = OrderedDict()
+        self.build_c()
         for i in list(self.__dict__.keys()):
             if i not in temp:
-                self.messages[i] = getattr(self,i)
-    def message_ports(self):
+                self._messages[i] = getattr(self,i)
+        self.connections = dict()
+        for state in self._states:
+            state.connections = self.connections
+            state.var = self.var
+            for message in self._messages:
+                setattr(state,message,self._messages[message])
+    def build_c(self):
         pass
         
                 
@@ -297,22 +301,22 @@ class Boh(StateMachine):
         Idle = State('Idle',True)
         @function(Idle)
         def printt(self):
-            print('%s is Idle' %self._parent_state_machine._name)
+            print('%s is Idle' %self.sm._name)
             return self.env.timeout(10)
         @do(Idle)
         def todo(self,Event):
-            print('%s waited 10s' %self._parent_state_machine._name)
+            print('%s waited 10s' %self.sm._name)
         @on_exit(Idle)
         def print_ciao(self):
             print('Idle state exit')
         @on_interrupt(Idle)
         def interrupted_ok(self):
-            print('%s idle state interrupted ok'  %self._parent_state_machine._name)
+            print('%s idle state interrupted ok'  %self.sm._name)
         class Idle_SM(CompositeState):
             Sub = State('Sub',True)
             @function(Sub)
             def printt(self):
-                print('%s will print this something in 20 s'  %self._parent_state_machine._name)
+                print('%s will print this something in 20 s'  %self.sm._name)
                 return self.env.timeout(20)
             @do(Sub)
             def todo(self,Event):
@@ -366,7 +370,7 @@ class Boh2(StateMachine):
 
 # env.run(50)
 
-if 1:
+if 0:
     env = Environment()
     foo = Boh2(env,1)
     env.run(20)
@@ -375,7 +379,7 @@ if 1:
     #     env.step()
     env.run(200)
     
-if 1:
+if 0:
     env = Environment()
     foo = Boh(env,'Foo 1')
     foo2 = Boh(env,'Foo 2')
