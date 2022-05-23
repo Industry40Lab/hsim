@@ -155,6 +155,7 @@ class State(Process):
         self._function = None
         self.initial_state = initial_state
         self.callbacks = []
+        self._value = None
     def __repr__(self):
         return '<%s (State) object at 0x%x>' % (self._name, id(self))
     def __call__(self):
@@ -186,11 +187,14 @@ class State(Process):
             callback()
         if self._child_state_machine is not None:
             self._child_state_machine.stop()
+        self._do_stop()
     def _do_start(self):
         self.callbacks = []
         self._value = PENDING
         self._generator = self._function
         self._target = Initialize(self.env, self)
+    def _do_stop(self):
+        self._value = None
     def interrupt(self):
         if self.is_alive:
             super().interrupt()
@@ -204,15 +208,6 @@ class State(Process):
                 self._child_state_machine.stop()
         else:
             print('Warning - interrupted state was not active')
-    # def safe_generator(self,generator):
-    #     try:
-    #         yield from generator
-    #     except Interrupt:
-    #         for event in self.env._queue: 
-    #             if event[-1] == self._target:
-    #                 self.env._queue.remove(event)
-    #         for callback in self._interrupt_callback:
-    #             callback()
     def _resume(self, event):
         self.env._active_proc = self
         while True:
