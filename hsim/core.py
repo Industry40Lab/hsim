@@ -43,8 +43,11 @@ def createLog():
 class dotdict(dict):
     """MATLAB-like dot.notation access to dictionary attributes"""
     def __getattr__(self,name):
-        super().__getattr__(name)
-        return super().__getitem__(name)
+        try:
+            super().__getattr__(name)
+            return super().__getitem__(name)
+        except AttributeError:
+            raise AttributeError()
     def __setattr__(self,name,value):
         super().__setitem__(name,value)
         super().__setattr__(name, value)
