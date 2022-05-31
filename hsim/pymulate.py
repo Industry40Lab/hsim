@@ -35,12 +35,15 @@ class Server(CHFSM):
     def build_c(self):
         self.Store = Store(self.env,1)
         
-class ServerWithQueueV1(Server):
+class ServerWithBuffer(Server):
     def __init__(self,env,name,capacity):
         super().__init__(env, name)
         self.capacity = capacity
     def build_c(self):
-        self.Store = Store(self,env,self.capacity)
+        self.Buffer = Store(self,env,self.capacity)
+    def build(self):
+        states = super().build()
+        return states
         
 class ServerWithTwoQueues(Server):
     def __init__(self,env,name,capacityIn=1,capacityOut=1):
@@ -55,8 +58,10 @@ class ServerWithTwoQueues(Server):
             return AllOf(self.env,[self.QueueIn.subscribe(),self.Store.subscribe(object())])
         @do(GetIn)
         def G(self,event):
-            entity = event._events[0].confirm()
-            event._events[1].item = entity
+            if all(event.check() for event in event._events):
+                entity = event._events[0].confirm()
+                event._events[1].item = entity
+                event._events[1].confirm()
             return
         states.append(GetIn)
         return states
@@ -65,7 +70,7 @@ class ServerWithTwoQueues(Server):
         self.QueueIn = Store(env,self.capacityIn)
         self.QueueOut = Store(env,self.capacityOut)
         
-
+        
 class Generator(CHFSM):
     def build(self):
         Work = State('Work')
