@@ -5,10 +5,16 @@ Created on Sat Mar 19 16:07:24 2022
 @author: Lorenzo
 """
 
-from simpy import Environment
+from simpy import Environment, Event
 from simpy.core import BoundClass
+from simpy.events import PENDING
 import pandas as pd
 # from states import State
+
+class Event(Event):
+    def restart(self):
+        self._value = PENDING
+        self.callbacks = []
 
 class Environment(Environment):
     def __init__(self,log=None,initial_time=0):
@@ -32,6 +38,7 @@ class Environment(Environment):
     def add_object(self,obj):
         self._objects.append(obj)
     # state = BoundClass(State)
+    event = BoundClass(Event)
 
 
 # global log
