@@ -13,6 +13,7 @@ from core import Environment, dotdict
 import types
 from stores import Store
 from collections import OrderedDict
+import warnings
 
 
 def function(instance):
@@ -53,6 +54,8 @@ def prova(instance):
 def do(instance):
     def decorator(f):
         f = types.MethodType(f, instance)
+        if f.__code__.co_argcount < 2:
+            raise TypeError('Probably missing trigger event') 
         setattr(instance, '_do', f)
         return f
     return decorator
@@ -84,6 +87,8 @@ class StateMachine(object):
         for state in self._states:
             if state.initial_state == True:
                 state.start()
+        if not any([state.initial_state for state in self._states]):
+            print('Warning: no initial state set')
     def interrupt(self):
         for state in self._states:
             if state.is_alive:
@@ -218,6 +223,7 @@ class State(Process):
                     try:
                         event = self._do(event)
                     except:
+                        warnings.warn('%s' %self)
                         raise StopIteration
                     if event is None:
                         event = Initialize(self.env,self)
@@ -240,6 +246,7 @@ class State(Process):
                     exc = type(event._value)(*event._value.args)
                     exc.__cause__ = event._value
                     event = self._generator.throw(exc)
+                    warnings.warn('%s' %self)
             except StopIteration as e:
                 event = None
                 self._ok = True
