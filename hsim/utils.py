@@ -17,6 +17,6 @@ def stats(env):
         for state in y.loc[y.Resource==res,'State'].unique():
             x=y.loc[(y.Resource==res) & (y.State==state),('timeIn','timeOut')]
             x = sum(x.timeOut - x.timeIn)/t
-            v[state._name] = x
+            v[state] = x
         stats[res] = v
     return stats
