@@ -134,7 +134,7 @@ class Generator(CHFSM):
             return self.connections['after'].put(entity)
         @do(Work)
         def do1(self,event):
-            return Work()
+            return Work
         return [Work]        
 
 
