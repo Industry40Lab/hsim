@@ -84,7 +84,7 @@ class StateMachine(object):
         self.start()
         self.env.add_object(self)
     def __repr__(self):
-        return '<%s (%s object) at 0x%x>' % (self._name, type(self), id(self))
+        return '<%s (%s object) at 0x%x>' % (self._name, type(self).__name__, id(self))
     def start(self):
         for state in self._states:
             if state.initial_state == True:
