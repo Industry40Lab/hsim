@@ -22,7 +22,8 @@ class Environment(Environment):
         self._objects = list()
         self.log = log
         if log==None:
-            self.log = createLog()           
+            self.log = createLog()        
+        self.state_log = pd.DataFrame(columns=['Resource','ResourceName','State','StateName','timeIn','timeOut'])
     def logF(self,entity,resource,operator,activity,time=True):
         if time:
             time = self.now
@@ -40,6 +41,16 @@ class Environment(Environment):
     # state = BoundClass(State)
     event = BoundClass(Event)
 
+class State_Log(pd.DataFrame):
+    def __init__(self):
+        columns=['Resource','State','timeIn','timeOut']
+        super().__init__(columns=columns)
+    def add(self,data):
+        pass
+    def read(self):
+        x = self.copy()     
+        for i in range(len(self.env.state_log)):
+            x.loc[i].Resource
 
 # global log
 def createLog():
