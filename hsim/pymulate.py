@@ -77,6 +77,42 @@ class ServerWithBuffer(Server):
         return self.QueueIn.put(item)
     def subscribe(self,item):
         return self.QueueIn.subscribe(item)
+
+class ServerDoubleBuffer(ServerWithBuffer):
+    def __init__(self,env,name,serviceTime=None,serviceTimeFunction=None,capacityIn=1,capacityOut=1):
+        self.capacityOut = capacityOut
+        super().__init__(env,name,serviceTime,serviceTimeFunction,capacityIn)
+    def build_c(self):
+        super().build_c()
+        self.QueueOut = Store(env,self.capacityOut)
+    def build(self):
+        states = super().build()
+        Block = states.pop(-2)
+        Starve = states[0]
+        GetOut = State('GetOut',True)
+        @function(GetOut)
+        def q(self):
+            return AllOf(self.env,[self.QueueOut.subscribe(),self.connections['after'].subscribe(object())])
+        @do(GetOut)
+        def G(self,event):
+            check = all(event.check() for event in event._events)
+            if check:
+                entity = event._events[0].confirm()
+                event._events[1].item = entity
+                event._events[1].confirm()
+            return
+        states.append(GetOut)
+        @function(Block)
+        def blockk(self):
+            req = self.QueueOut.put(self.var.entity)
+            return req
+        @do(Block)
+        def blockkk(self,event):
+            self.var.request.confirm()
+            return Starve
+        states.append(Block)
+        return states
+
         
 class AssemblyStation(Server):
     def __init__(self,env,name,serviceTime=None,serviceTimeFunction=None):
@@ -134,7 +170,7 @@ class Generator(CHFSM):
             return self.connections['after'].put(entity)
         @do(Work)
         def do1(self,event):
-            return Work
+            return 
         return [Work]        
 
 
@@ -208,15 +244,16 @@ def calculateServiceTime(self,entity,attribute='serviceTime'):
 
 
 env = Environment()
-a = AssemblyStation(env,'1',1,np.random.exponential)
+a = ServerDoubleBuffer(env,'1',1,np.random.exponential)
 # a.put([1])
-op = Operator(env, 'op1')
-op.var.station = [a]
+# op = Operator(env, 'op1')
+# op.var.station = [a]
 b = Store(env,20)
 a.connections['after']=b
 g = Generator(env, 'g')
 g.connections['after'] = a
-env.run(25)
+env.run(20)
 
 
-        
+import utils
+s = utils.stats(env)
