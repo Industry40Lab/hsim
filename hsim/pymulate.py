@@ -114,7 +114,7 @@ class ServerDoubleBuffer(ServerWithBuffer):
         return states
 
         
-class AssemblyStation(Server):
+class ManualStation(Server):
     def __init__(self,env,name,serviceTime=None,serviceTimeFunction=None):
         super().__init__(env,name,serviceTime,serviceTimeFunction)
         self.var.operator = list()
@@ -162,16 +162,34 @@ class AssemblyStation(Server):
         return [Starve,Idle,Work,Block]
         
 class Generator(CHFSM):
+    def __init__(self, env, name, serviceTime=0,serviceTimeFunction=None,createEntity=None):
+        super().__init__(env, name)
+        setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
+        self.var.serviceTime = serviceTime
+        self.var.serviceTimeFunction = serviceTimeFunction
+        self.var.createEntity = createEntity
     def build(self):
-        Work = State('Work',True)
-        @function(Work)
+        Create = State('Create',True)
+        @function(Create)
+        def fcn2(self):
+            serviceTime = self.sm.calculateServiceTime(None)
+            return self.env.timeout(serviceTime)
+        @do(Create)
+        def do2(self,event):
+            try:
+                self.var.entity = self.var.createEntity()
+            except:
+                self.var.entity = object()
+            return Wait
+        Wait = State('Wait')
+        @function(Wait)
         def fcn(self):
-            entity = [1]
-            return self.connections['after'].put(entity)
-        @do(Work)
+            return self.connections['after'].put(self.var.entity)
+            self.var.entity = None
+        @do(Wait)
         def do1(self,event):
-            return 
-        return [Work]        
+            return Create
+        return [Create,Wait]        
 
 
 class Operator(CHFSM):
@@ -210,7 +228,24 @@ class Operator(CHFSM):
             return Idle
         return [Idle,Work]
 
-
+class Queue(CHFSM):
+    def __init__(self,env,name,capacity):
+        self.capacity = capacity
+        super().__init__(env,name)
+    def build_c(self):
+        self.Queue = Store(env,self.capacity)
+    def build(self):
+        Forwarding = State('GetIn',True)
+        @function(Forwarding)
+        def q(self):
+            return AllOf(self.env,[self.Queue.subscribe(),self.connections['after'].subscribe(object())])
+        @do(Forwarding)
+        def G(self,event):
+            if all(event.check() for event in event._events):
+                entity = event._events[0].confirm()
+                event._events[1].item = entity
+                event._events[1].confirm()
+            return
 def calculateServiceTime(self,entity,attribute='serviceTime'):
     if self.var.serviceTimeFunction == None:
         if type(self.var.serviceTime)==int or type(self.var.serviceTime)==float:
@@ -250,7 +285,7 @@ a = ServerDoubleBuffer(env,'1',1,np.random.exponential)
 # op.var.station = [a]
 b = Store(env,20)
 a.connections['after']=b
-g = Generator(env, 'g')
+g = Generator(env, 'g',0.5)
 g.connections['after'] = a
 env.run(20)
 
