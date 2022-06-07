@@ -10,6 +10,10 @@ Created on Mon Jun  6 18:12:35 2022
 from pymulate import Environment, Generator, ServerDoubleBuffer, Operator, AssemblyStation
 
 
+
+
+
+
 env = Environment()
 def gen_motor():
     return 'Motor'
