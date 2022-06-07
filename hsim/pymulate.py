@@ -50,7 +50,6 @@ class Server(CHFSM):
     def subscribe(self,item):
         return self.Store.subscribe(item)
     
-        
 class ServerWithBuffer(Server):
     def __init__(self,env,name,serviceTime=None,serviceTimeFunction=None,capacityIn=1):
         self.capacityIn = capacityIn
@@ -112,7 +111,6 @@ class ServerDoubleBuffer(ServerWithBuffer):
             return Starve
         states.append(Block)
         return states
-
         
 class ManualStation(Server):
     def __init__(self,env,name,serviceTime=None,serviceTimeFunction=None):
@@ -191,7 +189,6 @@ class Generator(CHFSM):
             return Create
         return [Create,Wait]        
 
-
 class Operator(CHFSM):
     def __init__(self, env, name, station = []):
         super().__init__(env, name)
@@ -246,6 +243,7 @@ class Queue(CHFSM):
                 event._events[1].item = entity
                 event._events[1].confirm()
             return
+
 def calculateServiceTime(self,entity,attribute='serviceTime'):
     if self.var.serviceTimeFunction == None:
         if type(self.var.serviceTime)==int or type(self.var.serviceTime)==float:
