@@ -83,7 +83,7 @@ class Store(FilterStore):
         # self._trigger_get(None)
     
 
-class Box(Store):
+class Box_v1(Store):
     def _do_put(self, event):
         if True: # put is always allowed
             if not isinstance(event,Subscription):
@@ -101,6 +101,30 @@ class Box(Store):
     def requests(self):
         return [(event,event.item) for event in self.put_queue]
 
+class Box(Store):
+    def _do_put(self, event):
+        if True: # put is always allowed
+            self.items.append(event.item)
+    def forward(self,event):
+        if event in self.put_queue:
+            event.succeed()
+            self.put_queue.remove(event)
+    @property
+    def list_items(self):
+        return [event.item for event in self.put_queue]
+    @property
+    def requests(self):
+        return [(event,event.item) for event in self.put_queue]
+    def as_dict(self,by_item=True):
+        result = dict()
+        if by_item:
+            for event in reversed(self.put_queue):
+                result.update({event:event.item})
+        else:
+            for event in self.put_queue:
+                result.update({event.item:event})
+        return result
+        
 
 
 class Resource(Resource):
@@ -252,6 +276,14 @@ a=AnyOf(env,[s,r])
             
 
 
+env = Environment()
+a=Box(env)
+req=a.subscribe(1)
+req2=a.subscribe(1)
 
-    
+env.run(1)
+print(req.triggered)
+env.run(2)
+print(req.triggered)
+
     
