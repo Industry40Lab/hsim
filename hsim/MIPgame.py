@@ -35,5 +35,8 @@ op1.var.station = [motor2a,motor2b,motor2c]
 motor1.connections['after'] = s_out
 s_out.connections['after'] = [motor2a,motor2b,motor2c]
 # motor2.connections['after'] = motor3
-s_out.put([1])
+s=s_out.put([1])
 env.run(1000)
+
+from utils import stats
+s = stats(env)
