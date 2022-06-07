@@ -104,6 +104,8 @@ class Box_v1(Store):
 
 class Box(Store):
     def _do_put(self, event):
+        if not hasattr(event,'_ok'):
+            event._ok = False
         if not event.ok: # put is always allowed
             event._ok = True
             self.items.append(event.item)
@@ -215,17 +217,17 @@ class Demand(Event):
             self.resource.put_queue.remove(self)
 
 
-        
-from core import Environment
-from simpy import AnyOf
-env = Environment()
-R = Resource(env)
-S = Store(env,1)
-S.put(1)
-r=R.demand()
-s=S.put(1)
-r=R.demand()
-a=AnyOf(env,[s,r])
+if False:  
+    from core import Environment
+    from simpy import AnyOf
+    env = Environment()
+    R = Resource(env)
+    S = Store(env,1)
+    S.put(1)
+    r=R.demand()
+    s=S.put(1)
+    r=R.demand()
+    a=AnyOf(env,[s,r])
 
 # class Subscription(Event):
 #     # just like Get & Put events, but it does not get/put anything unless told to do so
@@ -284,23 +286,23 @@ a=AnyOf(env,[s,r])
 #     def put_now(self,event):
 #         self.items.append(event.item)
             
+if False:
 
-
-env = Environment()
-a=Box(env)
-
-print(a.items,a.put_queue)
-req=a.subscribe(1)
-print(a.items,a.put_queue)
-req2=a.subscribe(1)
-print(a.items,a.put_queue)
-
-env.run(1)
-print(req.triggered)
-r=a.subscribe()
-env.run(10)
-print(a.items)
-z=r.confirm()
-print(a.items)
-env.run(20)
+    env = Environment()
+    a=Box(env)
+    
+    print(a.items,a.put_queue)
+    req=a.subscribe(1)
+    print(a.items,a.put_queue)
+    req2=a.subscribe(1)
+    print(a.items,a.put_queue)
+    
+    env.run(1)
+    print(req.triggered)
+    r=a.subscribe()
+    env.run(10)
+    print(a.items)
+    z=r.confirm()
+    print(a.items)
+    env.run(20)
 
