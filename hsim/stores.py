@@ -16,6 +16,7 @@ class Subscription(Event):
         self.resource = resource
         self.proc = self.env.active_process
         self.item = item
+        self._ok = False
         if not self.item:
             self.__append__(self,resource.get_queue)
             resource._trigger_get(None)
@@ -103,8 +104,10 @@ class Box_v1(Store):
 
 class Box(Store):
     def _do_put(self, event):
-        if True: # put is always allowed
+        if not event.ok: # put is always allowed
+            event._ok = True
             self.items.append(event.item)
+        return True
     def forward(self,event):
         if event not in self.put_queue:
             event = self.as_dict()[event]
@@ -119,7 +122,7 @@ class Box(Store):
         return [(event,event.item) for event in self.put_queue]
     def as_dict(self,by_item=True):
         result = dict()
-        if by_item:
+        if not by_item:
             for event in reversed(self.put_queue):
                 result.update({event:event.item})
         else:
@@ -285,12 +288,19 @@ a=AnyOf(env,[s,r])
 
 env = Environment()
 a=Box(env)
+
+print(a.items,a.put_queue)
 req=a.subscribe(1)
+print(a.items,a.put_queue)
 req2=a.subscribe(1)
+print(a.items,a.put_queue)
 
 env.run(1)
 print(req.triggered)
-env.run(2)
-print(req.triggered)
+r=a.subscribe()
+env.run(10)
+print(a.items)
+z=r.confirm()
+print(a.items)
+env.run(20)
 
-    
