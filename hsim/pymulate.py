@@ -2,15 +2,16 @@
 
 from chfsm import CHFSM, State, CompositeState
 from chfsm import function, do, on_entry, on_exit, on_interrupt
-from stores import Store
+from stores import Store, Box
 from core import Environment, Event
 from simpy import AllOf, AnyOf
 from simpy.events import PENDING 
 import types
 import numpy as np
+from collections.abc import Iterable
 
 class Server(CHFSM):
-    def __init__(self,env,name,serviceTime=None,serviceTimeFunction=None):
+    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
         setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
         super().__init__(env, name)
         self.var.serviceTime = serviceTime
@@ -51,7 +52,7 @@ class Server(CHFSM):
         return self.Store.subscribe(item)
     
 class ServerWithBuffer(Server):
-    def __init__(self,env,name,serviceTime=None,serviceTimeFunction=None,capacityIn=1):
+    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacityIn=1):
         self.capacityIn = capacityIn
         super().__init__(env,name,serviceTime,serviceTimeFunction)
     def build(self):
@@ -78,7 +79,7 @@ class ServerWithBuffer(Server):
         return self.QueueIn.subscribe(item)
 
 class ServerDoubleBuffer(ServerWithBuffer):
-    def __init__(self,env,name,serviceTime=None,serviceTimeFunction=None,capacityIn=1,capacityOut=1):
+    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacityIn=1,capacityOut=1):
         self.capacityOut = capacityOut
         super().__init__(env,name,serviceTime,serviceTimeFunction,capacityIn)
     def build_c(self):
@@ -113,7 +114,7 @@ class ServerDoubleBuffer(ServerWithBuffer):
         return states
         
 class ManualStation(Server):
-    def __init__(self,env,name,serviceTime=None,serviceTimeFunction=None):
+    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
         super().__init__(env,name,serviceTime,serviceTimeFunction)
         self.var.operator = list()
         self.var.NeedOperator = env.event()
@@ -160,7 +161,7 @@ class ManualStation(Server):
         return [Starve,Idle,Work,Block]
         
 class Generator(CHFSM):
-    def __init__(self, env, name, serviceTime=0,serviceTimeFunction=None,createEntity=None):
+    def __init__(self, env, name=None, serviceTime=0,serviceTimeFunction=None,createEntity=None):
         super().__init__(env, name)
         setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
         self.var.serviceTime = serviceTime
@@ -190,7 +191,7 @@ class Generator(CHFSM):
         return [Create,Wait]        
 
 class Operator(CHFSM):
-    def __init__(self, env, name, station = []):
+    def __init__(self, env, name=None, station = []):
         super().__init__(env, name)
         self.var.station = station
         self.var.target = None
@@ -200,11 +201,17 @@ class Operator(CHFSM):
             if not station.var.operator and not station.var.WaitOperator.triggered:
                 return station
         return
+    def add_station(self,station):
+        if station is Iterable:
+            for s in station:
+                self.var.station.append(s)
+        else:
+            self.var.station.append(station)
     def build(self):
         Idle = State('Idle',True)
         @function(Idle)
         def idleF(self):
-            self.var.request = AnyOf(env,[station.var.NeedOperator for station in self.var.station])
+            self.var.request = AnyOf(self.env,[station.var.NeedOperator for station in self.var.station])
             return self.var.request
         @do(Idle)
         def idleDo(self,event):
@@ -226,7 +233,9 @@ class Operator(CHFSM):
         return [Idle,Work]
 
 class Queue(CHFSM):
-    def __init__(self,env,name,capacity):
+    def __init__(self,env,name=None,capacity=None):
+        if capacity==None:
+            capacity = np.inf
         self.capacity = capacity
         super().__init__(env,name)
     def build_c(self):
@@ -245,14 +254,43 @@ class Queue(CHFSM):
             return
 
 class ManualStationWithCapacity(ManualStation):
-    def __init__(self,env,name,serviceTime=None,serviceTimeFunction=None,capacity=1):
+    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacity=1):
         super().__init__(env,name,serviceTime,serviceTimeFunction)
+        self.stop()
         self.var.capacity = capacity
+        for i in range(self.var.capacity-1):
+            states = self.build()
+            for state in states:
+                state._name += str(i)
+                setattr(self, state._name, state)
+        self.copy_states(True)
+        self.associate()
+        self.start()
+    def copy_states(self,x=False):
+        if x:
+            super().copy_states()
+            
+class SwitchOut(CHFSM):
+    def put(self,item):
+        return self.Queue.put(item)
+    def build_c(self):
+        self.Queue = Box(self.env)
     def build(self):
-        states = list()
-        for i in range(self.var.capacity):
-            states += super().build()
-        return states
+        Work = State('Work',True)
+        @function(Work)
+        def W(self):
+            self.var.requests = [after.subscribe(object()) for after in self.connections['after']]
+            return AllOf(self.env,[self.Queue.subscribe(),*self.var.requests])
+        @do(Work)
+        def WW(self,event):
+            if event._events[0].check() and any(event.check for event in self.var.requests):
+                entity = event._events[0].confirm()
+                for event in self.var.requests:
+                    if event.check:
+                        event.item = entity
+                        event.confirm()
+            return
+        return [Work]
 
 def calculateServiceTime(self,entity,attribute='serviceTime'):
     if self.var.serviceTimeFunction == None:
