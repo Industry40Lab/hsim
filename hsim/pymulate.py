@@ -244,6 +244,16 @@ class Queue(CHFSM):
                 event._events[1].confirm()
             return
 
+class ManualStationWithCapacity(ManualStation):
+    def __init__(self,env,name,serviceTime=None,serviceTimeFunction=None,capacity=1):
+        super().__init__(env,name,serviceTime,serviceTimeFunction)
+        self.var.capacity = capacity
+    def build(self):
+        states = list()
+        for i in range(self.var.capacity):
+            states += super().build()
+        return states
+
 def calculateServiceTime(self,entity,attribute='serviceTime'):
     if self.var.serviceTimeFunction == None:
         if type(self.var.serviceTime)==int or type(self.var.serviceTime)==float:
