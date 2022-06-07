@@ -106,6 +106,8 @@ class Box(Store):
         if True: # put is always allowed
             self.items.append(event.item)
     def forward(self,event):
+        if event not in self.put_queue:
+            event = self.as_dict()[event]
         if event in self.put_queue:
             event.succeed()
             self.put_queue.remove(event)
@@ -124,7 +126,12 @@ class Box(Store):
             for event in self.put_queue:
                 result.update({event.item:event})
         return result
-        
+    def get(self,*args):
+        raise NotImplementedError
+    def get_now(self):
+        x = self.items.pop(0)
+        self.forward(x)
+        return x
 
 
 class Resource(Resource):
