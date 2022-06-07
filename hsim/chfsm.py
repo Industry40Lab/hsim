@@ -70,9 +70,11 @@ def set_state(name,initial_state=False):
         # return State
         
 class StateMachine(object):
-    def __init__(self, env, name):
+    def __init__(self, env, name=None):
         self.env = env
         self.var = dotdict()
+        if name==None:
+            name = str('0x%x' %id(self))
         self._name = name
         self._states: List[State] = []
         self._initial_state = None
@@ -284,7 +286,7 @@ class State(Process):
 
 
 class CHFSM(StateMachine):
-    def __init__(self,env,name):
+    def __init__(self,env,name=None):
         super().__init__(env,name)
         self._messages = OrderedDict()
         temp=list(self.__dict__.keys())
@@ -300,7 +302,12 @@ class CHFSM(StateMachine):
                 setattr(state,message,self._messages[message])
     def build_c(self):
         pass
-        
+    def associate(self):
+        for state in self._states:
+            state.connections = self.connections
+            state.var = self.var
+            for message in self._messages:
+                setattr(state,message,self._messages[message])
                 
 class Boh(StateMachine):
     def build(self):
