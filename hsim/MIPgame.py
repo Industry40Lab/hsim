@@ -7,7 +7,7 @@ Created on Mon Jun  6 18:12:35 2022
 
 # MODEL
 
-from pymulate import Environment, Generator, ServerDoubleBuffer, Operator, AssemblyStation
+from pymulate import Store, Environment, Generator, Server, ServerDoubleBuffer, Operator, ManualStation
 
 
 
@@ -15,12 +15,17 @@ from pymulate import Environment, Generator, ServerDoubleBuffer, Operator, Assem
 
 
 env = Environment()
-def gen_motor():
-    return 'Motor'
-g_motor = Generator(env,'Motor Input',serviceTime=30,createEntity=gen_motor)
-motor1 = ServerDoubleBuffer(env,'motor1')
+class gen_motor():
+    def __init__(self):
+        self.index = 0
+    def __call__(self):
+        self.index += 1
+        return str('Motor %d' %self.index)
+g_motor = Generator(env,'Motor Input',serviceTime=30,createEntity=gen_motor())
+motor1 = Server(env,'motor1',serviceTime=2)
+T = Store(env)
 
 g_motor.connections['after'] = motor1
-motor1.connections['after'] = motor2
-motor2.connections['after'] = motor3
-           
+motor1.connections['after'] = T
+# motor2.connections['after'] = motor3
+env.run(3600)
