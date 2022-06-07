@@ -71,7 +71,7 @@ class ServerWithBuffer(Server):
         return states
     def build_c(self):
         super().build_c()
-        self.QueueIn = Store(env,self.capacityIn)
+        self.QueueIn = Store(self.env,self.capacityIn)
     def put(self,item):
         return self.QueueIn.put(item)
     def subscribe(self,item):
@@ -83,7 +83,7 @@ class ServerDoubleBuffer(ServerWithBuffer):
         super().__init__(env,name,serviceTime,serviceTimeFunction,capacityIn)
     def build_c(self):
         super().build_c()
-        self.QueueOut = Store(env,self.capacityOut)
+        self.QueueOut = Store(self.env,self.capacityOut)
     def build(self):
         states = super().build()
         Block = states.pop(-2)
@@ -285,18 +285,18 @@ def calculateServiceTime(self,entity,attribute='serviceTime'):
 
 
 
+if False:
+    env = Environment()
+    a = ServerDoubleBuffer(env,'1',1,np.random.exponential)
+    # a.put([1])
+    # op = Operator(env, 'op1')
+    # op.var.station = [a]
+    b = Store(env,20)
+    a.connections['after']=b
+    g = Generator(env, 'g',0.5)
+    g.connections['after'] = a
+    env.run(20)
 
-env = Environment()
-a = ServerDoubleBuffer(env,'1',1,np.random.exponential)
-# a.put([1])
-# op = Operator(env, 'op1')
-# op.var.station = [a]
-b = Store(env,20)
-a.connections['after']=b
-g = Generator(env, 'g',0.5)
-g.connections['after'] = a
-env.run(20)
 
-
-import utils
-s = utils.stats(env)
+    import utils
+    s = utils.stats(env)
