@@ -229,10 +229,12 @@ class State(Process):
                     try:
                         event = self._do(event)
                     except:
-                        warnings.warn('%s' %self)
+                        warnings.warn('Error in %s (%s)' %(self,self.sm))
                         raise StopIteration
                     if event is None:
-                        event = Initialize(self.env,self)
+                        event = self
+                        self._do_start()
+                        # event = Initialize(self.env,self)
                         break
                     else:
                         event()
