@@ -33,10 +33,8 @@ s_out.connections['after'] = [motor2a,motor2b,motor2c]
 for s in [motor2a,motor2b,motor2c]:
     s.connections['after']=T 
 # motor2.connections['after'] = motor3
-s0=s_out.Queue.subscribe([1])
-s1=s_out.Queue.put([2])
-
-env.run(100)
+# s0=s_out.Queue.sub1
+env.run(10000)
 
 from utils import stats
 s = stats(env)
