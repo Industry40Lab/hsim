@@ -38,6 +38,7 @@ class Server(CHFSM):
         @function(Block)
         def blockk(self):
             req = self.connections['after'].put(self.var.entity)
+            self.var.req = req
             return req
         @do(Block)
         def blockkk(self,event):
@@ -48,7 +49,7 @@ class Server(CHFSM):
         self.Store = Store(self.env,1)
     def put(self,item):
         return self.Store.put(item)
-    def subscribe(self,item):
+    def subscribe(self,item=None):
         return self.Store.subscribe(item)
     
 class ServerWithBuffer(Server):
@@ -198,7 +199,7 @@ class Operator(CHFSM):
         self.var.Pause = env.event()
     def monitor(self):
         for station in reversed(self.var.station):
-            if not station.var.operator and not station.var.WaitOperator.triggered:
+            if station.var.NeedOperator.triggered and not station.var.operator and not station.var.WaitOperator.triggered:
                 return station
         return
     def add_station(self,station):
@@ -280,16 +281,20 @@ class SwitchOut(CHFSM):
         @function(Work)
         def W(self):
             self.var.requests = [after.subscribe(object()) for after in self.connections['after']]
-            return AllOf(self.env,[self.Queue.subscribe(),*self.var.requests])
+            return AllOf(self.env,[self.Queue.subscribe(),AnyOf(self.env,self.var.requests)])
         @do(Work)
         def WW(self,event):
-            if event._events[0].check() and any(event.check for event in self.var.requests):
+            if event._events[0].check() and any(event.check() for event in self.var.requests):
                 entity = event._events[0].confirm()
                 for event in self.var.requests:
-                    if event.check:
+                    if event.check():
                         event.item = entity
                         event.confirm()
-            return Work
+                        self.var.requests.remove(event)
+                        break
+                for event in self.var.requests:
+                    event.cancel()
+            return 
         return [Work]
 
 def calculateServiceTime(self,entity,attribute='serviceTime'):
