@@ -34,6 +34,9 @@ g_motor.connections['after'] = motor1
 op1.var.station = [motor2a,motor2b,motor2c]
 motor1.connections['after'] = s_out
 s_out.connections['after'] = [motor2a,motor2b,motor2c]
+
+for s in [motor2a,motor2b,motor2c]:
+    s.connections['after']=T 
 # motor2.connections['after'] = motor3
 s=s_out.put([1])
 env.run(1000)
