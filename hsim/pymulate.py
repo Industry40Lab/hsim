@@ -354,7 +354,12 @@ class MachineMIP(Server):
             return Work
         
 class SwitchQualityMIP(CHFSM):
+    def __init__(self, env, name=None):
+        super().__init__(env,name)
+        self.var.Trigger = env.event()
+        self.var.requests = list()
     def put(self,item):
+        self.var.Trigger.succeed()
         return self.Queue.put(item)
     def build_c(self):
         self.Queue = Box(self.env)
@@ -362,15 +367,23 @@ class SwitchQualityMIP(CHFSM):
         Move = State('Move')
         @function(Move)
         def moveF(self):
-            pass
+            return AnyOf(self.env,[self.var.Trigger,*self.var.requests])
         def moveDo(self):
             pass
         Wait = State('Wait',True)
         @function(Wait)
         def W(self):
-            self.var.requests = [after.subscribe(object()) for after in self.connections['after']]
-            self.var.x = AllOf(self.env,[self.Queue.subscribe(),AnyOf(self.env,self.var.requests)])
-            return self.var.x
+            for el in self.Queue.items:
+                if not hasattr(el,'_scrap'):
+                    if np.random.uniform() < self.var.quality_rate:
+                        el._rework = True
+                    else:
+                        el._rework = False
+                if el._rework:
+                    self.var.requests.append(self.connections['rework'].subscribe(el))
+                else:
+                    self.var.requests.append(self.connections['after'].subscribe(el))
+            return AnyOf(self.env,[self.var.Trigger,*self.var.requests])
         @do(Wait)
         def WW(self,event):
             if event._events[0].check() and any([event.check() for event in self.var.requests]):
