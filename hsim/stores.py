@@ -108,13 +108,15 @@ class Box(Store):
     def put(self,item=None): #debug
         return super().put(item)
     def _do_put(self, event):
-        # if not hasattr(event,'_ok'):
-        #     event._ok = False
-        # if not event.ok: # put is always allowed
-        #     event._ok = True
-        #     self.items.append(event.item)
-        self.items.append(event.item)
+        if event.item:
+            self.items.append(event.item)
+            event.item = None
+        self._trigger_get(event)
         return True
+    def _do_get(self,event):
+        super()._do_get(event)
+        
+    
     def forward(self,event):
         if event not in self.put_queue:
             for (new_event,item) in self.requests:
