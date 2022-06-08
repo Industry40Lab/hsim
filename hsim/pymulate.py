@@ -357,6 +357,7 @@ class SwitchQualityMIP(CHFSM):
     def __init__(self, env, name=None):
         super().__init__(env,name)
         self.var.Trigger = env.event()
+        self.var.quality_rate = 0.1
         self.var.requests = list()
     def put(self,item):
         self.var.Trigger.succeed()
@@ -364,40 +365,30 @@ class SwitchQualityMIP(CHFSM):
     def build_c(self):
         self.Queue = Box(self.env)
     def build(self):
-        Move = State('Move')
-        @function(Move)
-        def moveF(self):
-            return AnyOf(self.env,[self.var.Trigger,*self.var.requests])
-        def moveDo(self):
-            pass
-        Wait = State('Wait',True)
-        @function(Wait)
+        Work = State('Work',True)
+        @function(Work)
         def W(self):
+            pass
             for el in self.Queue.items:
-                if not hasattr(el,'_scrap'):
-                    if np.random.uniform() < self.var.quality_rate:
-                        el._rework = True
-                    else:
-                        el._rework = False
-                if el._rework:
+                if np.random.uniform() < self.var.quality_rate:
                     self.var.requests.append(self.connections['rework'].subscribe(el))
                 else:
                     self.var.requests.append(self.connections['after'].subscribe(el))
             return AnyOf(self.env,[self.var.Trigger,*self.var.requests])
-        @do(Wait)
+        @do(Work)
         def WW(self,event):
-            if event._events[0].check() and any([event.check() for event in self.var.requests]):
-                entity = event._events[0].confirm()
-                for event in self.var.requests:
-                    if event.check():
-                        event.item = entity
-                        event.confirm()
-                        self.var.requests.remove(event)
-                        break
-                for event in self.var.requests:
-                    event.cancel()
+            if self.var.Trigger.triggered:
+                self.var.Trigger.restart()
+            for req in self.var.requests:
+                if req.check() and req.item in self.Queue.items:
+                    req.confirm()
+                    self.Queue.forward(req.item)
+                    self.var.requests.remove(req)
+                    self.Queue.items.remove(req.item)
+            for req in self.var.requests:
+                req.cancel()
             return
-        return [Wait,Move]
+        return [Work]
 
 if False:
     env = Environment()
