@@ -281,10 +281,11 @@ class SwitchOut(CHFSM):
         @function(Work)
         def W(self):
             self.var.requests = [after.subscribe(object()) for after in self.connections['after']]
-            return AllOf(self.env,[self.Queue.subscribe(),AnyOf(self.env,self.var.requests)])
+            self.var.x = AllOf(self.env,[self.Queue.subscribe(),AnyOf(self.env,self.var.requests)])
+            return self.var.x
         @do(Work)
         def WW(self,event):
-            if event._events[0].check() and any(event.check() for event in self.var.requests):
+            if event._events[0].check() and any([event.check() for event in self.var.requests]):
                 entity = event._events[0].confirm()
                 for event in self.var.requests:
                     if event.check():
@@ -294,7 +295,7 @@ class SwitchOut(CHFSM):
                         break
                 for event in self.var.requests:
                     event.cancel()
-            return 
+            return
         return [Work]
 
 def calculateServiceTime(self,entity,attribute='serviceTime'):
@@ -327,6 +328,57 @@ def calculateServiceTime(self,entity,attribute='serviceTime'):
             return self.var.serviceTimeFunction(*self.var.serviceTime)
 
 
+class MachineMIP(Server):
+    def build(self):
+        states = super().build()
+        states.pop(0)
+        Work = states[1]
+        Starve = State('Starve',True)
+        @function(Starve)
+        def starveF(self):
+            self.var.request = self.Store.subscribe()
+            return self.var.request
+        @do(Starve)
+        def starveDo(self,event):
+            self.var.entity = event.read()
+            if np.random.uniform() < self.var.failure_rate:
+                return Fail
+            return Work
+        Fail = State('Fail')
+        @function(Fail)
+        def failF(self):
+            TTR = 5 * self.sm.calculateServiceTime(self.var.entity)
+            return self.env.timeout(TTR)
+        @do(Fail)
+        def failDo(self,event):
+            return Work
+        
+class SwitchQualityMIP(CHFSM):
+    def put(self,item):
+        return self.Queue.put(item)
+    def build_c(self):
+        self.Queue = Box(self.env)
+    def build(self):
+        Work = State('Work',True)
+        @function(Work)
+        def W(self):
+            self.var.requests = [after.subscribe(object()) for after in self.connections['after']]
+            self.var.x = AllOf(self.env,[self.Queue.subscribe(),AnyOf(self.env,self.var.requests)])
+            return self.var.x
+        @do(Work)
+        def WW(self,event):
+            if event._events[0].check() and any([event.check() for event in self.var.requests]):
+                entity = event._events[0].confirm()
+                for event in self.var.requests:
+                    if event.check():
+                        event.item = entity
+                        event.confirm()
+                        self.var.requests.remove(event)
+                        break
+                for event in self.var.requests:
+                    event.cancel()
+            return
+        return [Work]
 
 if False:
     env = Environment()
