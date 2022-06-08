@@ -112,7 +112,9 @@ class Box(Store):
         return True
     def forward(self,event):
         if event not in self.put_queue:
-            event = self.as_dict()[event]
+            for (item,new_event) in self.requests:
+                if event is item:
+                    event = new_event
         if event in self.put_queue:
             event.succeed()
             self.put_queue.remove(event)
@@ -122,14 +124,10 @@ class Box(Store):
     @property
     def requests(self):
         return [(event,event.item) for event in self.put_queue]
-    def as_dict(self,by_item=True):
+    def as_dict(self):
         result = dict()
-        if not by_item:
-            for event in reversed(self.put_queue):
-                result.update({event:event.item})
-        else:
-            for event in self.put_queue:
-                result.update({event.item:event})
+        for event in reversed(self.put_queue):
+            result.update({event:event.item})
         return result
     def get(self,*args):
         raise NotImplementedError
