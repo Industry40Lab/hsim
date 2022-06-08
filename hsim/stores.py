@@ -46,7 +46,7 @@ class Subscription(Event):
     def check(self):
         if self.item and len(self.resource.items) < self.resource._capacity:
             return True
-        elif len(self.resource.items)>0:
+        elif len(self.resource.items)>0 and not self.item:
             return True
         else:
             return False
@@ -108,9 +108,9 @@ class Box(Store):
     def put(self,item=None): #debug
         return super().put(item)
     def _do_put(self, event):
-        if event.item:
+        if len(self.items) < len(self.put_queue):
             self.items.append(event.item)
-            event.item = None
+            # event.item = None
         self._trigger_get(event)
         return True
     def _do_get(self,event):
