@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Jun  6 18:12:35 2022
-
-@author: Lorenzo
-"""
 
 # MODEL
 
