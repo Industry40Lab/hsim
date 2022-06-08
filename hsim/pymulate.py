@@ -359,13 +359,19 @@ class SwitchQualityMIP(CHFSM):
     def build_c(self):
         self.Queue = Box(self.env)
     def build(self):
-        Work = State('Work',True)
-        @function(Work)
+        Move = State('Move')
+        @function(Move)
+        def moveF(self):
+            pass
+        def moveDo(self):
+            pass
+        Wait = State('Wait',True)
+        @function(Wait)
         def W(self):
             self.var.requests = [after.subscribe(object()) for after in self.connections['after']]
             self.var.x = AllOf(self.env,[self.Queue.subscribe(),AnyOf(self.env,self.var.requests)])
             return self.var.x
-        @do(Work)
+        @do(Wait)
         def WW(self,event):
             if event._events[0].check() and any([event.check() for event in self.var.requests]):
                 entity = event._events[0].confirm()
@@ -378,7 +384,7 @@ class SwitchQualityMIP(CHFSM):
                 for event in self.var.requests:
                     event.cancel()
             return
-        return [Work]
+        return [Wait,Move]
 
 if False:
     env = Environment()
