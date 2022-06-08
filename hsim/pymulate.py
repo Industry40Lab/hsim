@@ -289,7 +289,7 @@ class SwitchOut(CHFSM):
                     if event.check:
                         event.item = entity
                         event.confirm()
-            return
+            return Work
         return [Work]
 
 def calculateServiceTime(self,entity,attribute='serviceTime'):
