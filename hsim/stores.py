@@ -28,7 +28,7 @@ class Subscription(Event):
     def renounce(self):
         # to be triggered if refusing to get/put after subscribing
         if self.item:
-            self.resource._do_get()
+            self.resource._do_get(self)
         else:
             self.resource._do_put(self)
     def confirm(self,item=None):
@@ -53,6 +53,8 @@ class Subscription(Event):
     def cancel(self):
         if not self.triggered:
             self.resource.put_queue.remove(self)
+        else:
+            self.renounce()
     
     
 class Store(FilterStore):
@@ -103,18 +105,22 @@ class Box_v1(Store):
         return [(event,event.item) for event in self.put_queue]
 
 class Box(Store):
+    def put(self,item=None): #debug
+        return super().put(item)
     def _do_put(self, event):
-        if not hasattr(event,'_ok'):
-            event._ok = False
-        if not event.ok: # put is always allowed
-            event._ok = True
-            self.items.append(event.item)
+        # if not hasattr(event,'_ok'):
+        #     event._ok = False
+        # if not event.ok: # put is always allowed
+        #     event._ok = True
+        #     self.items.append(event.item)
+        self.items.append(event.item)
         return True
     def forward(self,event):
         if event not in self.put_queue:
-            for (item,new_event) in self.requests:
+            for (new_event,item) in self.requests:
                 if event is item:
                     event = new_event
+                    break
         if event in self.put_queue:
             event.succeed()
             self.put_queue.remove(event)
