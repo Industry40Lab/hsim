@@ -340,9 +340,6 @@ def calculateServiceTime(self,entity,attribute='serviceTime'):
 
 class MachineMIP(Server):
     def build(self):
-        states = super().build()
-        states.pop(0)
-        Work = states[1]
         Starve = State('Starve',True)
         @function(Starve)
         def starveF(self):
@@ -357,11 +354,29 @@ class MachineMIP(Server):
         Fail = State('Fail')
         @function(Fail)
         def failF(self):
-            TTR = 5 * self.sm.calculateServiceTime(self.var.entity)
-            return self.env.timeout(TTR)
+            return self.env.timeout(self.var.TTR)
         @do(Fail)
         def failDo(self,event):
             return Work
+        Work = State('Work')
+        @function(Work)
+        def workF(self):
+            serviceTime = self.sm.calculateServiceTime(self.var.entity)
+            return self.env.timeout(serviceTime)
+        @do(Work)
+        def workDo(self,event):
+            return Block
+        Block = State('Block')
+        @function(Block)
+        def blockk(self):
+            req = self.connections['after'].put(self.var.entity)
+            self.var.req = req
+            return req
+        @do(Block)
+        def blockkk(self,event):
+            self.var.request.confirm()
+            return Starve
+        return [Starve,Fail,Work,Block]
         
 class SwitchQualityMIP(CHFSM):
     def __init__(self, env, name=None):
