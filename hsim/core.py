@@ -23,7 +23,8 @@ class Environment(Environment):
         self.log = log
         if log==None:
             self.log = createLog()        
-        self.state_log = pd.DataFrame(columns=['Resource','ResourceName','State','StateName','timeIn','timeOut'])
+        self.state_log2 = pd.DataFrame(columns=['Resource','ResourceName','State','StateName','timeIn','timeOut'])
+        self.state_log = list()
     def logF(self,entity,resource,operator,activity,time=True):
         if time:
             time = self.now
