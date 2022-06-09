@@ -8,9 +8,10 @@ Created on Mon Jun  6 16:48:02 2022
    
 
 def stats(env):
-    y = env.state_log
+    y = env.state_log2
     t = env.now
     y.loc[y.timeOut.values==None,'timeOut'] = t
+    y=y.fillna(t) #test
     stats = dict()
     for res in y.Resource.unique():
         v = dict()
