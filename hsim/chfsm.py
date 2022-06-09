@@ -185,7 +185,10 @@ class State(Process):
         self.env = parent_sm.env
     def start(self):
         logging.debug(f"Entering {self._name}")
-        self.env.state_log.loc[len(self.env.state_log)] = [self.sm,self.sm._name,self,self._name,self.env.now,None]
+        try:
+            self.env.state_log.loc[len(self.env.state_log)] = [self.sm,self.sm._name,self,self._name,self.env.now,None]
+        except:
+            print(1)
         for callback in self._entry_callbacks:
             callback()
         if self._child_state_machine is not None:
