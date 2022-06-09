@@ -14,6 +14,7 @@ import types
 from stores import Store
 from collections import OrderedDict
 import warnings
+import pandas as pd
 
 
 def function(instance):
@@ -185,10 +186,10 @@ class State(Process):
         self.env = parent_sm.env
     def start(self):
         logging.debug(f"Entering {self._name}")
-        try:
-            self.env.state_log.loc[len(self.env.state_log)] = [self.sm,self.sm._name,self,self._name,self.env.now,None]
-        except:
-            print(1)
+        # self.env.state_log.loc[len(self.env.state_log)] = [self.sm,self.sm._name,self,self._name,self.env.now,None]
+        # self.env.state_log.append([self.sm,self.sm._name,self,self._name,self.env.now,None])
+        self._last_state_record = [self.sm,self.sm._name,self,self._name,self.env.now,None]
+        self.env.state_log.append(self._last_state_record)
         for callback in self._entry_callbacks:
             callback()
         if self._child_state_machine is not None:
@@ -196,7 +197,11 @@ class State(Process):
         self._do_start()
     def stop(self):
         logging.debug(f"Exiting {self._name}")
-        self.env.state_log.loc[(self.env.state_log.Resource==self.sm) & (self.env.state_log.State==self) & (self.env.state_log.timeOut.values == None),'timeOut'] = self.env.now
+        # self.env.state_log.loc[(self.env.state_log.Resource==self.sm) & (self.env.state_log.State==self) & (self.env.state_log.timeOut.values == None),'timeOut'] = self.env.now
+        # for entry in reversed(self.env.state_log):
+        #     if entry[0] is self.sm and entry[2] is self and not entry[-1]:
+        #         entry[-1] = self.env.now
+        self._last_state_record[-1] = self.env.now
         for callback in self._exit_callbacks:
             callback()
         if self._child_state_machine is not None:
