@@ -93,7 +93,7 @@ class ServerDoubleBuffer(ServerWithBuffer):
         GetOut = State('GetOut',True)
         @function(GetOut)
         def q(self):
-            return AllOf(self.env,[self.QueueOut.subscribe(),self.connections['after'].subscribe(object())])
+            return AllOf(self.env,[self.QueueOut.subscribe(),self.sm.connections['after'].subscribe(('prova'))])
         @do(GetOut)
         def G(self,event):
             check = all(event.check() for event in event._events)
@@ -240,19 +240,24 @@ class Queue(CHFSM):
         self.capacity = capacity
         super().__init__(env,name)
     def build_c(self):
-        self.Queue = Store(env,self.capacity)
+        self.Queue = Store(self.env,self.capacity)
     def build(self):
         Forwarding = State('GetIn',True)
         @function(Forwarding)
         def q(self):
-            return AllOf(self.env,[self.Queue.subscribe(),self.connections['after'].subscribe(object())])
+            return AllOf(self.env,[self.Queue.subscribe(),self.connections['after'].subscribe([0])])
         @do(Forwarding)
         def G(self,event):
             if all(event.check() for event in event._events):
-                entity = event._events[0].confirm()
-                event._events[1].item = entity
-                event._events[1].confirm()
+                entity = event._events[0].read()
+                event._events[1].confirm(entity)
+                event._events[0].confirm()
             return
+        return [Forwarding]
+    def put(self,item):
+        return self.Queue.put(item)
+    def subscribe(self,item=None):
+        return self.Queue.subscribe(item)
 
 class ManualStationWithCapacity(ManualStation):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacity=1):
@@ -274,13 +279,15 @@ class ManualStationWithCapacity(ManualStation):
 class SwitchOut(CHFSM):
     def put(self,item):
         return self.Queue.put(item)
+    def subscribe(self,item=None):
+        return self.Queue.subscribe(item)
     def build_c(self):
         self.Queue = Box(self.env)
     def build(self):
         Work = State('Work',True)
         @function(Work)
         def W(self):
-            self.var.requests = [after.subscribe(object()) for after in self.connections['after']]
+            self.var.requests = [after.subscribe(['prova 1']) for after in self.connections['after']]
             self.var.x = AllOf(self.env,[self.Queue.subscribe(),AnyOf(self.env,self.var.requests)])
             return self.var.x
         @do(Work)
@@ -317,12 +324,15 @@ def calculateServiceTime(self,entity,attribute='serviceTime'):
     elif self.var.serviceTimeFunction != None:
         if type(self.var.serviceTime)==int or type(self.var.serviceTime)==float:
             return self.var.serviceTimeFunction(self.var.serviceTime)
-        elif self.var.serviceTime==None:
-            time = getattr(self.var.entity,attribute)
-            if type(time) is dict:
-                time = time[self.name]
-            return self.var.serviceTimeFunction(time)
-        elif len(self.var.serviceTime)==0:
+        try:
+            if self.var.serviceTime==None:
+                time = getattr(self.var.entity,attribute)
+                if type(time) is dict:
+                    time = time[self.name]
+                return self.var.serviceTimeFunction(time)
+        except:
+            pass
+        if len(self.var.serviceTime)==0:
             return self.var.serviceTimeFunction()
         elif len(self.var.serviceTime)>0:
             return self.var.serviceTimeFunction(*self.var.serviceTime)
@@ -360,37 +370,142 @@ class SwitchQualityMIP(CHFSM):
         self.var.quality_rate = 0.1
         self.var.requests = list()
     def put(self,item):
-        self.var.Trigger.succeed()
         return self.Queue.put(item)
+    def subscribe(self,item=None):
+        return self.Queue.subscribe(item)
     def build_c(self):
-        self.Queue = Box(self.env)
+        self.Queue = Store(self.env)
     def build(self):
-        Work = State('Work',True)
-        @function(Work)
+        Wait = State('Wait',True)
+        @function(Wait)
         def W(self):
-            pass
-            for el in self.Queue.items:
-                if np.random.uniform() < self.var.quality_rate:
-                    self.var.requests.append(self.connections['rework'].subscribe(el))
-                else:
-                    self.var.requests.append(self.connections['after'].subscribe(el))
-            return AnyOf(self.env,[self.var.Trigger,*self.var.requests])
-        @do(Work)
+            return self.Queue.get()
+        @do(Wait)
         def WW(self,event):
-            if self.var.Trigger.triggered:
-                self.var.Trigger.restart()
-            for req in self.var.requests:
-                if req.check() and req.item in self.Queue.items:
-                    req.confirm()
-                    self.Queue.forward(req.item)
-                    self.var.requests.remove(req)
-                    self.Queue.items.remove(req.item)
-            for req in self.var.requests:
-                req.cancel()
-            return
-        return [Work]
+            self.var.entity = event.value
+            return Work
+        Work = State('Work')
+        @function(Work)
+        def W0(self):
+            if np.random.uniform() < self.var.quality_rate:
+                return self.connections['rework'].put(self.var.entity)
+            else:
+                return self.connections['after'].put(self.var.entity)
+        @do(Work)
+        def WW0(self,event):
+            return Wait
+        return [Work,Wait]
 
-if False:
+class FinalAssemblyManualMIP(ManualStation):
+    def build(self):
+        Starve = State('Starve',True)
+        @function(Starve)
+        def starveF(self):
+            self.var.request = [self.connections['before1'].get(),self.connections['before2'].get()]
+            return AllOf(self.env,self.var.request)
+        @do(Starve)
+        def starveDo(self,event):
+            self.var.entity = event._events[0].value
+            return Idle
+        Idle = State('Idle')
+        @function(Idle)
+        def idlef(self):
+            self.var.NeedOperator.succeed()
+            return self.var.WaitOperator
+        @do(Idle)
+        def idledo(self,event):
+            self.var.NeedOperator.restart()
+            self.var.WaitOperator.restart()
+            return Work
+        Work = State('Work')
+        @function(Work)
+        def workF(self):
+            serviceTime = self.sm.calculateServiceTime(self.var.entity)
+            return self.env.timeout(serviceTime)
+        @do(Work)
+        def workDo(self,event):
+            self.var.operator.var.Pause.succeed()
+            self.var.operator = None
+            return Block
+        Block = State('Block')
+        @function(Block)
+        def blockk(self):
+            req = self.connections['after'].put(self.var.entity)
+            return req
+        @do(Block)
+        def blockkk(self,event):
+            # self.var.request.confirm()
+            return Starve
+        return [Starve,Idle,Work,Block]
+    
+class FinalAssemblyMIP(Server):
+    def build(self):
+        states = super().build()
+        states.pop(0)
+        Work = [state for state in states if state._name=='Work'][0]
+        Starve = State('Starve',True)
+        @function(Starve)
+        def starveF(self):
+            self.var.request = [self.connections['before1'].get(),self.connections['before2'].get()]
+            return AllOf(self.env,self.var.request)
+        @do(Starve)
+        def starveDo(self,event):
+            self.var.entity = event._events[0].value
+            return Work
+        states.insert(0,Starve)
+        return states
+    
+class AutomatedMIP(ManualStation):
+    def build(self):
+        Starve = State('Starve',True)
+        @function(Starve)
+        def starveF(self):
+            self.var.request = self.Store.subscribe()
+            return self.var.request
+        @do(Starve)
+        def starveDo(self,event):
+            self.var.entity = event.read()
+            return Idle
+        Idle = State('Idle')
+        @function(Idle)
+        def idlef(self):
+            self.var.NeedOperator.succeed()
+            return self.var.WaitOperator
+        @do(Idle)
+        def idledo(self,event):
+            self.var.NeedOperator.restart()
+            self.var.WaitOperator.restart()
+            return Setup
+        Setup = State('Setup')
+        @function(Setup)
+        def suF(self):
+            serviceTime = (0.1+np.random.uniform()/10) * self.sm.calculateServiceTime(self.var.entity)
+            return self.env.timeout(serviceTime)
+        @do(Setup)
+        def suDo(self,event):
+            self.var.operator.var.Pause.succeed()
+            self.var.operator = None
+            return Work
+        Work = State('Work')
+        @function(Work)
+        def workF(self):
+            serviceTime = self.sm.calculateServiceTime(self.var.entity)
+            return self.env.timeout(serviceTime)
+        @do(Work)
+        def workDo(self,event):
+            return Block
+        Block = State('Block')
+        @function(Block)
+        def blockk(self):
+            req = self.connections['after'].put(self.var.entity)
+            return req
+        @do(Block)
+        def blockkk(self,event):
+            self.var.request.confirm()
+            return Starve
+        return [Starve,Idle,Setup,Work,Block]
+    
+if 0:
     env = Environment()
     a = ServerDoubleBuffer(env,'1',1,np.random.exponential)
     # a.put([1])
@@ -401,6 +516,15 @@ if False:
     g = Generator(env, 'g',0.5)
     g.connections['after'] = a
     env.run(20)
+
+if 1:
+    env = Environment()
+    g = Generator(env,serviceTime=1)
+    b = Queue(env)
+    c = Store(env)
+    g.connections['after'] = b
+    b.connections['after'] = c
+    env.run(10)
 
 
     import utils
