@@ -33,8 +33,8 @@ class Entity():
             self.ID = ID
             self.serviceTime = 1
     
-folder = 'C:/Users/Lorenzo/OneDrive - Politecnico di Milano/Didattica/MIP 11-6-22/'
-folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP 11-6-22/MIP test Lorenzo/xDaniele/'
+folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP 11-6-22/'
+# folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP 11-6-22/MIP test Lorenzo/xDaniele/'
 filename = 'MIP1.xlsx'
 path = folder+filename
 a=pd.read_excel(path,sheet_name='Redesign_in',header=1,index_col=0)
@@ -61,7 +61,7 @@ for index in range(1,3):
     else:
         remove_load_case = 0
 
-for index in range(3,8):
+for index in [3,4,6,7]:
     if a.loc[a.index.values==index,'Feeding'].values == 1:
         d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.04)
     elif a.loc[a.index.values==index,'Feeding'].values == 2:
@@ -80,6 +80,10 @@ for index in range(11,12):
         d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.08)
     elif a.loc[a.index.values==index,'Material handling'].values == 3:
         d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.08)*(4*np.arctan(agv_num/agv_sat)/np.pi)
+    if a.loc[a.index.values==index,'Feeding'].values == 1:
+        d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.04)
+    elif a.loc[a.index.values==index,'Feeding'].values == 2:
+        d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.1)
 
 for index in range(12,23):
     if a.loc[a.index.values==index,'Feeding'].values == 1:
@@ -89,13 +93,20 @@ for index in range(12,23):
     if a.loc[a.index.values==index,'Material handling'].values == 2:
         d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.03)
 
-for index in range(26,28):
+for index in range(24,28):
     if a.loc[a.index.values==index,'Feeding'].values == 1:
         d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.04)
     elif a.loc[a.index.values==index,'Feeding'].values == 2:
         d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.1)
+    if a.loc[a.index.values==index,'Material handling'].values == 1:
+        d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.05)
+    elif a.loc[a.index.values==index,'Material handling'].values == 2:
+        d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.1)
+    elif a.loc[a.index.values==index,'Material handling'].values == 3 and agv_num>0:
+        d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.1)*(4*np.arctan(agv_num/agv_sat)/np.pi)
 
-Q_case = (15-a['AI-augmented quality'][2:5].sum()*5/6)/100
+
+Q_case = (15-a['AI-augmented quality'][2:4].sum()*5/6)/100
 Q_ele = (15-6*np.arctan(a['AI-augmented quality'][11:22].sum()*np.random.uniform()*0.25)/np.pi)/100
 
 
@@ -129,6 +140,9 @@ elif c.loc[c.index==3]['M/A/T'].values == 'S':
     case2 = AutomatedMIP(env,serviceTime=d.loc[d.index==3].values,serviceTimeFunction=normal_dist_bounded)
 elif c.loc[c.index==3]['M/A/T'].values == 'A':
     case2 = Server(env,serviceTime=d.loc[d.index==3].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==3]['M/A/T'].values == 'C':
+    case2 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
+
 case2queueOut = Queue(env,capacity = 4)
 
 case3queueIn = Queue(env,capacity = 4)
@@ -138,6 +152,8 @@ elif c.loc[c.index==4]['M/A/T'].values == 'S':
     case3 = AutomatedMIP(env,serviceTime=d.loc[d.index==4].values,serviceTimeFunction=normal_dist_bounded)
 elif c.loc[c.index==4]['M/A/T'].values == 'A':
     case3 = Server(env,serviceTime=d.loc[d.index==4].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==4]['M/A/T'].values == 'C':
+    case3 = ManualStation(env,serviceTime=d.loc[d.index==4].values*0.25,serviceTimeFunction=normal_dist_bounded)
 case3queueOut = Queue(env,capacity = 4)
 
 case4 = ServerDoubleBuffer(env,serviceTime=d.loc[d.index==5].values,serviceTimeFunction=normal_dist_bounded)
@@ -152,16 +168,20 @@ elif c.loc[c.index==6]['M/A/T'].values == 'S':
     case5 = AutomatedMIP(env,serviceTime=d.loc[d.index==6].values,serviceTimeFunction=normal_dist_bounded)
 elif c.loc[c.index==6]['M/A/T'].values == 'A':
     case5 = Server(env,serviceTime=d.loc[d.index==6].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==6]['M/A/T'].values == 'C':
+    case5 = ManualStation(env,serviceTime=d.loc[d.index==6].values*0.25,serviceTimeFunction=normal_dist_bounded)
 case5queueOut = Queue(env,capacity = 4)
 
 
 case6queueIn = Queue(env,capacity = 4)
 if c.loc[c.index==7]['M/A/T'].values == 'M':
     case6 = ManualStation(env,serviceTime=d.loc[d.index==7].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==6]['M/A/T'].values == 'S':
+elif c.loc[c.index==7]['M/A/T'].values == 'S':
     case6 = AutomatedMIP(env,serviceTime=d.loc[d.index==7].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==6]['M/A/T'].values == 'A':
+elif c.loc[c.index==7]['M/A/T'].values == 'A':
     case6 = Server(env,serviceTime=d.loc[d.index==7].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==7]['M/A/T'].values == 'C':
+    case6 = ManualStation(env,serviceTime=d.loc[d.index==7].values*0.25,serviceTimeFunction=normal_dist_bounded)
 case6queueOut = Queue(env,capacity = 4)
 
 
@@ -186,6 +206,9 @@ for i in range(2,25,2):
         g['ele_line'+str(i)] = AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==j]['M/A/T'].values == 'A':
         g['ele_line'+str(i)] = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+    elif c.loc[c.index==j]['M/A/T'].values == 'C':
+        g['ele_line'+str(i)] = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
+
     
 ele_line1 = Queue(env)
 # ele_line2 = ManualStation(env,serviceTime=d.loc[d.index==11].values,serviceTimeFunction=normal_dist_bounded)
@@ -337,7 +360,7 @@ final5pallet.connections['after'] = T
 
 # %% operators
 n_max = e['# of operators'].values[0]
-n_max=min(n_max,12)
+n_max=min(n_max,15)
 list_stations_case = [case0,case1,case2,case3,case4,case5,case6]
 list_stations_ele = [ele0,ele1,ele2,ele_line2,ele_line4,ele_line6,ele_line8,ele_line10,ele_line12,ele_line14,ele_line16,ele_line18,ele_line20,ele_line22,ele_line24,ele_line26]
 list_stations_final = [final2assebly,final2inspect,final4pack,final5pallet]
@@ -349,7 +372,7 @@ for i in range(1,n_max+1):
         # op_list.append(Operator(env))
         for j in b[i].index:
             if b[i][j]>0:
-                if c['M/A/T'][j]=='M' or c['M/A/T'][j]=='S':
+                if c['M/A/T'][j]=='M' or c['M/A/T'][j]=='S' or c['M/A/T'][j]=='C':
                     # if isinstance(list_stations[int(j-1)],Iterable):
                     #     for s in list_stations[int(j-1)]:
                     #         op.add_station(s)
@@ -390,17 +413,18 @@ print('Good luck!')
 for i in range(step,time_end,step):
     env.run(i)
     prod_parts.append(len(T))
-    print('Time elapsed: %d [s]' %i)
-    if len(T)==0:
-        print('Warning - no output')
-    else:
-        print(len(T))
-    elapsed = time.time()-time_start
-    if elapsed>30:
-        print('timeout')
-        break
-    else:
-        print(elapsed)
+    if False: # monitoring
+        print('Time elapsed: %d [s]' %i)
+        if len(T)==0:
+            print('Warning - no output')
+        else:
+            print(len(T))
+        elapsed = time.time()-time_start
+        if elapsed>30:
+            print('timeout')
+            break
+        else:
+            print(elapsed)
 print('Done!')
 env.state_log2 = pd.DataFrame(env.state_log,columns = env.state_log2.columns)
     
