@@ -192,9 +192,9 @@ class Generator(CHFSM):
         return [Create,Wait]        
 
 class Operator(CHFSM):
-    def __init__(self, env, name=None, station = []):
+    def __init__(self, env, name=None):
         super().__init__(env, name)
-        self.var.station = station
+        self.var.station = list()
         self.var.target = None
         self.var.Pause = env.event()
     def monitor(self):
@@ -287,6 +287,7 @@ class SwitchOut(CHFSM):
         Work = State('Work',True)
         @function(Work)
         def W(self):
+            print(self.sm)
             self.var.requests = [after.subscribe(['prova 1']) for after in self.connections['after']]
             self.var.x = AllOf(self.env,[self.Queue.subscribe(),AnyOf(self.env,self.var.requests)])
             return self.var.x
