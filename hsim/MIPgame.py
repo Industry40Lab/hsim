@@ -34,6 +34,7 @@ class Entity():
             self.serviceTime = 1
     
 folder = 'C:/Users/Lorenzo/OneDrive - Politecnico di Milano/Didattica/MIP 11-6-22/'
+folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP 11-6-22/MIP test Lorenzo/xDaniele/'
 filename = 'MIP1.xlsx'
 path = folder+filename
 a=pd.read_excel(path,sheet_name='Redesign_in',header=1,index_col=0)
@@ -123,7 +124,6 @@ case1 = ServerDoubleBuffer(env,serviceTime=d.loc[d.index==2].values,serviceTimeF
 
 case2queueIn = Queue(env,capacity = 4)
 if c.loc[c.index==3]['M/A/T'].values == 'M':
-    case2switch = SwitchOut(env)
     case2 = ManualStation(env,serviceTime=d.loc[d.index==3].values,serviceTimeFunction=normal_dist_bounded)
 elif c.loc[c.index==3]['M/A/T'].values == 'S':
     case2 = AutomatedMIP(env,serviceTime=d.loc[d.index==3].values,serviceTimeFunction=normal_dist_bounded)
@@ -133,7 +133,6 @@ case2queueOut = Queue(env,capacity = 4)
 
 case3queueIn = Queue(env,capacity = 4)
 if c.loc[c.index==4]['M/A/T'].values == 'M':
-    case3switch = SwitchOut(env)
     case3 = ManualStation(env,serviceTime=d.loc[d.index==4].values,serviceTimeFunction=normal_dist_bounded)
 elif c.loc[c.index==4]['M/A/T'].values == 'S':
     case3 = AutomatedMIP(env,serviceTime=d.loc[d.index==4].values,serviceTimeFunction=normal_dist_bounded)
@@ -148,7 +147,6 @@ case4scrap = Store(env)
 
 case5queueIn = Queue(env,capacity = 4)
 if c.loc[c.index==6]['M/A/T'].values == 'M':
-    case5switch = SwitchOut(env)
     case5 = ManualStation(env,serviceTime=d.loc[d.index==6].values,serviceTimeFunction=normal_dist_bounded)
 elif c.loc[c.index==6]['M/A/T'].values == 'S':
     case5 = AutomatedMIP(env,serviceTime=d.loc[d.index==6].values,serviceTimeFunction=normal_dist_bounded)
@@ -159,7 +157,6 @@ case5queueOut = Queue(env,capacity = 4)
 
 case6queueIn = Queue(env,capacity = 4)
 if c.loc[c.index==7]['M/A/T'].values == 'M':
-    case6switch = SwitchOut(env)
     case6 = ManualStation(env,serviceTime=d.loc[d.index==7].values,serviceTimeFunction=normal_dist_bounded)
 elif c.loc[c.index==6]['M/A/T'].values == 'S':
     case6 = AutomatedMIP(env,serviceTime=d.loc[d.index==7].values,serviceTimeFunction=normal_dist_bounded)
@@ -185,9 +182,9 @@ for i in range(2,25,2):
     g = globals()
     if c.loc[c.index==j]['M/A/T'].values == 'M':
         g['ele_line'+str(i)] = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-    elif c.loc[c.index==j]['M/A/T'].values == 'M':
+    elif c.loc[c.index==j]['M/A/T'].values == 'S':
         g['ele_line'+str(i)] = AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-    elif c.loc[c.index==j]['M/A/T'].values == 'M':
+    elif c.loc[c.index==j]['M/A/T'].values == 'A':
         g['ele_line'+str(i)] = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
     
 ele_line1 = Queue(env)
@@ -256,8 +253,7 @@ case0.connections['after'] = case1
 case1.connections['after'] = case2queueIn
 
 if c.loc[c.index==3]['M/A/T'].values == 'M':
-    case2queueIn.connections['after'] = case2switch
-    case2switch.connections['after'] = [case2]
+    case2queueIn.connections['after'] = case2
     case2.connections['after'] = case2queueOut
 else:
     case2queueIn.connections['after'] = case2
@@ -265,8 +261,7 @@ else:
 case2queueOut.connections['after'] = case3queueIn
 
 if c.loc[c.index==4]['M/A/T'].values == 'M':
-    case3queueIn.connections['after'] = case3switch
-    case3switch.connections['after'] = [case3]
+    case3queueIn.connections['after'] = case3
     case3.connections['after'] = case3queueOut
 else:
     case3queueIn.connections['after'] = case3
@@ -278,8 +273,7 @@ case4quality.connections['after'] = case5queueIn
 case4quality.connections['rework'] = case4scrap
 
 if c.loc[c.index==6]['M/A/T'].values == 'M':
-    case5queueIn.connections['after'] = case5switch
-    case5switch.connections['after'] = [case5]
+    case5queueIn.connections['after'] = case5
     case5.connections['after'] = case5queueOut
 else:
     case5queueIn.connections['after'] = case5
@@ -287,8 +281,7 @@ else:
 case5queueOut.connections['after'] = case6queueIn
 
 if c.loc[c.index==3]['M/A/T'].values == 'M':
-    case6queueIn.connections['after'] = case6switch
-    case6switch.connections['after'] = [case6]
+    case6queueIn.connections['after'] = case6
     case6.connections['after'] = case6queueOut
 else:
     case6queueIn.connections['after'] = case6
@@ -344,29 +337,37 @@ final5pallet.connections['after'] = T
 
 # %% operators
 n_max = e['# of operators'].values[0]
+n_max=min(n_max,12)
 list_stations_case = [case0,case1,case2,case3,case4,case5,case6]
 list_stations_ele = [ele0,ele1,ele2,ele_line2,ele_line4,ele_line6,ele_line8,ele_line10,ele_line12,ele_line14,ele_line16,ele_line18,ele_line20,ele_line22,ele_line24,ele_line26]
 list_stations_final = [final2assebly,final2inspect,final4pack,final5pallet]
 list_stations = list_stations_case + list_stations_ele + list_stations_final
 op_list = list()
-for i in range(1,n_max):
+for i in range(1,n_max+1):
     if b[i].sum():
         op = Operator(env)
+        # op_list.append(Operator(env))
         for j in b[i].index:
-            if b[i][j]>0 :
+            if b[i][j]>0:
                 if c['M/A/T'][j]=='M' or c['M/A/T'][j]=='S':
-                    if isinstance(list_stations[int(j-1)],Iterable):
-                        for s in list_stations[int(j-1)]:
-                            op.add_station(s)
-                    else:
-                        op.add_station(list_stations[int(j-1)])
+                    # if isinstance(list_stations[int(j-1)],Iterable):
+                    #     for s in list_stations[int(j-1)]:
+                    #         op.add_station(s)
+                    # else:
+                    # op.add_station(list_stations[int(j-1)])
+                    op.var.station.append(list_stations[int(j-1)])
+                    # op_list[-1].var.station.append(list_stations[int(j-1)])
             # elif c['M/A/T'][j]=='M' or c['M/A/T'][j]=='S': #remove
             #     if isinstance(list_stations[int(j-1)],Iterable):
             #         for s in list_stations[int(j-1)]:
             #             op.add_station(s)
             #     else:
             #         op.add_station(list_stations[int(j-1)])
+        
         op_list.append(op)
+        del(op)
+        
+# raise BaseException
         
 # %% maintenance
 TTR = 300
@@ -382,7 +383,7 @@ for index in std_machines:
 
 import time
 step = 1800
-time_end = 7*24*3600
+time_end = 24*3600
 prod_parts = list();
 time_start = time.time()
 print('Good luck!')
