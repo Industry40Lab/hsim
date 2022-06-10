@@ -33,7 +33,7 @@ class Entity():
             self.ID = ID
             self.serviceTime = 1
     
-folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP 11-6-22/'
+folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP EMBA INDUSTRY40 SIMULATION CASE 11-6-22/'
 # folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP 11-6-22/MIP test Lorenzo/xDaniele/'
 filename = 'MIP1.xlsx'
 path = folder+filename
@@ -359,8 +359,8 @@ final4pack.connections['after'] = final5pallet
 final5pallet.connections['after'] = T
 
 # %% operators
-n_max = e['# of operators'].values[0]
-n_max=min(n_max,15)
+n_lim = e['# of operators'].values[0]
+n_max = 15
 list_stations_case = [case0,case1,case2,case3,case4,case5,case6]
 list_stations_ele = [ele0,ele1,ele2,ele_line2,ele_line4,ele_line6,ele_line8,ele_line10,ele_line12,ele_line14,ele_line16,ele_line18,ele_line20,ele_line22,ele_line24,ele_line26]
 list_stations_final = [final2assebly,final2inspect,final4pack,final5pallet]
@@ -389,7 +389,9 @@ for i in range(1,n_max+1):
         
         op_list.append(op)
         del(op)
-        
+        if len(op_list)==n_lim:
+            break
+ 
 # raise BaseException
         
 # %% maintenance
@@ -406,7 +408,7 @@ for index in std_machines:
 
 import time
 step = 1800
-time_end = 24*3600
+time_end = 2*3600
 prod_parts = list();
 time_start = time.time()
 print('Good luck!')
@@ -470,6 +472,18 @@ states = states.fillna(0)
 states.drop(columns='GetIn',inplace=True)
 states.drop(columns='GetOut',inplace=True)
 
+statistics2 = OrderedDict()
+for op in op_list:
+    statistics2[op._name] = [{key._name:s[op][key]} for key in s[op]]
+states_op = pd.DataFrame([])
+i = 1
+for op in statistics2:
+    new_dict={k:v for element in statistics2[op] for k,v in element.items()}
+    new_df = pd.DataFrame(new_dict,index=[i])
+    states_op = pd.concat([states_op,new_df])
+    i += 1
+
+
 list_all = list_stations_case + list_stations_ele + list_stations_final
 list_labels = list()
 for i in b.index:
@@ -497,6 +511,7 @@ while True:
 writer = pd.ExcelWriter(folder+string, engine = 'xlsxwriter')
 th.to_excel(writer, sheet_name = 'TH')
 states.to_excel(writer, sheet_name = 'U')
+states_op.to_excel(writer, sheet_name = 'U (operators)')
 writer.save()
 # writer.close()
 
