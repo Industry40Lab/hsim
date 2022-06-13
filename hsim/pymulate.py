@@ -522,7 +522,7 @@ class AutomatedMIP(ManualStation):
             return Starve
         return [Starve,Idle,Setup,Work,Block]
     
-if 0:
+if 1:
     env = Environment()
     a = ServerDoubleBuffer(env,'1',1,np.random.exponential)
     # a.put([1])
@@ -532,9 +532,9 @@ if 0:
     a.connections['after']=b
     g = Generator(env, 'g',0.5)
     g.connections['after'] = a
-    env.run(20)
+    # env.run(20)
 
-if 1:
+if 0:
     env = Environment()
     g = Generator(env,serviceTime=1)
     b = Queue(env)
