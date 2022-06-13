@@ -10,6 +10,7 @@ import types
 import numpy as np
 from collections.abc import Iterable
 
+# %%
 class Server(CHFSM):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
         setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
@@ -545,3 +546,4 @@ if 1:
 
     import utils
     s = utils.stats(env)
+# %%
