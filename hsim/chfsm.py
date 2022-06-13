@@ -80,12 +80,26 @@ class StateMachine(object):
         self._states: List[State] = []
         self._initial_state = None
         self._current_state = None
-        states = self.build()
-        for state in states:
-            setattr(self, state._name, state)
-        self.copy_states()
+        # states = self.build()
+        # for state in states:
+        #     setattr(self, state._name, state)
+        # self.copy_states()
+        self._states = self.build()
+        for state in self._states:
+            state.set_parent_sm(self)
         self.start()
         self.env.add_object(self)
+    def __getattr__(self,attr):
+        for state in self._states:
+            if state._name == attr:
+                return state
+        raise AttributeError()
+        # return super().__getattr__(self,attr)
+        # try:
+        #     return getattr(self,attr)
+        # except:
+        # return next((x for x in self._states if x._name == attr), None)
+                
     def __repr__(self):
         return '<%s (%s object) at 0x%x>' % (self._name, type(self).__name__, id(self))
     def start(self):
@@ -186,8 +200,6 @@ class State(Process):
         self.env = parent_sm.env
     def start(self):
         logging.debug(f"Entering {self._name}")
-        # self.env.state_log.loc[len(self.env.state_log)] = [self.sm,self.sm._name,self,self._name,self.env.now,None]
-        # self.env.state_log.append([self.sm,self.sm._name,self,self._name,self.env.now,None])
         self._last_state_record = [self.sm,self.sm._name,self,self._name,self.env.now,None]
         self.env.state_log.append(self._last_state_record)
         for callback in self._entry_callbacks:
@@ -197,10 +209,6 @@ class State(Process):
         self._do_start()
     def stop(self):
         logging.debug(f"Exiting {self._name}")
-        # self.env.state_log.loc[(self.env.state_log.Resource==self.sm) & (self.env.state_log.State==self) & (self.env.state_log.timeOut.values == None),'timeOut'] = self.env.now
-        # for entry in reversed(self.env.state_log):
-        #     if entry[0] is self.sm and entry[2] is self and not entry[-1]:
-        #         entry[-1] = self.env.now
         self._last_state_record[-1] = self.env.now
         for callback in self._exit_callbacks:
             callback()
@@ -395,9 +403,10 @@ class Boh2(StateMachine):
 
 # env.run(50)
 
-if 0:
+if 1:
     env = Environment()
     foo = Boh2(env,1)
+    foo.Idle
     env.run(20)
     foo.interrupt()
     # for i in range(10):
