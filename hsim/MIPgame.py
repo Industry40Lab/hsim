@@ -32,10 +32,48 @@ class Entity():
         def __init__(self,ID):
             self.ID = ID
             self.serviceTime = 1
+            
+# %% path
     
 folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP EMBA INDUSTRY40 SIMULATION CASE 11-6-22/'
+
+# gourp 1
+# folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 1/'
+# filename = 'GSOM_low cost.xlsx'
+
+#group 2
+folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 2/'
+filename = 'GSOM_LowPerf 2.xlsx'
+
+
+# group 3
+# folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 3/'
+# filename = 'GSOM_original_2.xlsx'
+
+
+# # group 4
+# folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 4/'
+# filename = 'GSOM_Group4_S11.xlsx'
+
+# group 5
+# folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 5/'
+# filename = 'Gruppo 5_Scenario Best.xlsx'
+
+# group 6
+# folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 6/'
+# filename = 'GSOM_original_gruppo 6_cobot.xlsx'
+
+
+#group 7
+# folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 7/'
+# filename = 'Assignment I4 scenario4.xlsx'
+
+#group 8
+# folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 8/'
+# filename = 'Group8_GSOM_original_v.2.xlsx'
+
 # folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP 11-6-22/MIP test Lorenzo/xDaniele/'
-filename = 'MIP1.xlsx'
+# filename = 'MIP1.xlsx'
 path = folder+filename
 a=pd.read_excel(path,sheet_name='Redesign_in',header=1,index_col=0)
 a=a.fillna(int(0))
@@ -407,15 +445,15 @@ for index in std_machines:
 # %% run
 
 import time
-step = 1800
-time_end = 2*3600
+step = 900
+time_end = 24*3600
 prod_parts = list();
 time_start = time.time()
 print('Good luck!')
 for i in range(step,time_end,step):
     env.run(i)
     prod_parts.append(len(T))
-    if False: # monitoring
+    if True: # monitoring
         print('Time elapsed: %d [s]' %i)
         if len(T)==0:
             print('Warning - no output')
