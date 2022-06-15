@@ -11,12 +11,13 @@ from simpy import Event, FilterStore, Resource
 
 class Subscription(Event):
     # just like Get & Put events, but it does not get/put anything unless told to do so
-    def __init__(self, resource, item=None):
+    def __init__(self, resource, item=None, filter=None):
         super().__init__(resource._env)
         self.resource = resource
         self.proc = self.env.active_process
         self.item = item
         self._ok = False
+        self.filter = None
         if not self.item:
             self.__append__(self,resource.get_queue)
             resource._trigger_get(None)
@@ -223,17 +224,7 @@ class Demand(Event):
             self.resource.put_queue.remove(self)
 
 
-if False:  
-    from core import Environment
-    from simpy import AnyOf
-    env = Environment()
-    R = Resource(env)
-    S = Store(env,1)
-    S.put(1)
-    r=R.demand()
-    s=S.put(1)
-    r=R.demand()
-    a=AnyOf(env,[s,r])
+
 
 # class Subscription(Event):
 #     # just like Get & Put events, but it does not get/put anything unless told to do so
@@ -291,8 +282,22 @@ if False:
 #         return self.items.pop(0)
 #     def put_now(self,event):
 #         self.items.append(event.item)
-            
-if False:
+
+
+# %% tests 
+        
+if __name__ == "__main__":  
+    from core import Environment
+    from simpy import AnyOf
+    env = Environment()
+    R = Resource(env)
+    S = Store(env,1)
+    S.put(1)
+    r=R.demand()
+    s=S.put(1)
+    r=R.demand()
+    a=AnyOf(env,[s,r])
+
 
     env = Environment()
     a=Box(env)
