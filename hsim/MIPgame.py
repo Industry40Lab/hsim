@@ -446,7 +446,7 @@ for index in std_machines:
 
 import time
 step = 900
-time_end = 24*3600
+time_end = 1*24*3600
 prod_parts = list();
 time_start = time.time()
 print('Good luck!')
@@ -460,7 +460,7 @@ for i in range(step,time_end,step):
         else:
             print(len(T))
         elapsed = time.time()-time_start
-        if elapsed>30:
+        if elapsed>300:
             print('timeout')
             break
         else:
