@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from chfsm import CHFSM, State, CompositeState
-from chfsm import function, do, on_entry, on_exit, on_interrupt
+from chfsm import CHFSM, State
+from chfsm import function, do
 from stores import Store, Box
 from core import Environment, Event
 from simpy import AllOf, AnyOf
@@ -114,6 +114,8 @@ class ServerDoubleBuffer(ServerWithBuffer):
             return Starve
         states.append(Block)
         return states
+
+
         
 class ManualStation(Server):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
@@ -522,26 +524,37 @@ class AutomatedMIP(ManualStation):
             return Starve
         return [Starve,Idle,Setup,Work,Block]
     
-if 1:
-    env = Environment()
-    a = ServerDoubleBuffer(env,'1',1,np.random.exponential)
-    # a.put([1])
-    # op = Operator(env, 'op1')
-    # op.var.station = [a]
-    b = Store(env,20)
-    a.connections['after']=b
-    g = Generator(env, 'g',0.5)
-    g.connections['after'] = a
-    # env.run(20)
+if __name__ == "__main__":
+    
+    if False:
+        env = Environment()
+        a = ServerDoubleBuffer(env,'1',1,np.random.exponential)
+        # a.put([1])
+        # op = Operator(env, 'op1')
+        # op.var.station = [a]
+        b = Store(env,20)
+        a.connections['after']=b
+        g = Generator(env, 'g',0.5)
+        g.connections['after'] = a
+        env.run(20)
 
-if 0:
-    env = Environment()
-    g = Generator(env,serviceTime=1)
-    b = Queue(env)
-    c = Store(env)
-    g.connections['after'] = b
-    b.connections['after'] = c
-    env.run(10)
+    if False:
+        env = Environment()
+        g = Generator(env,serviceTime=1)
+        b = Queue(env)
+        c = Store(env)
+        g.connections['after'] = b
+        b.connections['after'] = c
+        env.run(10)
+        
+    if True:
+        env = Environment()
+        g = Generator(env,serviceTime=1)
+        b = ServerCoupledBuffer(env)
+        c = Store(env)
+        g.connections['after'] = b
+        b.connections['after'] = c
+        env.run(10)
 
 
     import utils
