@@ -93,13 +93,7 @@ class StateMachine(object):
         for state in self._states:
             if state._name == attr:
                 return state
-        raise AttributeError()
-        # return super().__getattr__(self,attr)
-        # try:
-        #     return getattr(self,attr)
-        # except:
-        # return next((x for x in self._states if x._name == attr), None)
-                
+        raise AttributeError('%s has no attribute %s', (self,attr))                
     def __repr__(self):
         return '<%s (%s object) at 0x%x>' % (self._name, type(self).__name__, id(self))
     def start(self):
@@ -174,19 +168,24 @@ class State(Process):
         self._child_state_machine = None
         self.sm = None
         self._interrupt_callbacks = []
-        self.env = None
+        # self.env = None
         self._generator = None
         self._function = None
         self.initial_state = initial_state
         self.callbacks = []
         self._value = None
+    def __getattr__(self,attr):
+        try:
+            return getattr(self.sm,attr)
+        except:
+            raise AttributeError(str('%s nor %s have attribute %s' %(self,self.sm,attr)))
     def __repr__(self):
         return '<%s (State) object at 0x%x>' % (self._name, id(self))
     def __call__(self):
         return self.start()
     @property
     def name(self):
-        return self.name()
+        return self._name
     def set_composite_state(self, CompositeState):
         sm = CompositeState(self.env, 'Prova', parent_state=self) #was parent_state=True
         # sm.parent_state = self
@@ -197,7 +196,7 @@ class State(Process):
         if self._child_state_machine and self._child_state_machine == parent_sm:
             raise ValueError("child_sm and parent_sm must be different")
         self.sm = parent_sm
-        self.env = parent_sm.env
+        # self.env = parent_sm.env
     def start(self):
         logging.debug(f"Entering {self._name}")
         self._last_state_record = [self.sm,self.sm._name,self,self._name,self.env.now,None]
@@ -218,7 +217,7 @@ class State(Process):
     def _do_start(self):
         self.callbacks = []
         self._value = PENDING
-        self._generator = self._function
+        # self._generator = self._function
         self._target = Initialize(self.env, self)
     def _do_stop(self):
         self._value = None
@@ -308,26 +307,37 @@ class State(Process):
 class CHFSM(StateMachine):
     def __init__(self,env,name=None):
         super().__init__(env,name)
+        self._list_messages()
+        self.connections = dict()
+        # for state in self._states:
+        #     state.connections = self.connections
+        #     state.var = self.var
+        #     for message in self._messages:
+        #         setattr(state,message,self._messages[message])
+    def __getattr__(self,attr):
+        for state in self._states:
+            if state._name == attr:
+                return state
+        try:
+            return self._messages[attr]
+        except:
+            pass
+        raise AttributeError(str('%s has no attribute %s' %(self,attr)))
+    def build_c(self):
+        pass
+    def _associate(self):
+        for state in self._states:
+            state.connections = self.connections
+            state.var = self.var
+            for message in self._messages:
+                setattr(state,message,self._messages[message])
+    def _list_messages(self):
         self._messages = OrderedDict()
         temp=list(self.__dict__.keys())
         self.build_c()
         for i in list(self.__dict__.keys()):
             if i not in temp:
                 self._messages[i] = getattr(self,i)
-        self.connections = dict()
-        for state in self._states:
-            state.connections = self.connections
-            state.var = self.var
-            for message in self._messages:
-                setattr(state,message,self._messages[message])
-    def build_c(self):
-        pass
-    def associate(self):
-        for state in self._states:
-            state.connections = self.connections
-            state.var = self.var
-            for message in self._messages:
-                setattr(state,message,self._messages[message])
                 
 class Boh(StateMachine):
     def build(self):
@@ -403,7 +413,7 @@ class Boh2(StateMachine):
 
 # env.run(50)
 
-if 1:
+if __name__ == "__main__":
     env = Environment()
     foo = Boh2(env,1)
     foo.Idle
@@ -413,7 +423,6 @@ if 1:
     #     env.step()
     env.run(200)
     
-if 0:
     env = Environment()
     foo = Boh(env,'Foo 1')
     foo2 = Boh(env,'Foo 2')
