@@ -17,7 +17,7 @@ class Subscription(Event):
         self.proc = self.env.active_process
         self.item = item
         self._ok = False
-        self.filter = None
+        self.filter = lambda x: True
         if not self.item:
             self.__append__(self,resource.get_queue)
             resource._trigger_get(None)
@@ -34,7 +34,7 @@ class Subscription(Event):
             self.resource._do_put(self)
     def confirm(self,item=None):
         if not self.item:
-            self._value = self.resource.get_now()
+            self._value = self.resource.get_now(self)
             self.resource._trigger_put(None)
             return self.value
         else:
@@ -42,21 +42,35 @@ class Subscription(Event):
                 self.item = item
             self.resource.put_now(self.item)
             self.resource._trigger_get(None)
-    def read(self):
-        return self.resource.items[0]
-    def check(self):
+    def read(self): #useless
+        if self.check():
+            for item in self.resource.items:
+                if self.filter(item):
+                    return item
+                return True
+    def check(self,get_all=False):
         if self.item and len(self.resource.items) < self.resource._capacity:
             return True
-        elif len(self.resource.items)>0 and not self.item:
-            return True
         else:
-            return False
+            if not all:
+                for item in self.resource.items:
+                    if self.filter(item):
+                        return item
+            else:
+                return [item for item in self.resource.items if self.filter(item)]
+        return False
     def cancel(self):
         if not self.triggered:
             self.resource.put_queue.remove(self)
         else:
             self.renounce()
-    
+    def choose(self,item):
+        if not self.item:
+            self.filter = lambda x: x is item
+            self.confirm()
+        else:
+            raise Exception()
+
     
 class Store(FilterStore):
     def __len__(self):
@@ -64,13 +78,14 @@ class Store(FilterStore):
     def subscribe(self,item=None):
         return Subscription(self,item)
     def _do_get(self, event):        
-        if self.items:
-            if not isinstance(event,Subscription):
-                event.succeed(self.items.pop(0))
-                return
-            else:
-                event.succeed()
-                return True
+        for item in self.items:
+            if event.filter(item):
+                if not isinstance(event,Subscription):
+                    event.succeed(self.items.pop(0))
+                    return
+                else:
+                    event.succeed()
+                    return True
     def _do_put(self, event):
         if len(self.items) < self._capacity:
             event.succeed()
@@ -79,12 +94,18 @@ class Store(FilterStore):
                 return 
             else:
                 return True
-    def get_now(self):
+    def get_now(self,event):
         # self._trigger_put(None)
-        return self.items.pop(0)
+        for item in self.items:
+            if event.filter(item):
+                self.items.remove(item)
+                return item
     def put_now(self,item):
         self.items.append(item)
         # self._trigger_get(None)
+
+class StoreU(Store):
+    pass
     
 
 class Box_v1(Store):
@@ -140,10 +161,10 @@ class Box(Store):
         return result
     def get(self,*args):
         raise NotImplementedError
-    def get_now(self):
-        x = self.items.pop(0)
-        self.forward(x)
-        return x
+    def get_now(self,event):
+        item = super().get_now(event)
+        self.forward(item)
+        return item
 
 
 class Resource(Resource):
