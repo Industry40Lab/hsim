@@ -52,7 +52,7 @@ class Subscription(Event):
         if self.item and len(self.resource.items) < self.resource._capacity:
             return True
         else:
-            if not all:
+            if not get_all:
                 for item in self.resource.items:
                     if self.filter(item):
                         return item
