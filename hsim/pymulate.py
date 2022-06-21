@@ -526,7 +526,7 @@ class AutomatedMIP(ManualStation):
     
 if __name__ == "__main__":
     
-    if False:
+    if 1:
         env = Environment()
         a = ServerDoubleBuffer(env,'1',1,np.random.exponential)
         # a.put([1])
@@ -547,7 +547,7 @@ if __name__ == "__main__":
         b.connections['after'] = c
         env.run(10)
         
-    if True:
+    if False:
         env = Environment()
         g = Generator(env,serviceTime=1)
         b = ServerCoupledBuffer(env)
