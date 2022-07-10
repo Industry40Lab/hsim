@@ -45,19 +45,31 @@ class Generator(sim.Generator):
             return Create
         return [Create,Wait]  
 
+
+
    
-class CONWIP():
-    def __init__(self,limit,objects):
-        self.objects = objects
-        self.limit = limit
+class OR():
+    def __init__(self,limits,objs):
+        self.objs = objs
+        self.limits = limits
+        
+class CONWIP(OR):
     def __call__(self):
         x = 0
-        for obj in self.objects:
+        for obj in self.objs:
             x += len(obj)
-        if x<self.limit:
+        if x<self.limits:
             return True
         else:
             return False
+        
+class POLCA():
+    def __call__(self,obj):
+        pass
+
+class DEWIP():
+    def __call__(self):
+        pass
             
 class createEntity():
     def __init__(self,n_machines,config):
