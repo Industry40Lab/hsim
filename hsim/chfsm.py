@@ -90,10 +90,15 @@ class StateMachine(object):
         self.start()
         self.env.add_object(self)
     def __getattr__(self,attr):
-        for state in self._states:
-            if state._name == attr:
-                return state
-        raise AttributeError('%s has no attribute %s', (self,attr))                
+        try:
+            a = [state for state in foo._states if state._name == attr]
+            if len(a)>1:
+                return tuple(a)
+            else:
+                return a[0]
+            return [state for state in foo._states if state._name == attr][0]
+        except:
+            raise object.__getattribute__(self, attr)
     def __repr__(self):
         return '<%s (%s object) at 0x%x>' % (self._name, type(self).__name__, id(self))
     def start(self):
@@ -112,8 +117,7 @@ class StateMachine(object):
         return []
     def add_state(self, state, initial_state = False):
         if state in self._states:
-            print(1)
-            # raise ValueError("attempting to add same state twice")
+            raise ValueError("attempting to add same state twice")
         else:
             self._states.append(state)
             state.set_parent_sm(self)
@@ -176,9 +180,15 @@ class State(Process):
         self._value = None
     def __getattr__(self,attr):
         try:
-            return getattr(self.sm,attr)
+            sm = self.__getattribute__('sm')
+            return sm.__getattribute__(attr)
         except:
-            raise AttributeError(str('%s nor %s have attribute %s' %(self,self.sm,attr)))
+            return object.__getattribute__(self,attr)
+    #     pass
+        # try:
+        #     return self.sm.__getattribute__(attr)
+        # except:
+        #     raise AttributeError(str('%s nor %s have attribute %s' %(self,self.sm,attr)))
     def __repr__(self):
         return '<%s (State) object at 0x%x>' % (self._name, id(self))
     def __call__(self):
@@ -421,12 +431,15 @@ if __name__ == "__main__":
     foo.interrupt()
     # for i in range(10):
     #     env.step()
-    env.run(200)
+    S=State('a')
+    # env.run(200)
     
+    
+
+if __name__ == "__main__" and False:
     env = Environment()
     foo = Boh(env,'Foo 1')
     foo2 = Boh(env,'Foo 2')
-
     env.run(11)
     
     foo.interrupt()
