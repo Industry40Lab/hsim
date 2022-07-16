@@ -83,15 +83,10 @@ class StateMachine(object):
         self.start()
         self.env.add_object(self)
     def __getattr__(self,attr):
-        try:
-            a = [state for state in foo._states if state._name == attr]
-            if len(a)>1:
-                return tuple(a)
-            else:
-                return a[0]
-            return [state for state in foo._states if state._name == attr][0]
-        except:
-            raise object.__getattribute__(self, attr)
+        for state in object.__getattribute__(self,'_states'):
+            if state._name == attr:
+                return state
+        raise AttributeError()
     def __repr__(self):
         return '<%s (%s object) at 0x%x>' % (self._name, type(self).__name__, id(self))
     def start(self):
@@ -296,7 +291,7 @@ class CHFSM(StateMachine):
         self._list_messages()
         self.connections = dict()
     def __getattr__(self,attr):
-        for state in self._states:
+        for state in object.__getattribute__(self,'_states'):
             if state._name == attr:
                 return state
         try:
@@ -352,7 +347,7 @@ class Boh(StateMachine):
         Idle.set_composite_state(Idle_SM)
         return [Idle]
 
-class Boh2(StateMachine):
+class Boh2(CHFSM):
     def build(self):
         Work = State('Idle',True)
         @function(Work)
@@ -372,7 +367,7 @@ class Boh2(StateMachine):
         return [Work]
     
 
-if __name__ == "__main__" and False:
+if __name__ == "__main__" and 1:
     env = Environment()
     foo = Boh2(env,1)
     foo.Idle
@@ -381,6 +376,8 @@ if __name__ == "__main__" and False:
     # for i in range(10):
     #     env.step()
     env.run(200)
+    import dill
+    print(dill.pickles(foo))
     
 
 if __name__ == "__main__" and False:
