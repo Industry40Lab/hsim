@@ -371,13 +371,13 @@ if __name__ == "__main__" and 1:
     env = Environment()
     foo = Boh2(env,1)
     foo.Idle
+    a = State(1)
     env.run(20)
     foo.interrupt()
     # for i in range(10):
     #     env.step()
     env.run(200)
-    import dill
-    print(dill.pickles(foo))
+
     
 
 if __name__ == "__main__" and False:
