@@ -109,8 +109,7 @@ class StateMachine(object):
             print('Warning: no initial state set')
     def interrupt(self):
         for state in self._states:
-            if state.is_alive:
-                state.interrupt()
+            state.interrupt()
     def stop(self):
         return self.interrupt()
     def build(self):
