@@ -61,14 +61,11 @@ def do(instance):
         return f
     return decorator
 
-
-# class StateMachine(StateMachine):
 @staticmethod
 def set_state(name,initial_state=False):
     state=State(name)
     setattr(StateMachine,name,state)
     StateMachine.add_state(state,initial_state)
-        # return State
         
 class StateMachine(object):
     def __init__(self, env, name=None):
@@ -80,10 +77,6 @@ class StateMachine(object):
         self._states: List[State] = []
         self._initial_state = None
         self._current_state = None
-        # states = self.build()
-        # for state in states:
-        #     setattr(self, state._name, state)
-        # self.copy_states()
         self._states = self.build()
         for state in self._states:
             state.set_parent_sm(self)
@@ -171,7 +164,6 @@ class State(Process):
         self._child_state_machine = None
         self.sm = None
         self._interrupt_callbacks = []
-        # self.env = None
         self._generator = None
         self._function = None
         self.initial_state = initial_state
@@ -183,11 +175,6 @@ class State(Process):
             return sm.__getattribute__(attr)
         except:
             return object.__getattribute__(self,attr)
-    #     pass
-        # try:
-        #     return self.sm.__getattribute__(attr)
-        # except:
-        #     raise AttributeError(str('%s nor %s have attribute %s' %(self,self.sm,attr)))
     def __repr__(self):
         return '<%s (State) object at 0x%x>' % (self._name, id(self))
     def __call__(self):
@@ -197,7 +184,6 @@ class State(Process):
         return self._name
     def set_composite_state(self, CompositeState):
         sm = CompositeState(self.env, 'Prova', parent_state=self) #was parent_state=True
-        # sm.parent_state = self
         self._child_state_machine = sm
     def set_parent_sm(self, parent_sm):
         if not isinstance(parent_sm, StateMachine):
@@ -205,7 +191,6 @@ class State(Process):
         if self._child_state_machine and self._child_state_machine == parent_sm:
             raise ValueError("child_sm and parent_sm must be different")
         self.sm = parent_sm
-        # self.env = parent_sm.env
     def start(self):
         logging.debug(f"Entering {self._name}")
         self._last_state_record = [self.sm,self.sm._name,self,self._name,self.env.now,None]
@@ -226,17 +211,12 @@ class State(Process):
     def _do_start(self):
         self.callbacks = []
         self._value = PENDING
-        # self._generator = self._function
         self._target = Initialize(self.env, self)
     def _do_stop(self):
         self._value = None
     def interrupt(self):
         if self.is_alive:
             super().interrupt()
-            # for event in self.env._queue:
-            #     for callback in event[-1].callbacks:
-            #         if callback == self._resume:
-            #             event[-1].callbacks.remove(callback)
             for callback in self._interrupt_callbacks:
                 callback()
             if self._child_state_machine is not None:
@@ -256,12 +236,9 @@ class State(Process):
                         warnings.warn('Error in %s (%s)' %(self,self.sm))
                         raise StopIteration
                     if event is None:
-                        # pass
                         event = self
                         self._do_start()
                         return
-                        # event = Initialize(self.env,self)
-                        # break
                     else:
                         event()
                         if type(event) is type(self):
@@ -318,11 +295,6 @@ class CHFSM(StateMachine):
         super().__init__(env,name)
         self._list_messages()
         self.connections = dict()
-        # for state in self._states:
-        #     state.connections = self.connections
-        #     state.var = self.var
-        #     for message in self._messages:
-        #         setattr(state,message,self._messages[message])
     def __getattr__(self,attr):
         for state in self._states:
             if state._name == attr:
@@ -398,31 +370,9 @@ class Boh2(StateMachine):
         def entering(self):
             print('Entering working state')
         return [Work]
-# Idle = State('Idle')
-# @function(Idle)
-# def test(self):
-#     print('Test working')
-#     yield self.env.timeout(1)
-#     print('FAIL')    
-# @on_exit(Idle)
-# def print_ciao(self):
-#     print('ciao')
+    
 
-     
-# class Environment(Environment):
-#     state = BoundClass(State)
-
-
-# env = Environment()
-# Idle.env = env
-# Idle.start()
-# env.run(0.5)
-# Idle.interrupt()
-# env.run(0.6)
-
-# env.run(50)
-
-if __name__ == "__main__":
+if __name__ == "__main__" and False:
     env = Environment()
     foo = Boh2(env,1)
     foo.Idle
@@ -430,9 +380,7 @@ if __name__ == "__main__":
     foo.interrupt()
     # for i in range(10):
     #     env.step()
-    S=State('a')
-    # env.run(200)
-    
+    env.run(200)
     
 
 if __name__ == "__main__" and False:
@@ -444,10 +392,5 @@ if __name__ == "__main__" and False:
     foo.interrupt()
     env.run(30)
 
-    
-# def Composite(instance):
-#     def decorator(f):
-#         setattr(instance, '_child_state_machine', f)
-#         return f
-#     return decorator
+
     
