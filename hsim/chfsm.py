@@ -321,6 +321,9 @@ class CHFSM(StateMachine):
         for i in list(self.__dict__.keys()):
             if i not in temp:
                 self._messages[i] = getattr(self,i)
+
+class Transition():
+    pass    
                 
 class Boh(StateMachine):
     def build(self):
