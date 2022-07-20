@@ -15,7 +15,7 @@ from stores import Store
 from collections import OrderedDict
 import warnings
 import pandas as pd
-
+import copy
 
 def function(instance):
     def decorator(f):
@@ -66,20 +66,23 @@ def set_state(name,initial_state=False):
     state=State(name)
     setattr(StateMachine,name,state)
     StateMachine.add_state(state,initial_state)
+
+def add_states(sm,states):
+    sm._states = states # [copy.deepcopy(state) for state in states]
+
         
 class StateMachine(object):
     def __init__(self, env, name=None):
         self.env = env
         self.var = dotdict()
         if name==None:
-            name = str('0x%x' %id(self))
-        self._name = name
-        self._states: List[State] = []
+            self.name = str('0x%x' %id(self))
+        else:
+            self._name = name
+        # self._states: List[State] = []
         self._initial_state = None
         self._current_state = None
-        self._states = self.build()
-        for state in self._states:
-            state.set_parent_sm(self)
+        self._build()
         self.start()
         self.env.add_object(self)
     def __getattr__(self,attr):
@@ -100,16 +103,19 @@ class StateMachine(object):
             state.interrupt()
     def stop(self):
         return self.interrupt()
-    def build(self):
-        return []
-    def add_state(self, state, initial_state = False):
-        if state in self._states:
-            raise ValueError("attempting to add same state twice")
-        else:
-            self._states.append(state)
+    def _build(self):
+        self._states = copy.deepcopy(self._states)
+        for state in self._states:
             state.set_parent_sm(self)
-        if not self._initial_state and initial_state:
-            self._initial_state = state
+    # def add_state(self, state, initial_state = False):
+    #     if state in self._states:
+    #         raise ValueError("attempting to add same state twice")
+    #     else:
+    #         state = copy.deepcopy(state)
+    #         self._states.append(state)
+    #         state.set_parent_sm(self)
+    #     if not self._initial_state and initial_state:
+    #         self._initial_state = state
     def copy_states(self):
         for element in dir(self):
             x = getattr(self, element)
@@ -167,7 +173,7 @@ class State(Process):
     def __getattr__(self,attr):
         try:
             sm = self.__getattribute__('sm')
-            return sm.__getattribute__(attr)
+            return getattr(sm,attr)
         except:
             return object.__getattribute__(self,attr)
     def __repr__(self):
@@ -235,10 +241,11 @@ class State(Process):
                         self._do_start()
                         return
                     else:
-                        event()
                         if type(event) is type(self):
                             self.stop()
+                            event()
                         else:
+                            event()
                             raise StopIteration
                 elif isinstance(event,Interruption):
                     event = None
@@ -349,7 +356,7 @@ class Boh(StateMachine):
 
 class Boh2(CHFSM):
     def build(self):
-        Work = State('Idle',True)
+        Work = State('Work',True)
         @function(Work)
         def printt(self):
             print('Start working. Will finish in 10s')
@@ -366,12 +373,24 @@ class Boh2(CHFSM):
             print('Entering working state')
         return [Work]
     
+class Boh3(StateMachine):
+    pass
+Work = State('Work',True)
+@function(Work)
+def printt(self):
+    print('Start working. Will finish in 10s')
+    return self.env.timeout(10)
+@do(Work)
+def d(self,Event):
+    print("Finished!")
+    return self.Work
+add_states(Boh3,[Work])
 
 if __name__ == "__main__" and 1:
     env = Environment()
-    foo = Boh2(env,1)
-    foo.Idle
-    a = State(1)
+    foo = Boh3(env,1)
+    
+    # a = State(1)
     env.run(20)
     foo.interrupt()
     # for i in range(10):
