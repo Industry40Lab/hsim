@@ -16,6 +16,7 @@ from collections import OrderedDict
 import warnings
 import pandas as pd
 import copy
+import dill
 
 def function(instance):
     def decorator(f):
@@ -301,11 +302,9 @@ class CHFSM(StateMachine):
         for state in object.__getattribute__(self,'_states'):
             if state._name == attr:
                 return state
-        try:
-            return self._messages[attr]
-        except:
-            pass
-        raise AttributeError(str('%s has no attribute %s' %(self,attr)))
+        if object.__getattribute__(self,'_messages').__contains__(attr):
+            return object.__getattribute__(self,'_messages')[attr]
+        raise AttributeError()
     def build_c(self):
         pass
     def _associate(self):
@@ -350,6 +349,7 @@ class Transition():
             self._action()
         else:
             self.otherwise()
+        return self._target
     def __call__(self):
         event = self.trigger()
         event.callbacks = self._evaluate
@@ -406,7 +406,7 @@ class Boh2(CHFSM):
             print('Entering working state')
         return [Work]
     
-class Boh3(StateMachine):
+class Boh3(CHFSM):
     pass
 Work = State('Work',True)
 @function(Work)
@@ -419,6 +419,8 @@ def d(self,Event):
     return self.Work
 add_states(Boh3,[Work])
 
+class Boh4(StateMachine):
+    pass
 
 
 if __name__ == "__main__" and 1:
