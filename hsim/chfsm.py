@@ -323,9 +323,6 @@ class CHFSM(StateMachine):
                 self._messages[i] = getattr(self,i)
 
 class Transition(Event):
-    _target = None
-    _state = None
-
     def __init__(self, state):
         self._state = state
         if hasattr(self,'env'):
