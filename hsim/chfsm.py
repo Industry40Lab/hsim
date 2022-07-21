@@ -321,13 +321,8 @@ class CHFSM(StateMachine):
             if i not in temp:
                 self._messages[i] = getattr(self,i)
 
-<<<<<<< HEAD
-class Transition(Event):
-    def __init__(self, state):
-=======
 class Transition():
     def __init__(self, state, target=None):
->>>>>>> transitions
         self._state = state
         self._target = target
         if hasattr(self,'env'):
