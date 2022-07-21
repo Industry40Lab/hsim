@@ -321,13 +321,8 @@ class CHFSM(StateMachine):
             if i not in temp:
                 self._messages[i] = getattr(self,i)
 
-<<<<<<< HEAD
-class Transition(Event):
-    def __init__(self, state):
-=======
 class Transition():
     def __init__(self, state, target=None):
->>>>>>> transitions
         self._state = state
         self._target = target
         if hasattr(self,'env'):
@@ -422,8 +417,8 @@ def printt(self):
 def d(self,Event):
     print("Finished!")
     return self.Work
+t = Transition(Work)
 add_states(Boh3,[Work])
-
 class Boh4(StateMachine):
     pass
 
