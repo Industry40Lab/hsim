@@ -325,17 +325,20 @@ class CHFSM(StateMachine):
 class Transition(Event):
     _target = None
     _state = None
-    @property
-    def env(self):
-        state = self.__getattribute__('_state')
-        return state.env
+
     def __init__(self, state):
-        super().__init__(self.env)
-        self.callbacks.append(self._transition)
+        self._state = state
+        if hasattr(self,'env'):
+            super().__init__(self.env)
+            self.callbacks.append(self._transition)
     def __getattr__(self,attr):
         try:
             state = self.__getattribute__('_state')
-            return getattr(state,attr)
+            try:
+                return getattr(state,attr)
+            except:
+                sm = state.__getattribute__('sm')
+                return getattr(sm,attr)
         except:
             return object.__getattribute__(self,attr)
     def _transition(self):
@@ -344,8 +347,8 @@ class Transition(Event):
         else:
             pass
         return self._target
-    def __call__(self):
-        return copy.deepcopy(self)
+    def _restart(self):
+        return self.__init__(self._state)
 
                 
 class Boh(StateMachine):
