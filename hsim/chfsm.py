@@ -16,6 +16,7 @@ from collections import OrderedDict
 import warnings
 import pandas as pd
 import copy
+import dill
 
 def function(instance):
     def decorator(f):
@@ -301,11 +302,9 @@ class CHFSM(StateMachine):
         for state in object.__getattribute__(self,'_states'):
             if state._name == attr:
                 return state
-        try:
-            return self._messages[attr]
-        except:
-            pass
-        raise AttributeError(str('%s has no attribute %s' %(self,attr)))
+        if object.__getattribute__(self,'_messages').__contains__(attr):
+            return object.__getattribute__(self,'_messages')[attr]
+        raise AttributeError()
     def build_c(self):
         pass
     def _associate(self):
@@ -325,8 +324,12 @@ class CHFSM(StateMachine):
 <<<<<<< HEAD
 class Transition(Event):
     def __init__(self, state):
+=======
+class Transition():
+    def __init__(self, state, target=None):
 >>>>>>> transitions
         self._state = state
+        self._target = target
         if hasattr(self,'env'):
             super().__init__(self.env)
             self.callbacks.append(self._transition)
@@ -340,14 +343,21 @@ class Transition(Event):
                 return getattr(sm,attr)
         except:
             return object.__getattribute__(self,attr)
-    def _transition(self):
-        if False:
-            pass
+    def _trigger(self):
+        pass
+    def _condition(self):
+        pass
+    def _action(self):
+        pass
+    def _evaluate(self):
+        if self._condition():
+            self._action()
         else:
-            pass
+            self.otherwise()
         return self._target
-    def _restart(self):
-        return self.__init__(self._state)
+    def __call__(self):
+        event = self.trigger()
+        event.callbacks = self._evaluate
 
                 
 class Boh(StateMachine):
@@ -401,7 +411,7 @@ class Boh2(CHFSM):
             print('Entering working state')
         return [Work]
     
-class Boh3(StateMachine):
+class Boh3(CHFSM):
     pass
 Work = State('Work',True)
 @function(Work)
@@ -414,6 +424,8 @@ def d(self,Event):
     return self.Work
 add_states(Boh3,[Work])
 
+class Boh4(StateMachine):
+    pass
 
 
 if __name__ == "__main__" and 1:
