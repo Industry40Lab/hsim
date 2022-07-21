@@ -7,7 +7,7 @@ Created on Sat Mar 19 16:15:38 2022
 
 from typing import List, Any, Optional, Callable
 import logging 
-from simpy import Process, Interrupt
+from simpy import Process, Interrupt, Event
 from simpy.events import PENDING, Initialize, Interruption
 from core import Environment, dotdict
 import types
@@ -322,6 +322,30 @@ class CHFSM(StateMachine):
             if i not in temp:
                 self._messages[i] = getattr(self,i)
 
+class Transition(Event):
+    _target = None
+    _state = None
+    @property
+    def env(self):
+        state = self.__getattribute__('_state')
+        return state.env
+    def __init__(self, state):
+        super().__init__(self.env)
+        self.callbacks.append(self._transition)
+    def __getattr__(self,attr):
+        try:
+            state = self.__getattribute__('_state')
+            return getattr(state,attr)
+        except:
+            return object.__getattribute__(self,attr)
+    def _transition(self):
+        if False:
+            pass
+        else:
+            pass
+        return self._target
+    def __call__(self):
+        return copy.deepcopy(self)
 
                 
 class Boh(StateMachine):
@@ -387,6 +411,8 @@ def d(self,Event):
     print("Finished!")
     return self.Work
 add_states(Boh3,[Work])
+
+
 
 if __name__ == "__main__" and 1:
     env = Environment()
