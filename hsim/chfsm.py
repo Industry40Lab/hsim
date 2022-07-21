@@ -322,12 +322,10 @@ class CHFSM(StateMachine):
             if i not in temp:
                 self._messages[i] = getattr(self,i)
 
-class Transition(Event):
-    _target = None
-    _state = None
-
-    def __init__(self, state):
+class Transition():
+    def __init__(self, state, target=None):
         self._state = state
+        self._target = target
         if hasattr(self,'env'):
             super().__init__(self.env)
             self.callbacks.append(self._transition)
@@ -341,14 +339,20 @@ class Transition(Event):
                 return getattr(sm,attr)
         except:
             return object.__getattribute__(self,attr)
-    def _transition(self):
-        if False:
-            pass
+    def _trigger(self):
+        pass
+    def _condition(self):
+        pass
+    def _action(self):
+        pass
+    def _evaluate(self):
+        if self._condition():
+            self._action()
         else:
-            pass
-        return self._target
-    def _restart(self):
-        return self.__init__(self._state)
+            self.otherwise()
+    def __call__(self):
+        event = self.trigger()
+        event.callbacks = self._evaluate
 
                 
 class Boh(StateMachine):
