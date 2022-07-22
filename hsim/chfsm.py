@@ -154,7 +154,7 @@ class State(Process):
         self.sm = None
         self._interrupt_callbacks = []
         self._generator = None
-        self._function = lambda: None
+        self._function = lambda self: None
         self.initial_state = initial_state
         self.callbacks = []
         self._value = None
@@ -175,8 +175,8 @@ class State(Process):
         compositeState.parent_state = self
         self._child_state_machine = compositeState
     def set_parent_sm(self, parent_sm):
-        if not isinstance(parent_sm, StateMachine):
-            raise TypeError("parent_sm must be the type of StateMachine")
+        # if not isinstance(parent_sm, StateMachine):
+        #     raise TypeError("parent_sm must be the type of StateMachine")
         if self._child_state_machine and self._child_state_machine == parent_sm:
             raise ValueError("child_sm and parent_sm must be different")
         self.sm = parent_sm
