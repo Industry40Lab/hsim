@@ -94,4 +94,7 @@ def method_lambda(self,function):
         return function(self)
     else:
         return function()
-    
+    # try:
+    #     return function()
+    # except TypeError:
+    #     return function(self)
