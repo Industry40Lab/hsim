@@ -132,12 +132,13 @@ class StateMachine():
             return True
 
 class CompositeState(StateMachine):
-    def __init__(self, env, name=None):
+    def __init__(self, name=None):
         if name==None:
             self.name = str('0x%x' %id(self))
         else:
             self._name = name
         self._current_state = None
+        self.parent_state = None
     def start(self):
         self.env = self.parent_state.env
         self._build()
@@ -171,7 +172,7 @@ class State(Process):
     def name(self):
         return self._name
     def set_composite_state(self, CompositeState):
-        sm = CompositeState(self.env, 'Prova', parent_state=self) 
+        sm = CompositeState.parent_state = self 
         self._child_state_machine = sm
     def set_parent_sm(self, parent_sm):
         if not isinstance(parent_sm, StateMachine):
@@ -379,7 +380,6 @@ class Pseudostate(State):
             event = transition()
             events.append(event)
 
-               
 class Boh(StateMachine):
     def build(self):
         Idle = State('Idle',True)
@@ -444,20 +444,33 @@ def d(self,Event):
     return self.Work
 add_states(Boh3,[Work])
 
-class Boh4(StateMachine):
+class Boh4(CHFSM):
     pass
 Work = State('Work',True)
-# @function(Work)
-# def printt(self):
-#     print('Start working. Will finish in 10s')
 Work._function = lambda self:print('Start working. Will finish in 10s')
 t = Transition(Work, None, lambda self: self.env.timeout(10))
 Work._transitions = [t]
-add_states(Boh3,[Work])
+add_states(Boh4,[Work])
+
+class Boh5(CHFSM):
+    class WorkSM(CHFSM):
+        pass
+Work = State('Work',True)
+Work._function = lambda self:print('Start working. Will finish in 10s')
+t = Transition(Work, None, lambda self: self.env.timeout(10))
+Work._transitions = [t]
+
+Work0 = State('Work0',True)
+Work0._function = lambda self:print('Start working 0. Will finish in 5s')
+t = Transition(Work0, None, lambda self: self.env.timeout(5))
+Work0._transitions = [t]
+add_states(Boh5.WorkSM,[Work0])
+Work.set_composite_state(Boh5.WorkSM)
+add_states(Boh5,[Work])
 
 if __name__ == "__main__" and 1:
     env = Environment()
-    foo = Boh3(env,1)
+    foo = Boh5(env,1)
     
     # a = State(1)
     env.run(20)
