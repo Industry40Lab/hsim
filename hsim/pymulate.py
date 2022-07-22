@@ -67,7 +67,7 @@ Starving = State('Starving',True)
 Working = State('Working') 
 Blocking = State('Blocking')
 t = Transition(Starving, Working, lambda self: self.Store.get())
-# t = Transition(Starve, Work, lambda self: self.env.timeout(10))
+Starving._transitions = [t]
 add_states(Server,[Starving,Working,Blocking])  
       
 env = Environment()
