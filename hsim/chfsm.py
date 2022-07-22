@@ -380,96 +380,96 @@ class Pseudostate(State):
             event = transition()
             events.append(event)
 
-class Boh(StateMachine):
-    def build(self):
-        Idle = State('Idle',True)
-        @function(Idle)
-        def printt(self):
-            print('%s is Idle' %self.sm._name)
-            return self.env.timeout(10)
-        @do(Idle)
-        def todo(self,Event):
-            print('%s waited 10s' %self.sm._name)
-        @on_exit(Idle)
-        def print_ciao(self):
-            print('Idle state exit')
-        @on_interrupt(Idle)
-        def interrupted_ok(self):
-            print('%s idle state interrupted ok'  %self.sm._name)
-        class Idle_SM(CompositeState):
-            Sub = State('Sub',True)
-            @function(Sub)
-            def printt(self):
-                print('%s will print this something in 20 s'  %self.sm._name)
-                return self.env.timeout(20)
-            @do(Sub)
-            def todo(self,Event):
-                print('Printing this only once')
-                raise
-            @on_exit(Sub)
-            def print_ciao(self):
-                print('Substate exit')
-        Idle.set_composite_state(Idle_SM)
-        return [Idle]
-
-class Boh2(CHFSM):
-    def build(self):
-        Work = State('Work',True)
-        @function(Work)
-        def printt(self):
-            print('Start working. Will finish in 10s')
-            return self.env.timeout(10)
-        @do(Work)
-        def d(self,Event):
-            print("Finished!")
-            return Work
-        @on_exit(Work)
-        def exiting(self):
-            print('Leaving working state')
-        @on_entry(Work)
-        def entering(self):
-            print('Entering working state')
-        return [Work]
-    
-class Boh3(CHFSM):
-    pass
-Work = State('Work',True)
-@function(Work)
-def printt(self):
-    print('Start working. Will finish in 10s')
-    return self.env.timeout(10)
-@do(Work)
-def d(self,Event):
-    print("Finished!")
-    return self.Work
-add_states(Boh3,[Work])
-
-class Boh4(CHFSM):
-    pass
-Work = State('Work',True)
-Work._function = lambda self:print('Start working. Will finish in 10s')
-t = Transition(Work, None, lambda self: self.env.timeout(10))
-Work._transitions = [t]
-add_states(Boh4,[Work])
-
-class Boh5(CHFSM):
-    pass
-class WorkSM(CompositeState):
-    pass
-Work = State('Work',True)
-Work._function = lambda self:print('Start working. Will finish in 10s')
-t = Transition(Work, None, lambda self: self.env.timeout(10))
-Work._transitions = [t]
-
-Work0 = State('Work0',True)
-Work0._function = lambda self:print('Start working 0. Will finish in 5s')
-t = Transition(Work0, None, lambda self: self.env.timeout(5))
-Work0._transitions = [t]
-add_states(WorkSM,[Work0])
-Work.set_composite_state(WorkSM('WorkSM'))
-add_states(Boh5,[Work])
-
 if __name__ == "__main__" and 1:
+    class Boh(StateMachine):
+        def build(self):
+            Idle = State('Idle',True)
+            @function(Idle)
+            def printt(self):
+                print('%s is Idle' %self.sm._name)
+                return self.env.timeout(10)
+            @do(Idle)
+            def todo(self,Event):
+                print('%s waited 10s' %self.sm._name)
+            @on_exit(Idle)
+            def print_ciao(self):
+                print('Idle state exit')
+            @on_interrupt(Idle)
+            def interrupted_ok(self):
+                print('%s idle state interrupted ok'  %self.sm._name)
+            class Idle_SM(CompositeState):
+                Sub = State('Sub',True)
+                @function(Sub)
+                def printt(self):
+                    print('%s will print this something in 20 s'  %self.sm._name)
+                    return self.env.timeout(20)
+                @do(Sub)
+                def todo(self,Event):
+                    print('Printing this only once')
+                    raise
+                @on_exit(Sub)
+                def print_ciao(self):
+                    print('Substate exit')
+            Idle.set_composite_state(Idle_SM)
+            return [Idle]
+    
+    class Boh2(CHFSM):
+        def build(self):
+            Work = State('Work',True)
+            @function(Work)
+            def printt(self):
+                print('Start working. Will finish in 10s')
+                return self.env.timeout(10)
+            @do(Work)
+            def d(self,Event):
+                print("Finished!")
+                return Work
+            @on_exit(Work)
+            def exiting(self):
+                print('Leaving working state')
+            @on_entry(Work)
+            def entering(self):
+                print('Entering working state')
+            return [Work]
+        
+    class Boh3(CHFSM):
+        pass
+    Work = State('Work',True)
+    @function(Work)
+    def printt(self):
+        print('Start working. Will finish in 10s')
+        return self.env.timeout(10)
+    @do(Work)
+    def d(self,Event):
+        print("Finished!")
+        return self.Work
+    add_states(Boh3,[Work])
+    
+    class Boh4(CHFSM):
+        pass
+    Work = State('Work',True)
+    Work._function = lambda self:print('Start working. Will finish in 10s')
+    t = Transition(Work, None, lambda self: self.env.timeout(10))
+    Work._transitions = [t]
+    add_states(Boh4,[Work])
+    
+    class Boh5(CHFSM):
+        pass
+    class WorkSM(CompositeState):
+        pass
+    Work = State('Work',True)
+    Work._function = lambda self:print('Start working. Will finish in 10s')
+    t = Transition(Work, None, lambda self: self.env.timeout(10))
+    Work._transitions = [t]
+    
+    Work0 = State('Work0',True)
+    Work0._function = lambda self:print('Start working 0. Will finish in 5s')
+    t = Transition(Work0, None, lambda self: self.env.timeout(5))
+    Work0._transitions = [t]
+    add_states(WorkSM,[Work0])
+    Work.set_composite_state(WorkSM('WorkSM'))
+    add_states(Boh5,[Work])
+    
     env = Environment()
     foo = Boh5(env,1)
     env.run(20)
