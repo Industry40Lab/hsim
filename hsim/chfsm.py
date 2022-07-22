@@ -453,8 +453,9 @@ Work._transitions = [t]
 add_states(Boh4,[Work])
 
 class Boh5(CHFSM):
-    class WorkSM(CHFSM):
-        pass
+    pass
+class WorkSM(CHFSM):
+    pass
 Work = State('Work',True)
 Work._function = lambda self:print('Start working. Will finish in 10s')
 t = Transition(Work, None, lambda self: self.env.timeout(10))
@@ -464,8 +465,8 @@ Work0 = State('Work0',True)
 Work0._function = lambda self:print('Start working 0. Will finish in 5s')
 t = Transition(Work0, None, lambda self: self.env.timeout(5))
 Work0._transitions = [t]
-add_states(Boh5.WorkSM,[Work0])
-Work.set_composite_state(Boh5.WorkSM)
+add_states(WorkSM,[Work0])
+Work.set_composite_state(WorkSM)
 add_states(Boh5,[Work])
 
 if __name__ == "__main__" and 1:
