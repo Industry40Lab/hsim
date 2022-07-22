@@ -78,7 +78,7 @@ def set_state(name,initial_state=False):
 def add_states(sm,states):
     sm._states = states # [copy.deepcopy(state) for state in states]
         
-class StateMachine(object):
+class StateMachine():
     def __init__(self, env, name=None):
         self.env = env
         self.var = dotdict()
@@ -86,7 +86,6 @@ class StateMachine(object):
             self.name = str('0x%x' %id(self))
         else:
             self._name = name
-        # self._states: List[State] = []
         self._initial_state = None
         self._current_state = None
         self._build()
@@ -114,15 +113,6 @@ class StateMachine(object):
         self._states = copy.deepcopy(self._states)
         for state in self._states:
             state.set_parent_sm(self)
-    # def add_state(self, state, initial_state = False):
-    #     if state in self._states:
-    #         raise ValueError("attempting to add same state twice")
-    #     else:
-    #         state = copy.deepcopy(state)
-    #         self._states.append(state)
-    #         state.set_parent_sm(self)
-    #     if not self._initial_state and initial_state:
-    #         self._initial_state = state
     def copy_states(self):
         for element in dir(self):
             x = getattr(self, element)
@@ -161,7 +151,6 @@ class CompositeState(StateMachine):
             if type(x) == State and x is not self.parent_state:
                 x.set_parent_sm(self)
                 self.add_state(x)
-
 
 class State(Process):
     def __init__(self, name, initial_state=False):
