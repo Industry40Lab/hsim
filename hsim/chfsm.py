@@ -359,14 +359,14 @@ class Transition():
     def _condition(self):
         return True
     def _action(self):
-        pass
-    def _otherwise(self):
         return None
+    def _otherwise(self):
+        return self()
     def cancel(self):
         self._event.callbacks = []
     def _evaluate(self,event):
-        if self._condition():
-            self._action()
+        if method_lambda(self,self._condition):
+            method_lambda(self,self._action)
             self._state._resume(self._target)
         else:
             self._otherwise()
