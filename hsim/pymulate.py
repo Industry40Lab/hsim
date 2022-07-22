@@ -11,6 +11,7 @@ import numpy as np
 from collections.abc import Iterable
 
 # %%
+
 class Server(CHFSM):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
         setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
@@ -53,6 +54,13 @@ class Server(CHFSM):
     def subscribe(self,item=None):
         return self.Store.subscribe(item)
     
+class Server(CHFSM):
+    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
+        super().__init__(env,name)
+        self.var.serviceTime = serviceTime
+        self.var.serviceTimeFunction = serviceTimeFunction
+        setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
+        
 class ServerWithBuffer(Server):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacityIn=1):
         self.capacityIn = capacityIn
