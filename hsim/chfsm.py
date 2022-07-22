@@ -83,7 +83,7 @@ class StateMachine():
         self.env = env
         self.var = dotdict()
         if name==None:
-            self.name = str('0x%x' %id(self))
+            self._name = str('0x%x' %id(self))
         else:
             self._name = name
         self._current_state = None
@@ -314,7 +314,7 @@ class CHFSM(StateMachine):
         if object.__getattribute__(self,'_messages').__contains__(attr):
             return object.__getattribute__(self,'_messages')[attr]
         raise AttributeError()
-    def build_c(self):
+    def build(self):
         pass
     def _associate(self):
         for state in self._states:
@@ -325,7 +325,7 @@ class CHFSM(StateMachine):
     def _list_messages(self):
         self._messages = OrderedDict()
         temp=list(self.__dict__.keys())
-        self.build_c()
+        self.build()
         for i in list(self.__dict__.keys()):
             if i not in temp:
                 self._messages[i] = getattr(self,i)
