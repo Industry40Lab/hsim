@@ -223,10 +223,7 @@ class State(Process):
     def _resume(self, event):
         self.env._active_proc = self
         if isinstance(event,Initialize):
-            if self._function.__name__ == '<lambda>':
-                self._function(self)
-            else:
-                self._function()
+            method_lambda(self,self._function)
             events = list()
             for transition in self._transitions:
                 transition._state = self
@@ -374,10 +371,7 @@ class Transition():
         else:
             self._otherwise()
     def __call__(self):
-        if self._trigger.__name__ == '<lambda>':
-            self._event = self._trigger(self)
-        else:
-            self._event = self._trigger()
+        self._event = method_lambda(self,self._trigger)
         self._event.callbacks.append(self._evaluate)
         return self._event
                 
