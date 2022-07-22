@@ -134,7 +134,7 @@ class StateMachine():
 class CompositeState(StateMachine):
     def __init__(self, name=None):
         if name==None:
-            self.name = str('0x%x' %id(self))
+            self._name = str('0x%x' %id(self))
         else:
             self._name = name
         self._current_state = None
@@ -171,9 +171,9 @@ class State(Process):
     @property
     def name(self):
         return self._name
-    def set_composite_state(self, CompositeState):
-        sm = CompositeState.parent_state = self 
-        self._child_state_machine = sm
+    def set_composite_state(self, compositeState):
+        compositeState.parent_state = self
+        self._child_state_machine = compositeState
     def set_parent_sm(self, parent_sm):
         if not isinstance(parent_sm, StateMachine):
             raise TypeError("parent_sm must be the type of StateMachine")
@@ -454,7 +454,7 @@ add_states(Boh4,[Work])
 
 class Boh5(CHFSM):
     pass
-class WorkSM(CHFSM):
+class WorkSM(CompositeState):
     pass
 Work = State('Work',True)
 Work._function = lambda self:print('Start working. Will finish in 10s')
@@ -466,7 +466,7 @@ Work0._function = lambda self:print('Start working 0. Will finish in 5s')
 t = Transition(Work0, None, lambda self: self.env.timeout(5))
 Work0._transitions = [t]
 add_states(WorkSM,[Work0])
-Work.set_composite_state(WorkSM)
+Work.set_composite_state(WorkSM())
 add_states(Boh5,[Work])
 
 if __name__ == "__main__" and 1:
