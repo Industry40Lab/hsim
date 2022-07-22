@@ -7,7 +7,7 @@ Created on Sat Mar 19 16:07:24 2022
 
 from simpy import Environment, Event
 from simpy.core import BoundClass
-from simpy.events import PENDING
+from simpy.events import PENDING, Interruption
 import pandas as pd
 # from states import State
 
@@ -15,6 +15,13 @@ class Event(Event):
     def restart(self):
         self._value = PENDING
         self.callbacks = []
+        
+class Interruption(Interruption):
+    def _interrupt(self, event: Event) -> None:
+        if self.process._value is not PENDING:
+            return
+        # self.process._target.callbacks.remove(self.process._resume)
+        self.process._resume(self)
 
 class Environment(Environment):
     def __init__(self,log=None,initial_time=0):
@@ -81,4 +88,10 @@ class dotdict(dict):
         return vars(self).values()
     def __len__(self):
         return len(self.keys())
+    
+def method_lambda(self,function):
+    if function.__name__ == '<lambda>':
+        return function(self)
+    else:
+        return function()
     
