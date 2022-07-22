@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from chfsm import CHFSM, State
+from chfsm import CHFSM, State, Transition, add_states
 from chfsm import function, do
 from stores import Store, Box
 from core import Environment, Event
@@ -9,6 +9,7 @@ from simpy.events import PENDING
 import types
 import numpy as np
 from collections.abc import Iterable
+
 
 # %%
 
@@ -59,8 +60,21 @@ class Server(CHFSM):
         super().__init__(env,name)
         self.var.serviceTime = serviceTime
         self.var.serviceTimeFunction = serviceTimeFunction
-        setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
-        
+        # setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
+    def build(self):
+        self.Store = Store(self.env,1)
+Starving = State('Starving',True)
+Working = State('Working') 
+Blocking = State('Blocking')
+t = Transition(Starving, Working, lambda self: self.Store.get())
+# t = Transition(Starve, Work, lambda self: self.env.timeout(10))
+add_states(Server,[Starving,Working,Blocking])  
+      
+env = Environment()
+a = Server(env)
+env.run(1)
+
+# %%
 class ServerWithBuffer(Server):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacityIn=1):
         self.capacityIn = capacityIn
