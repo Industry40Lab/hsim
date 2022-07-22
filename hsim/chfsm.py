@@ -9,7 +9,7 @@ from typing import List, Any, Optional, Callable
 import logging 
 from simpy import Process, Interrupt, Event
 from simpy.events import PENDING, Initialize, Interruption
-from core import Environment, dotdict
+from core import Environment, dotdict, Interruption, method_lambda
 import types
 from stores import Store
 from collections import OrderedDict
@@ -46,6 +46,13 @@ def on_interrupt(instance):
         return f
     return decorator
 
+def trigger(instance):
+    def decorator(f):
+        f = types.MethodType(f, instance)
+        instance._trigger = f
+        return f
+    return decorator
+
 def prova(instance):
     def decorator(f):
         f = types.MethodType(f, instance)
@@ -70,7 +77,6 @@ def set_state(name,initial_state=False):
 
 def add_states(sm,states):
     sm._states = states # [copy.deepcopy(state) for state in states]
-
         
 class StateMachine(object):
     def __init__(self, env, name=None):
@@ -167,7 +173,7 @@ class State(Process):
         self.sm = None
         self._interrupt_callbacks = []
         self._generator = None
-        self._function = None
+        self._function = lambda: None
         self.initial_state = initial_state
         self.callbacks = []
         self._value = None
@@ -218,7 +224,7 @@ class State(Process):
         self._value = None
     def interrupt(self):
         if self.is_alive:
-            super().interrupt()
+            Interruption(self, None)
             for callback in self._interrupt_callbacks:
                 callback()
             if self._child_state_machine is not None:
@@ -227,10 +233,34 @@ class State(Process):
             print('Warning - interrupted state was not active')
     def _resume(self, event):
         self.env._active_proc = self
-        while True:
-            try:
-                if isinstance(event,Initialize):
-                    event = self._function()
+        if isinstance(event,Initialize):
+            if self._function.__name__ == '<lambda>':
+                self._function(self)
+            else:
+                self._function()
+            events = list()
+            for transition in self._transitions:
+                transition._state = self
+                event = transition()
+                events.append(event)
+        else:
+            for transition in self._transitions:
+                transition.cancel()
+            if event is None:
+                event = self
+                self._do_start()
+                return
+            elif isinstance(event,State):
+                self.stop()
+                event()
+            elif isinstance(event,Interruption):
+                event = None
+                self._ok = True
+                self._value = None
+                self.callbacks = []
+                self.env.schedule(self)
+            
+            '''
                 elif event._ok:
                     try:
                         event = self._do(event)
@@ -289,6 +319,7 @@ class State(Process):
                 error = RuntimeError('\n%s%s' % (descr, msg))
                 error.__cause__ = None
                 raise error
+                '''
         self._target = event
         self.env._active_proc = None
 
@@ -322,12 +353,11 @@ class CHFSM(StateMachine):
                 self._messages[i] = getattr(self,i)
 
 class Transition():
-    def __init__(self, state, target=None):
+    def __init__(self, state, target=None, trigger=None):
         self._state = state
         self._target = target
-        if hasattr(self,'env'):
-            super().__init__(self.env)
-            self.callbacks.append(self._transition)
+        if trigger is not None:
+            self._trigger = trigger
     def __getattr__(self,attr):
         try:
             state = self.__getattribute__('_state')
@@ -341,19 +371,26 @@ class Transition():
     def _trigger(self):
         pass
     def _condition(self):
-        pass
+        return True
     def _action(self):
         pass
-    def _evaluate(self):
+    def _otherwise(self):
+        return None
+    def cancel(self):
+        self._event.callbacks = []
+    def _evaluate(self,event):
         if self._condition():
             self._action()
+            self._state._resume(self._target)
         else:
-            self.otherwise()
-        return self._target
+            self._otherwise()
     def __call__(self):
-        event = self.trigger()
-        event.callbacks = self._evaluate
-
+        if self._trigger.__name__ == '<lambda>':
+            self._event = self._trigger(self)
+        else:
+            self._event = self._trigger()
+        self._event.callbacks.append(self._evaluate)
+        return self._event
                 
 class Boh(StateMachine):
     def build(self):
@@ -417,11 +454,18 @@ def printt(self):
 def d(self,Event):
     print("Finished!")
     return self.Work
-t = Transition(Work)
 add_states(Boh3,[Work])
+
 class Boh4(StateMachine):
     pass
-
+Work = State('Work',True)
+# @function(Work)
+# def printt(self):
+#     print('Start working. Will finish in 10s')
+Work._function = lambda self:print('Start working. Will finish in 10s')
+t = Transition(Work, None, lambda self: self.env.timeout(10))
+Work._transitions = [t]
+add_states(Boh3,[Work])
 
 if __name__ == "__main__" and 1:
     env = Environment()
@@ -436,14 +480,6 @@ if __name__ == "__main__" and 1:
 
     
 
-if __name__ == "__main__" and False:
-    env = Environment()
-    foo = Boh(env,'Foo 1')
-    foo2 = Boh(env,'Foo 2')
-    env.run(11)
-    
-    foo.interrupt()
-    env.run(30)
 
 
     
