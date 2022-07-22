@@ -87,7 +87,7 @@ class StateMachine():
         else:
             self._name = name
         self._current_state = None
-        self._build()
+        self._build_states()
         self.start()
         self.env.add_object(self)
     def __getattr__(self,attr):
@@ -108,16 +108,16 @@ class StateMachine():
             state.interrupt()
     def stop(self):
         return self.interrupt()
-    def _build(self):
+    def _build_states(self):
         self._states = copy.deepcopy(self._states)
         for state in self._states:
             state.set_parent_sm(self)
-    def copy_states(self):
-        for element in dir(self):
-            x = getattr(self, element)
-            if type(x) == State:
-                x.set_parent_sm(self)
-                self.add_state(x)
+    # def copy_states(self):
+    #     for element in dir(self):
+    #         x = getattr(self, element)
+    #         if type(x) == State:
+    #             x.set_parent_sm(self)
+    #             self.add_state(x)
     @property
     def name(self):
         return self._name
@@ -141,7 +141,7 @@ class CompositeState(StateMachine):
         self.parent_state = None
     def start(self):
         self.env = self.parent_state.env
-        self._build()
+        self._build_states()
         super().start()
 
 class State(Process):
@@ -466,18 +466,14 @@ Work0._function = lambda self:print('Start working 0. Will finish in 5s')
 t = Transition(Work0, None, lambda self: self.env.timeout(5))
 Work0._transitions = [t]
 add_states(WorkSM,[Work0])
-Work.set_composite_state(WorkSM())
+Work.set_composite_state(WorkSM('WorkSM'))
 add_states(Boh5,[Work])
 
 if __name__ == "__main__" and 1:
     env = Environment()
     foo = Boh5(env,1)
-    
-    # a = State(1)
     env.run(20)
     foo.interrupt()
-    # for i in range(10):
-    #     env.step()
     env.run(200)
 
     
