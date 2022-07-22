@@ -86,7 +86,6 @@ class StateMachine():
             self.name = str('0x%x' %id(self))
         else:
             self._name = name
-        self._initial_state = None
         self._current_state = None
         self._build()
         self.start()
@@ -133,24 +132,16 @@ class StateMachine():
             return True
 
 class CompositeState(StateMachine):
-    def __init__(self, env, name, parent_state):
-        self.env = env
-        self.parent_state = parent_state
-        self._name = name
-        self._states: List[State] = []
-        self._initial_state = None
+    def __init__(self, env, name=None):
+        if name==None:
+            self.name = str('0x%x' %id(self))
+        else:
+            self._name = name
         self._current_state = None
     def start(self):
         self.env = self.parent_state.env
-        self.copy_states()
+        self._build()
         super().start()
-    def copy_states(self):
-        var = dir(self)
-        for element in var:
-            x = getattr(self, element)
-            if type(x) == State and x is not self.parent_state:
-                x.set_parent_sm(self)
-                self.add_state(x)
 
 class State(Process):
     def __init__(self, name, initial_state=False):
@@ -180,7 +171,7 @@ class State(Process):
     def name(self):
         return self._name
     def set_composite_state(self, CompositeState):
-        sm = CompositeState(self.env, 'Prova', parent_state=self) #was parent_state=True
+        sm = CompositeState(self.env, 'Prova', parent_state=self) 
         self._child_state_machine = sm
     def set_parent_sm(self, parent_sm):
         if not isinstance(parent_sm, StateMachine):
@@ -371,10 +362,24 @@ class Transition():
         else:
             self._otherwise()
     def __call__(self):
+        if self._trigger is None:
+            return self._evaluate(None)
+            self._target._state = self._state
         self._event = method_lambda(self,self._trigger)
         self._event.callbacks.append(self._evaluate)
         return self._event
-                
+ 
+class Pseudostate(State):
+    def __init__(self):
+        pass
+    def _resume(self,event):
+        events = list()
+        for transition in self._transitions:
+            transition._state = self._state
+            event = transition()
+            events.append(event)
+
+               
 class Boh(StateMachine):
     def build(self):
         Idle = State('Idle',True)
@@ -462,6 +467,7 @@ if __name__ == "__main__" and 1:
     env.run(200)
 
     
+
 
 
 
