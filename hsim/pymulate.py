@@ -10,6 +10,38 @@ import types
 import numpy as np
 from collections.abc import Iterable
 
+# %% add
+def calculateServiceTime(self,entity,attribute='serviceTime'):
+    if self.var.serviceTimeFunction == None:
+        if type(self.var.serviceTime)==int or type(self.var.serviceTime)==float:
+            return self.var.serviceTime
+        elif self.var.serviceTime == None:
+            time = getattr(self.var.entity,attribute)
+            if type(time) is dict:
+                time = time[self.name]
+            return time
+        elif len(self.var.serviceTime)==0:
+            time = getattr(self.var.entity,attribute)
+            if type(time) is dict:
+                time = time[self.name]
+            return time
+        elif len(self.var.serviceTime)>0:
+            return self.var.serviceTime[0]
+    elif self.var.serviceTimeFunction != None:
+        if type(self.var.serviceTime)==int or type(self.var.serviceTime)==float:
+            return self.var.serviceTimeFunction(self.var.serviceTime)
+        try:
+            if self.var.serviceTime==None:
+                time = getattr(self.var.entity,attribute)
+                if type(time) is dict:
+                    time = time[self.name]
+                return self.var.serviceTimeFunction(time)
+        except:
+            pass
+        if len(self.var.serviceTime)==0:
+            return self.var.serviceTimeFunction()
+        elif len(self.var.serviceTime)>0:
+            return self.var.serviceTimeFunction(*self.var.serviceTime)
 
 
 
@@ -19,65 +51,72 @@ class Server(CHFSM):
         super().__init__(env,name)
         self.var.serviceTime = serviceTime
         self.var.serviceTimeFunction = serviceTimeFunction
-        # setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
+        setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
     def build(self):
         self.Store = Store(self.env,1)
+        
 Starving = State('Starving',True)
 @function(Starving)
 def f(self):
-    self.var.request = self.Store.get()
+    self.var.request = self.Store.subscribe()
 Working = State('Working') 
 @function(Working)
 def f(self):
-    self.var.entity = self.var.request.value
+    self.var.entity = self.var.request.read()
+    # print('%d %s' %(self.env.now,self.var.entity))
 Blocking = State('Blocking')
 S2W = Transition(Starving, Working, lambda self: self.var.request)
-W2B = Transition(Working, Blocking, lambda self: self.env.timeout(1))
-B2S = Transition(Blocking, Starving, lambda self: self.Next.put(1))
+W2B = Transition(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+B2S = Transition(Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
 Starving._transitions = [S2W]
 Working._transitions = [W2B]
 Blocking._transitions = [B2S]
 Server._states = [Starving,Working,Blocking]
 
 
-if __name__ == '__main__':
+if __name__ == '__main__' and 0:
     env = Environment()
-    a = Server(env)
-    Server.Next = Store(env)
-    a.Store.put(object())
-    env.run(2)
+    a = Server(env,serviceTime=1)
+    a.Next = Store(env,5)
+    for i in range(1,6):
+        a.Store.put(i)
+    env.run(20)
+    if type(a.current_state[0]) is type(Blocking) and len(a.Next) == 5:
+        print('OK')
 
+# %% server w/ buffer
 class ServerWithBuffer(Server):
-    pass
-
-
-# %%
-class ServerWithBuffer(Server):
-    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacityIn=1):
+    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacityIn=np.inf):
         self.capacityIn = capacityIn
         super().__init__(env,name,serviceTime,serviceTimeFunction)
     def build(self):
-        states = super().build()
-        GetIn = State('GetIn',True)
-        @function(GetIn)
-        def q(self):
-            return AllOf(self.env,[self.QueueIn.subscribe(),self.Store.subscribe(object())])
-        @do(GetIn)
-        def G(self,event):
-            if all(event.check() for event in event._events):
-                entity = event._events[0].confirm()
-                event._events[1].item = entity
-                event._events[1].confirm()
-            return
-        states.append(GetIn)
-        return states
-    def build_c(self):
-        super().build_c()
+        super().build()
         self.QueueIn = Store(self.env,self.capacityIn)
-    def put(self,item):
-        return self.QueueIn.put(item)
-    def subscribe(self,item):
-        return self.QueueIn.subscribe(item)
+Retrieving = State('Retrieving',True)
+@function(Retrieving)
+def f1(self):
+    self.var.requestIn = self.QueueIn.subscribe()
+Forwarding = State('Forwarding')
+@function(Forwarding)
+def f2(self):
+    self.var.entityIn = self.var.requestIn.read()
+    # print('F %d %s' %(self.env.now,self.var.entity))
+r2f = Transition(Retrieving,Forwarding,lambda self: self.var.requestIn)
+f2r = Transition(Forwarding,Retrieving,lambda self: self.Store.put(self.var.entityIn),action=lambda self:self.var.requestIn.confirm())
+Retrieving._transitions = [r2f]
+Forwarding._transitions = [f2r]
+ServerWithBuffer._states = Server._states + [Retrieving,Forwarding]
+if __name__ == '__main__':
+    env = Environment()
+    a = ServerWithBuffer(env,serviceTime=1)
+    a.Next = Store(env,5)
+    for i in range(1,10):
+        a.QueueIn.put(i)
+    env.run(10)
+    if type(a.current_state[0]) is type(Blocking) and len(a.Next) == 5:
+        print('OK')
+
+
 
 class ServerDoubleBuffer(ServerWithBuffer):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacityIn=1,capacityOut=1):
@@ -308,37 +347,6 @@ class SwitchOut(CHFSM):
             return
         return [Work]
 
-def calculateServiceTime(self,entity,attribute='serviceTime'):
-    if self.var.serviceTimeFunction == None:
-        if type(self.var.serviceTime)==int or type(self.var.serviceTime)==float:
-            return self.var.serviceTime
-        elif self.var.serviceTime == None:
-            time = getattr(self.var.entity,attribute)
-            if type(time) is dict:
-                time = time[self.name]
-            return time
-        elif len(self.var.serviceTime)==0:
-            time = getattr(self.var.entity,attribute)
-            if type(time) is dict:
-                time = time[self.name]
-            return time
-        elif len(self.var.serviceTime)>0:
-            return self.var.serviceTime[0]
-    elif self.var.serviceTimeFunction != None:
-        if type(self.var.serviceTime)==int or type(self.var.serviceTime)==float:
-            return self.var.serviceTimeFunction(self.var.serviceTime)
-        try:
-            if self.var.serviceTime==None:
-                time = getattr(self.var.entity,attribute)
-                if type(time) is dict:
-                    time = time[self.name]
-                return self.var.serviceTimeFunction(time)
-        except:
-            pass
-        if len(self.var.serviceTime)==0:
-            return self.var.serviceTimeFunction()
-        elif len(self.var.serviceTime)>0:
-            return self.var.serviceTimeFunction(*self.var.serviceTime)
 
 
 class MachineMIP(Server):
