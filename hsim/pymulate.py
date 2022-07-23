@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from chfsm import CHFSM, State, Transition, add_states
+from chfsm import CHFSM, State, Transition, add_states, trigger, Pseudostate
 from chfsm import function, do
 from stores import Store, Box
 from core import Environment, Event
@@ -11,50 +11,9 @@ import numpy as np
 from collections.abc import Iterable
 
 
-# %%
 
-class Server(CHFSM):
-    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
-        setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
-        super().__init__(env, name)
-        self.var.serviceTime = serviceTime
-        self.var.serviceTimeFunction = serviceTimeFunction
-    def build(self):
-        Starve = State('Starve',True)
-        @function(Starve)
-        def starveF(self):
-            self.var.request = self.Store.subscribe()
-            return self.var.request
-        @do(Starve)
-        def starveDo(self,event):
-            self.var.entity = event.read()
-            return Work
-        Work = State('Work')
-        @function(Work)
-        def workF(self):
-            serviceTime = self.sm.calculateServiceTime(self.var.entity)
-            return self.env.timeout(serviceTime)
-        @do(Work)
-        def workDo(self,event):
-            return Block
-        Block = State('Block')
-        @function(Block)
-        def blockk(self):
-            req = self.connections['after'].put(self.var.entity)
-            self.var.req = req
-            return req
-        @do(Block)
-        def blockkk(self,event):
-            self.var.request.confirm()
-            return Starve
-        return [Starve,Work,Block]
-    def build_c(self):
-        self.Store = Store(self.env,1)
-    def put(self,item):
-        return self.Store.put(item)
-    def subscribe(self,item=None):
-        return self.Store.subscribe(item)
-    
+
+# %% easy server    
 class Server(CHFSM):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
         super().__init__(env,name)
@@ -64,15 +23,33 @@ class Server(CHFSM):
     def build(self):
         self.Store = Store(self.env,1)
 Starving = State('Starving',True)
+@function(Starving)
+def f(self):
+    self.var.request = self.Store.get()
 Working = State('Working') 
+@function(Working)
+def f(self):
+    self.var.entity = self.var.request.value
 Blocking = State('Blocking')
-t = Transition(Starving, Working, lambda self: self.Store.get())
-Starving._transitions = [t]
-add_states(Server,[Starving,Working,Blocking])  
-      
-env = Environment()
-a = Server(env)
-env.run(1)
+S2W = Transition(Starving, Working, lambda self: self.var.request)
+W2B = Transition(Working, Blocking, lambda self: self.env.timeout(1))
+B2S = Transition(Blocking, Starving, lambda self: self.Next.put(1))
+Starving._transitions = [S2W]
+Working._transitions = [W2B]
+Blocking._transitions = [B2S]
+Server._states = [Starving,Working,Blocking]
+
+
+if __name__ == '__main__':
+    env = Environment()
+    a = Server(env)
+    Server.Next = Store(env)
+    a.Store.put(object())
+    env.run(2)
+
+class ServerWithBuffer(Server):
+    pass
+
 
 # %%
 class ServerWithBuffer(Server):
