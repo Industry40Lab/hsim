@@ -331,11 +331,13 @@ class CHFSM(StateMachine):
                 self._messages[i] = getattr(self,i)
 
 class Transition():
-    def __init__(self, state, target=None, trigger=None):
+    def __init__(self, state, target=None, trigger=None, condition=None, action=None):
         self._state = state
         self._target = target
         if trigger is not None:
             self._trigger = trigger
+        if action is not None:
+            self._action = action
     def __getattr__(self,attr):
         try:
             state = self.__getattribute__('_state')
