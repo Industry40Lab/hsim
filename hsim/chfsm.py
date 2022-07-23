@@ -153,11 +153,11 @@ class State(Process):
         self._child_state_machine = None
         self.sm = None
         self._interrupt_callbacks = []
-        self._generator = None
         self._function = lambda self: None
         self.initial_state = initial_state
         self.callbacks = []
         self._value = None
+        self._transitions = list()
     def __getattr__(self,attr):
         try:
             sm = self.__getattribute__('sm')
