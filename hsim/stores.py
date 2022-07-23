@@ -43,7 +43,7 @@ class Subscription(Event):
             self.resource.put_now(self.item)
             self.resource._trigger_get(None)
     def read(self): #useless
-        if self.check():
+        if self.check() is not False:
             for item in self.resource.items:
                 if self.filter(item):
                     return item
@@ -57,7 +57,9 @@ class Subscription(Event):
                     if self.filter(item):
                         return item
             else:
-                return [item for item in self.resource.items if self.filter(item)]
+                y = [item for item in self.resource.items if self.filter(item)]
+                if y is not []:
+                    return y
         return False
     def cancel(self):
         if not self.triggered:
