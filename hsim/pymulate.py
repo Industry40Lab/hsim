@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from chfsm import CHFSM, State, Transition, add_states, trigger, Pseudostate
+from chfsm import CHFSM, State, Transition, add_states, trigger, action, Pseudostate
 from chfsm import function, do
 from stores import Store, Box
 from core import Environment, Event
@@ -64,7 +64,6 @@ Working = State('Working')
 @function(Working)
 def f(self):
     self.var.entity = self.var.request.read()
-    # print('%d %s' %(self.env.now,self.var.entity))
 Blocking = State('Blocking')
 S2W = Transition(Starving, Working, lambda self: self.var.request)
 W2B = Transition(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
@@ -79,10 +78,10 @@ if __name__ == '__main__':
     env = Environment()
     a = Server(env,serviceTime=1)
     a.Next = Store(env,5)
-    for i in range(1,6):
+    for i in range(1,7):
         a.Store.put(i)
     env.run(20)
-    if type(a.current_state[0]) is type(Blocking) and len(a.Next) == 5:
+    if a.current_state[0]._name == 'Blocking' and len(a.Next) == 5:
         print('OK')
 
 # %% server w/ buffer
@@ -113,7 +112,7 @@ if __name__ == '__main__':
     for i in range(1,10):
         a.QueueIn.put(i)
     env.run(10)
-    if type(a.current_state[0]) is type(Blocking) and len(a.Next) == 5:
+    if a.current_state[0]._name == 'Blocking' and len(a.Next) == 5:
         print('OK')
 
 # %% ServerDoubleBuffer
@@ -153,7 +152,7 @@ if __name__ == '__main__':
     for i in range(1,10):
         a.QueueIn.put(i)
     env.run(10)
-    if type(a.current_state[0]) is type(Blocking) and len(a.Next) == 5 and len(a.QueueOut) == 4:
+    if a.current_state[0]._name == 'Starving' and len(a.Next) == 5 and len(a.QueueOut) == 4:
         print('OK')
 
 # %% generator
@@ -183,46 +182,119 @@ if __name__ == '__main__':
     a = Generator(env,serviceTime=1)
     a.Next = Store(env,5)
     env.run(10)
-    if type(a.current_state[0]) is type(Waiting) and len(a.Next) == 5:
+    if a.current_state[0]._name == 'Waiting' and len(a.Next) == 5:
+        print('OK')
+
+# %% queue
+
+class Queue(CHFSM):
+    def __init__(self, env, name=None, capacity=np.inf):
+        self.capacity = capacity
+        super().__init__(env,name)
+    def build(self):
+        self.Store = Store(self.env)
+    @property
+    def items(self):
+        return self.Store.items
+Retrieving = State('Retrieving',True)
+@function(Retrieving)
+def f6(self):
+    self.var.request = self.Store.subscribe()
+Forwarding = State('Forwarding')
+@function(Forwarding)
+def f7(self):
+    self.var.entity = self.var.request.read()
+r2f = Transition(Retrieving,Forwarding,lambda self: self.var.request)
+f2r = Transition(Forwarding,Retrieving,lambda self: self.Next.put(self.var.entity),action=lambda self:self.var.request.confirm())
+Retrieving._transitions = [r2f]
+Forwarding._transitions = [f2r]
+Queue._states = [Retrieving,Forwarding]
+
+if __name__ == '__main__':
+    env = Environment()
+    a = Queue(env,capacity=4)
+    a.Next = Store(env,5)
+    for i in range(1,10):
+        a.Store.put(i)
+    env.run(10)
+    if a.current_state[0]._name == 'Forwarding' and len(a.Next) == 5 and len(a.Store) == 4:
+        print('OK')
+
+# %% man st
+
+class ManualStation(Server):
+    def build(self):
+        super().build()
+        self.WaitOperator = self.env.event()
+        self.NeedOperator = self.env.event()
+        self.Operators = Store(self.env)
+ManualStation._states = deepcopy(Server._states)
+Starving = ManualStation._states_dict('Starving')
+Working = ManualStation._states_dict('Working')
+Idle = State('Idle')
+
+S2I = Transition(Starving, Idle, lambda self: self.var.request, action = lambda self: self.NeedOperator.succeed())
+I2W = Transition(Idle, Working, lambda self: self.WaitOperator, action = lambda self: [self.NeedOperator.restart(),self.WaitOperator.restart()])
+W2B = Transition(Working, ManualStation._states_dict('Blocking'), lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+@action(W2B)
+def f11(self):
+    for op in self.Operators.items:
+        op.Pause.succeed()
+        self.Operators.items.remove(op)
+
+Starving._transitions = [S2I]
+Idle._transitions = [I2W]
+Working._transitions = [W2B]
+
+ManualStation._states += [Idle]
+
+
+# %% operator
+
+class Operator(CHFSM):
+    def __init__(self,env,name=None,station=[]):
+        super().__init__(env, name)
+        self.var.station = station
+    def build(self):
+        self.Pause = self.env.event()
+    def select(self):
+        for station in self.var.station:
+            if station.NeedOperator.triggered and not station.WaitOperator.triggered:
+                return station
+Idle = State('Idle',True)
+Working = State('Working')
+@function(Idle)
+def f8(self):
+    self.var.request = AnyOf(self.env,[station.NeedOperator for station in self.var.station])
+@function(Working)
+def f9(self):
+    self.var.target = self.select()
+    self.var.target.WaitOperator.succeed()
+    self.var.target.Operators.put(self.sm)
+    self.Pause.restart()
+I2W = Transition(Idle, Working, lambda self: self.var.request)
+W2I = Transition(Working, Idle, lambda self: self.Pause)
+Idle._transitions = [I2W]
+Working._transitions = [W2I]
+Operator._states = [Idle,Working]
+
+
+if __name__ == '__main__':
+    env = Environment()
+    a = ManualStation(env,serviceTime=1)
+    b = Operator(env,station=[a])
+    a.Next = Store(env,5)
+    for i in range(1,10):
+        a.Store.put(i)
+    env.run(10)
+    if b.current_state[0]._name == 'Idle' and len(a.Next) == 5 and a.current_state[0]._name == 'Blocking':
         print('OK')
 
 # %% old
-raise BaseException('End')
 
-class ServerDoubleBuffer(ServerWithBuffer):
-    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacityIn=1,capacityOut=1):
-        self.capacityOut = capacityOut
-        super().__init__(env,name,serviceTime,serviceTimeFunction,capacityIn)
-    def build_c(self):
-        super().build_c()
-        self.QueueOut = Store(self.env,self.capacityOut)
-    def build(self):
-        states = super().build()
-        Block = states.pop(-2)
-        Starve = states[0]
-        GetOut = State('GetOut',True)
-        @function(GetOut)
-        def q(self):
-            return AllOf(self.env,[self.QueueOut.subscribe(),self.sm.connections['after'].subscribe(('prova'))])
-        @do(GetOut)
-        def G(self,event):
-            check = all(event.check() for event in event._events)
-            if check:
-                entity = event._events[0].confirm()
-                event._events[1].item = entity
-                event._events[1].confirm()
-            return
-        states.append(GetOut)
-        @function(Block)
-        def blockk(self):
-            req = self.QueueOut.put(self.var.entity)
-            return req
-        @do(Block)
-        def blockkk(self,event):
-            self.var.request.confirm()
-            return Starve
-        states.append(Block)
-        return states
+
+
+raise BaseException('End')
 
 
         
@@ -273,35 +345,6 @@ class ManualStation(Server):
             return Starve
         return [Starve,Idle,Work,Block]
         
-class Generator(CHFSM):
-    def __init__(self, env, name=None, serviceTime=0,serviceTimeFunction=None,createEntity=None):
-        super().__init__(env, name)
-        setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
-        self.var.serviceTime = serviceTime
-        self.var.serviceTimeFunction = serviceTimeFunction
-        self.var.createEntity = createEntity
-    def build(self):
-        Create = State('Create',True)
-        @function(Create)
-        def fcn2(self):
-            serviceTime = self.sm.calculateServiceTime(None)
-            return self.env.timeout(serviceTime)
-        @do(Create)
-        def do2(self,event):
-            try:
-                self.var.entity = self.var.createEntity()
-            except:
-                self.var.entity = object()
-            return Wait
-        Wait = State('Wait')
-        @function(Wait)
-        def fcn(self):
-            return self.connections['after'].put(self.var.entity)
-            self.var.entity = None
-        @do(Wait)
-        def do1(self,event):
-            return Create
-        return [Create,Wait]        
 
 class Operator(CHFSM):
     def __init__(self, env, name=None):
@@ -345,31 +388,6 @@ class Operator(CHFSM):
             return Idle
         return [Idle,Work]
 
-class Queue(CHFSM):
-    def __init__(self,env,name=None,capacity=None):
-        if capacity==None:
-            capacity = np.inf
-        self.capacity = capacity
-        super().__init__(env,name)
-    def build_c(self):
-        self.Queue = Store(self.env,self.capacity)
-    def build(self):
-        Forwarding = State('GetIn',True)
-        @function(Forwarding)
-        def q(self):
-            return AllOf(self.env,[self.Queue.subscribe(),self.connections['after'].subscribe([0])])
-        @do(Forwarding)
-        def G(self,event):
-            if all(event.check() for event in event._events):
-                entity = event._events[0].read()
-                event._events[1].confirm(entity)
-                event._events[0].confirm()
-            return
-        return [Forwarding]
-    def put(self,item):
-        return self.Queue.put(item)
-    def subscribe(self,item=None):
-        return self.Queue.subscribe(item)
 
 class ManualStationWithCapacity(ManualStation):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacity=1):
