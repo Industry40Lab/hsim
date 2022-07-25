@@ -51,7 +51,7 @@ class Subscription(Event):
     def check(self,get_all=False):
         if self.item and len(self.resource.items) < self.resource._capacity:
             return True
-        else:
+        elif not self.item:
             if not get_all:
                 for item in self.resource.items:
                     if self.filter(item):
@@ -147,9 +147,9 @@ class Box(Store):
                 if event is item:
                     event = new_event
                     break
-        if event in self.put_queue:
-            event.succeed()
-            self.put_queue.remove(event)
+        event.succeed()
+        self.put_queue.remove(event)
+        self.items.remove(event.item)
     @property
     def list_items(self):
         return [event.item for event in self.put_queue]
