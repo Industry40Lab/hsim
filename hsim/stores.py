@@ -129,6 +129,8 @@ class Box_v1(Store):
         return [(event,event.item) for event in self.put_queue]
 
 class Box(Store):
+    def __init__(self, env, capacity):
+        super().__init__(env, capacity)
     def put(self,item=None): #debug
         return super().put(item)
     def _do_put(self, event):
@@ -138,9 +140,7 @@ class Box(Store):
         self._trigger_get(event)
         return True
     def _do_get(self,event):
-        super()._do_get(event)
-        
-    
+        super()._do_get(event)    
     def forward(self,event):
         if event not in self.put_queue:
             for (new_event,item) in self.requests:
