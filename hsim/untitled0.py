@@ -33,8 +33,9 @@ class Generator(Generator):
         self.Go = self.env.event()
 Sending = Generator._states_dict('Sending')
 Waiting = Generator._states_dict('Waiting')
-S2W = Transition(Sending,Waiting,lambda self: self.Go)
+S2W = Transition(Sending,Waiting,lambda self: self.Go,action=lambda self:self.Go.restart())
 Sending._transitions = [S2W]
+    
    
 class OR():
     def __init__(self,limits,objs):
@@ -56,7 +57,7 @@ class CONWIP(OR):
         else:
             return False
         
-class POLCA():
+class COBACABANA():
     def __call__(self,obj):
         pass
 
