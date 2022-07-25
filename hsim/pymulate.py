@@ -242,6 +242,12 @@ def f12(self):
 Working._transitions=[W2W]
 OutputSwitch._states = [Working]
 
+class Router(OutputSwitch):
+    pass
+Working = Router._states_dict('Working')
+Waiting = State('Waiting')
+
+
 
 # %% TESTS
 
