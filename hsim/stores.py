@@ -7,7 +7,7 @@ Created on Sat Jan 15 14:54:49 2022
 from heapq import heappop
 
 from simpy import Event, FilterStore, Resource
-
+from numpy import inf
 
 class Subscription(Event):
     # just like Get & Put events, but it does not get/put anything unless told to do so
@@ -129,8 +129,9 @@ class Box_v1(Store):
         return [(event,event.item) for event in self.put_queue]
 
 class Box(Store):
-    def __init__(self, env, capacity):
+    def __init__(self, env, capacity=inf):
         super().__init__(env, capacity)
+        self.put_event = env.event()
     def put(self,item=None): #debug
         return super().put(item)
     def _do_put(self, event):
@@ -138,9 +139,13 @@ class Box(Store):
             self.items.append(event.item)
             # event.item = None
         self._trigger_get(event)
+        if not self.put_event.triggered:
+            self.put_event.succeed()
         return True
     def _do_get(self,event):
-        super()._do_get(event)    
+        super()._do_get(event) 
+    def wait(self):
+        self.put_event.restart()
     def forward(self,event):
         if event not in self.put_queue:
             for (new_event,item) in self.requests:
@@ -150,6 +155,7 @@ class Box(Store):
         event.succeed()
         self.put_queue.remove(event)
         self.items.remove(event.item)
+        self.put_event.restart()
     @property
     def list_items(self):
         return [event.item for event in self.put_queue]
