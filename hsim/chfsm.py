@@ -53,6 +53,13 @@ def trigger(instance):
         return f
     return decorator
 
+def action(instance):
+    def decorator(f):
+        f = types.MethodType(f, instance)
+        instance._action = f
+        return f
+    return decorator
+
 def prova(instance):
     def decorator(f):
         f = types.MethodType(f, instance)
