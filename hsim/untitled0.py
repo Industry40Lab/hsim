@@ -6,52 +6,45 @@ Created on Tue Jun 14 18:03:34 2022
 """
 
 import pymulate as sim
-from pymulate import Generator, Server
-from pymulate import State
-from pymulate import function, do
+from pymulate import Generator, Server, Router, ServerDoubleBuffer
+from pymulate import function
+from CHFSM import Transition
 import numpy as np
 import pandas as pd
 
 
+class Switch(Router):
+    def condition_check(self,item,target):
+        if target._name == item.routing[0]:
+            return True
+        else:
+            return False
+        
+class Server(ServerDoubleBuffer):
+    pass
+ForwardingOut = Server._states_dict('ForwardingOut')
+@function(ForwardingOut)
+def f4(self):
+    self.var.entityOut = self.var.requestOut.read()
+    self.var.entityOut.routing.remove(self._name)
 
-
-class Generator(sim.Generator):
-    def __init__(self, env, name=None, createEntity=None,releaseCheck=None):
-        super().__init__(env, name, createEntity)
-        self.var.Trigger = env.event()
-        self.var.releaseCheck = releaseCheck
+class Generator(Generator):
     def build(self):
-        Create = State('Create',True)
-        @function(Create)
-        def fcn2(self):
-            return self.var.Trigger
-        @do(Create)
-        def do2(self,event):
-            if self.var.releaseCheck():
-                try:
-                    self.var.entity = self.var.createEntity()
-                except:
-                    self.var.entity = object()
-                return Wait
-            else:
-                self.var.Trigger.restart()
-        Wait = State('Wait')
-        @function(Wait)
-        def fcn(self):
-            return self.connections['after'].put(self.var.entity)
-        @do(Wait)
-        def do1(self,event):
-            self.var.entity = None
-            return Create
-        return [Create,Wait]  
-
-
-
+        self.Go = self.env.event()
+Sending = Generator._states_dict('Sending')
+Waiting = Generator._states_dict('Waiting')
+S2W = Transition(Sending,Waiting,lambda self: self.Go)
+Sending._transitions = [S2W]
    
 class OR():
     def __init__(self,limits,objs):
         self.objs = objs
         self.limits = limits
+    def __call__(self):
+        if self.control():
+            return True
+        else:
+            return False
         
 class CONWIP(OR):
     def __call__(self):
