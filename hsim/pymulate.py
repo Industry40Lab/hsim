@@ -218,6 +218,30 @@ Working._transitions = [W2I]
 Operator._states = [Idle,Working]
 
 
+class OutputSwitch(CHFSM):
+    def build(self):
+        self.Queue = Box(self.env)
+Working = State('Working',True)
+@function(Working)
+def f11(self):
+    self.var.requestIn = self.Queue.subscribe()
+    self.var.requestsOut = [next.subscribe(object()) for next in self.Next]
+W2W = Transition(Working,Working,lambda self: AllOf(self.env,[self.var.requestIn,AnyOf(self.env,self.var.requestsOut)]))
+@action(W2W)
+def f12(self):
+    entity = self.var.requestIn.read()
+    for request in self.var.requestsOut:
+        if request.check():
+            request.item = entity
+            request.confirm()
+            break
+    for request in self.var.requestsOut:
+        if request.item is not entity:
+            request.cancel()
+    self.Queue.forward(entity)
+Working._transitions=[W2W]
+OutputSwitch._states = [Working]
+
 
 # %% TESTS
 
@@ -279,7 +303,22 @@ if __name__ == '__main__':
     env.run(10)
     if b.current_state[0]._name == 'Idle' and len(a.Next) == 5 and a.current_state[0]._name == 'Blocking':
         print('OK')
-        
+ 
+if __name__ == '__main__':
+    env = Environment()
+    a = Server(env,serviceTime=1)
+    b = OutputSwitch(env)
+    c = Store(env,1)
+    d = Store(env)
+    a.Next = b.Queue
+    b.Next = [c,d]
+    for i in range(1,7):
+        a.Store.put(i)
+    env.run(20)
+    if len(c) == 1 and len(d) == 5:
+        print('OK')
+
+
 # %% old
 
 
