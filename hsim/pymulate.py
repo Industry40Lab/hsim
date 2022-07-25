@@ -242,10 +242,40 @@ def f12(self):
 Working._transitions=[W2W]
 OutputSwitch._states = [Working]
 
-class Router(OutputSwitch):
-    pass
-Working = Router._states_dict('Working')
-Waiting = State('Waiting')
+
+class Router(CHFSM):
+    def build(self):
+        self.Queue = Box(self.env)
+    def condition_check(item,target):
+        return True
+Sending = State('Sending',True)
+@function(Sending)
+def f12(self):
+    self.var.requestIn = self.Queue.put_event
+    self.var.requestOut = []
+    for item in self.Queue.items:
+        for next in self.Next:
+            if self.condition_check(item,next):
+                self.var.requestOut.append(next.subscribe(item))
+S2S = Transition(Sending,Sending,lambda self:AnyOf(self.env,[self.var.requestIn,*self.var.requestOut]))
+@action(S2S)
+def f13(self):
+    if self.var.requestIn.triggered and not any(req.triggered for req in self.var.requestOut):
+        for req in self.var.requestOut:
+            req.cancel()
+        self.Queue.put_event.restart()
+    else:
+        for request in self.var.requestOut:
+            if request.check():
+                request.confirm()
+                self.var.requestOut.remove(request)
+                self.Queue.forward(request.item)
+                break
+        for request in self.var.requestOut:
+            request.cancel()
+Sending._transitions=[S2S]
+Router._states = [Sending]
+
 
 
 
@@ -313,7 +343,7 @@ if __name__ == '__main__':
 if __name__ == '__main__':
     env = Environment()
     a = Server(env,serviceTime=1)
-    b = OutputSwitch(env)
+    b = Router(env)
     c = Store(env,1)
     d = Store(env)
     a.Next = b.Queue
@@ -322,7 +352,7 @@ if __name__ == '__main__':
         a.Store.put(i)
     env.run(20)
     if len(c) == 1 and len(d) == 5:
-        print('OK')
+        print('OK switch')
 
 
 # %% old
