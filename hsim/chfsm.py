@@ -395,6 +395,8 @@ class Pseudostate(State):
             event = transition()
             events.append(event)
 
+# %% TESTS 
+
 if __name__ == "__main__" and 1:
     class Boh(StateMachine):
         def build(self):
