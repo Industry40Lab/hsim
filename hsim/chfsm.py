@@ -76,8 +76,8 @@ def set_state(name,initial_state=False):
     StateMachine.add_state(state,initial_state)
 
 def add_states(sm,states):
-    sm._states = states # [copy.deepcopy(state) for state in states]
-        
+    sm._states = states # [copy.deepcopy(state) for state in states] 
+    
 class StateMachine():
     def __init__(self, env, name=None):
         self.env = env
@@ -130,6 +130,12 @@ class StateMachine():
             return False
         else:
             return True
+    @classmethod
+    def _states_dict(self,state):
+        list_by_name = [s for s in self._states if s.name == state]
+        if list_by_name is not []:
+            return list_by_name[0]
+    
 
 class CompositeState(StateMachine):
     def __init__(self, name=None):
