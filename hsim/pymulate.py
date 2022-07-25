@@ -9,6 +9,7 @@ from simpy.events import PENDING
 import types
 import numpy as np
 from collections.abc import Iterable
+from copy import deepcopy
 
 # %% add
 def calculateServiceTime(self,entity,attribute='serviceTime'):
@@ -74,7 +75,7 @@ Blocking._transitions = [B2S]
 Server._states = [Starving,Working,Blocking]
 
 
-if __name__ == '__main__' and 0:
+if __name__ == '__main__':
     env = Environment()
     a = Server(env,serviceTime=1)
     a.Next = Store(env,5)
@@ -100,7 +101,6 @@ Forwarding = State('Forwarding')
 @function(Forwarding)
 def f2(self):
     self.var.entityIn = self.var.requestIn.read()
-    # print('F %d %s' %(self.env.now,self.var.entity))
 r2f = Transition(Retrieving,Forwarding,lambda self: self.var.requestIn)
 f2r = Transition(Forwarding,Retrieving,lambda self: self.Store.put(self.var.entityIn),action=lambda self:self.var.requestIn.confirm())
 Retrieving._transitions = [r2f]
@@ -116,7 +116,78 @@ if __name__ == '__main__':
     if type(a.current_state[0]) is type(Blocking) and len(a.Next) == 5:
         print('OK')
 
+# %% ServerDoubleBuffer
 
+class ServerDoubleBuffer(ServerWithBuffer):
+    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacityIn=np.inf,capacityOut=np.inf):
+        self.capacityOut = capacityOut
+        super().__init__(env,name,serviceTime,serviceTimeFunction,capacityIn)
+    def build(self):
+        super().build()
+        self.QueueOut = Store(self.env,self.capacityOut)
+
+RetrievingOut = State('RetrievingOut',True)
+@function(RetrievingOut)
+def f3(self):
+    self.var.requestOut = self.QueueOut.subscribe()
+ForwardingOut = State('ForwardingOut')
+@function(ForwardingOut)
+def f4(self):
+    self.var.entityOut = self.var.requestOut.read()
+r2fOut = Transition(RetrievingOut,ForwardingOut,lambda self: self.var.requestOut)
+f2rOut = Transition(ForwardingOut,RetrievingOut,lambda self: self.Next.put(self.var.entityOut),action=lambda self:self.var.requestOut.confirm())
+RetrievingOut._transitions = [r2fOut]
+ForwardingOut._transitions = [f2rOut]
+
+
+ServerDoubleBuffer._states = deepcopy(ServerWithBuffer._states)
+Blocking = ServerDoubleBuffer._states_dict('Blocking')
+B2S = Transition(Blocking, ServerDoubleBuffer._states_dict('Starving'), lambda self: self.QueueOut.put(self.var.entity),action=lambda self: self.var.request.confirm())
+Blocking._transitions = [B2S]
+ServerDoubleBuffer._states += [RetrievingOut,ForwardingOut]
+
+if __name__ == '__main__':
+    env = Environment()
+    a = ServerDoubleBuffer(env,serviceTime=1,capacityOut=5)
+    a.Next = Store(env,5)
+    for i in range(1,10):
+        a.QueueIn.put(i)
+    env.run(10)
+    if type(a.current_state[0]) is type(Blocking) and len(a.Next) == 5 and len(a.QueueOut) == 4:
+        print('OK')
+
+# %% generator
+
+class Generator(CHFSM):
+    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
+        super().__init__(env,name)
+        self.var.serviceTime = serviceTime
+        self.var.serviceTimeFunction = serviceTimeFunction
+        setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
+    def createEntity(self):
+        return object()
+Waiting = State('Waiting',True)
+Sending = State('Sending')
+@function(Waiting)
+def f5(self):
+    self.var.entity = self.createEntity()
+W2S = Transition(Waiting,Sending,lambda self: self.Next.put(self.var.entity))
+S2W = Transition(Sending,Waiting,lambda self: self.env.timeout(self.calculateServiceTime(None)))
+Waiting._transitions = [W2S]
+Sending._transitions = [S2W]
+
+Generator._states = [Waiting,Sending]
+
+if __name__ == '__main__':
+    env = Environment()
+    a = Generator(env,serviceTime=1)
+    a.Next = Store(env,5)
+    env.run(10)
+    if type(a.current_state[0]) is type(Waiting) and len(a.Next) == 5:
+        print('OK')
+
+# %% old
+raise BaseException('End')
 
 class ServerDoubleBuffer(ServerWithBuffer):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacityIn=1,capacityOut=1):
