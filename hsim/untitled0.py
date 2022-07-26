@@ -6,21 +6,16 @@ Created on Tue Jun 14 18:03:34 2022
 """
 
 import pymulate as sim
-from pymulate import Generator, Server, Router, ServerDoubleBuffer
+from pymulate import Generator, Server, Router, ServerDoubleBuffer,ServerWithBuffer
 from pymulate import function
-from CHFSM import Transition
+from chfsm import Transition, State
 import numpy as np
 import pandas as pd
+from simpy import AllOf, AnyOf
 
 
-class Switch(Router):
-    def condition_check(self,item,target):
-        if target._name == item.routing[0]:
-            return True
-        else:
-            return False
         
-class Server(ServerDoubleBuffer):
+class Server(ServerWithBuffer):
     def build(self):
         super().build()
         self.Control = None
@@ -29,46 +24,77 @@ Blocking = Server._states_dict('Blocking')
 @function(Working)
 def f(self):
     self.var.entity = self.var.request.read()
-    self.var.entity.routing.remove(self._name)
-W2B = Transition(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)), action = lambda self: self.Control.refresh())
-Working._transitions = [W2B]
+    self.var.entity.routing.remove(self.sm._name)
+# W2B = Transition(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+# Working._transitions = [W2B]
 
 
 class Generator(Generator):
     def build(self):
-        self.Go = self.env.event()
-Sending = Generator._states_dict('Sending')
-Waiting = Generator._states_dict('Waiting')
-S2W = Transition(Sending,Waiting,lambda self: self.Release,action=lambda self:self.Release.restart())
-Sending._transitions = [S2W]
+        self.Next = None
+        self.Release = self.env.event()
+Sending = State('Sending',True)
+@function(Sending)
+def f5(self):
+    self.Release.restart()
+    self.var.entity = self.createEntity()
+S2S = Transition(Sending,Sending,lambda self: AllOf(self.env,[self.Release, self.Next.put(self.var.entity)]))
+Sending._transitions = [S2S]
+Generator._states = [Sending]
 
 class OR():
-    def __init__(self,limits,objs):
-        self.objs = objs
+    def __init__(self,limits):
         self.limits = limits
-    def __call__(self):
-        if self.control():
-            return True
-        else:
-            return False
 
-class CONWIP(OR):
-    def __call__(self):
+def calcWIP(obj):
+    x = 0
+    for store in obj._messages.values():
+        try:
+            x += len(store.items)
+        except:
+            pass
+    return x
+
+def countWIP(obj):
+    x = 0
+    for store in obj._messages.values():
+        try:
+            x += len(store.items)
+        except:
+            pass
+    return x
+
+class CONWIP():
+    def __init__(self,limits):
+        self.limits = limits
+    def control(self):
         x = 0
-        for obj in self.objs:
-            x += len(obj)
+        for obj in env._objects:
+            x += countWIP(obj)
         if x<self.limits:
             return True
         else:
             return False
-        
+    def __call__(self):
+        if self.control():
+            if not self.Release.triggered:
+                self.Release.succeed()
+
 class COBACABANA():
     def __call__(self,obj):
         pass
 
 class DEWIP():
-    def __call__(self):
+    def __call__(self,item,station=None):
+        if station == None:
+            self.release_control(item)
+        else:
+            self.go_ahead(item)
+    def release_control(self,item):
         pass
+    def get_by_name(self,name):
+        return [obj for obj in env._objects if obj.name == name][0]
+            
             
 class createEntity():
     def __init__(self,n_machines,config):
@@ -93,7 +119,23 @@ class Entity():
    
             
 # %% code
-if __name__ == '__main__':
+if __name__ == '__main__' and 1:
+    env = sim.Environment()
+    C = CONWIP(10)
+    g = Generator(env)
+    g.createEntity = createEntity(1,'F')
+    s = Server(env,'M1',serviceTime=1)
+    T = sim.Store(env)
+    C.Release = g.Release
+    s.Control = C
+    s.Next = T
+    g.Next = s.QueueIn
+    while env.now<20:
+        env.step()
+        C()
+
+
+if __name__ == '__main__' and 0:
     env = sim.Environment()
     g = Generator(env)
     T = sim.Store(env)
