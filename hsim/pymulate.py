@@ -130,15 +130,15 @@ class Generator(CHFSM):
         setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
     def createEntity(self):
         return object()
-Waiting = State('Waiting',True)
-Sending = State('Sending')
+Sending = State('Sending',True)
+Waiting = State('Waiting')
 @function(Waiting)
 def f5(self):
     self.var.entity = self.createEntity()
-W2S = Transition(Waiting,Sending,lambda self: self.Next.put(self.var.entity))
-S2W = Transition(Sending,Waiting,lambda self: self.env.timeout(self.calculateServiceTime(None)))
-Waiting._transitions = [W2S]
-Sending._transitions = [S2W]
+S2W = Transition(Sending,Waiting,lambda self: self.Next.put(self.var.entity))
+W2S = Transition(Waiting,Sending,lambda self: self.env.timeout(self.calculateServiceTime(None)))
+Sending._transitions = [W2S]
+Waiting._transitions = [S2W]
 Generator._states = [Waiting,Sending]
 
 
@@ -428,8 +428,7 @@ if __name__ == '__main__':
 
 
 
-raise StopIteration('End')
-
+'''
 
             
 class SwitchOut(CHFSM):
@@ -681,3 +680,4 @@ if __name__ == "__main__":
     import utils
     s = utils.stats(env)
 # %%
+'''
