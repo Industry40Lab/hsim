@@ -246,7 +246,7 @@ OutputSwitch._states = [Working]
 class Router(CHFSM):
     def build(self):
         self.Queue = Box(self.env)
-    def condition_check(item,target):
+    def condition_check(self,item,target):
         return True
 Sending = State('Sending',True)
 @function(Sending)
@@ -257,27 +257,42 @@ def f12(self):
         for next in self.Next:
             if self.condition_check(item,next):
                 self.var.requestOut.append(next.subscribe(item))
-S2S = Transition(Sending,Sending,lambda self:AnyOf(self.env,[self.var.requestIn,*self.var.requestOut]))
-@action(S2S)
+    if self.var.requestOut == []:
+        self.var.requestOut.append(self.Queue.subscribe())
+S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
+S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
+@action(S2S1)
 def f13(self):
-    if self.var.requestIn.triggered and not any(req.triggered for req in self.var.requestOut):
-        for req in self.var.requestOut:
-            req.cancel()
-        self.Queue.put_event.restart()
-    else:
-        for request in self.var.requestOut:
-            if request.check():
-                request.confirm()
-                self.var.requestOut.remove(request)
-                self.Queue.forward(request.item)
-                break
-        for request in self.var.requestOut:
-            request.cancel()
-Sending._transitions=[S2S]
+    for req in self.var.requestOut:
+        req.cancel()
+    self.Queue.put_event.restart()
+@action(S2S2)
+def f14(self):
+    for request in self.var.requestOut:
+        if request.check():
+            request.confirm()
+            self.Queue.forward(request.item)
+            self.var.requestOut.remove(request)
+            break
+    for request in self.var.requestOut:
+        request.cancel()
+Sending._transitions=[S2S1,S2S2]
 Router._states = [Sending]
 
 
-
+class MultiStore(CHFSM):
+    def build(self):
+        self.Queue = Box(self.env)
+    def condition_check(item,target):
+        return True
+Sending = State('Sending',True)
+@function(Sending)
+def f12(self):
+    self.var.requestIn = self.Queue.put_event
+    self.var.requestOut = []
+    for item in self.Queue.items:
+        if self.condition_check(item,self.Next):
+            self.var.requestOut.append(self.Next.subscribe(item))
 
 # %% TESTS
 
