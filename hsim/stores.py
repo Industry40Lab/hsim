@@ -75,6 +75,9 @@ class Subscription(Event):
 
     
 class Store(FilterStore):
+    def __init__(self, env, capacity=inf):
+        super().__init__(env, capacity)
+        self.put_event = env.event()
     def __len__(self):
         return len(self.items)
     def subscribe(self,item=None,filter=None):
@@ -93,6 +96,8 @@ class Store(FilterStore):
             event.succeed()
             if not isinstance(event,Subscription):
                 self.items.append(event.item)
+                # if not self.put_event.triggered:
+                #     self.put_event.succeed()
                 return 
             else:
                 return True
@@ -129,9 +134,6 @@ class Box_v1(Store):
         return [(event,event.item) for event in self.put_queue]
 
 class Box(Store):
-    def __init__(self, env, capacity=inf):
-        super().__init__(env, capacity)
-        self.put_event = env.event()
     def put(self,item=None): #debug
         return super().put(item)
     def _do_put(self, event):
@@ -144,8 +146,6 @@ class Box(Store):
         return True
     def _do_get(self,event):
         super()._do_get(event) 
-    def wait(self):
-        self.put_event.restart()
     def forward(self,event):
         if event not in self.put_queue:
             for (new_event,item) in self.requests:
@@ -155,7 +155,7 @@ class Box(Store):
         event.succeed()
         self.put_queue.remove(event)
         self.items.remove(event.item)
-        self.put_event.restart()
+        # self.put_event.restart()
     @property
     def list_items(self):
         return [event.item for event in self.put_queue]
