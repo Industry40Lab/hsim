@@ -268,6 +268,8 @@ def f13(self):
     self.Queue.put_event.restart()
 @action(S2S2)
 def f14(self):
+    if self.var.requestOut[0].item is None:
+        return
     for request in self.var.requestOut:
         if request.check():
             request.confirm()
@@ -280,10 +282,10 @@ Sending._transitions=[S2S1,S2S2]
 Router._states = [Sending]
 
 
-class MultiStore(CHFSM):
+class StoreSelect(CHFSM):
     def build(self):
-        self.Queue = Box(self.env)
-    def condition_check(item,target):
+        self.Queue = Store(self.env)
+    def condition_check(self,item,target):
         return True
 Sending = State('Sending',True)
 @function(Sending)
@@ -293,6 +295,29 @@ def f12(self):
     for item in self.Queue.items:
         if self.condition_check(item,self.Next):
             self.var.requestOut.append(self.Next.subscribe(item))
+    if self.var.requestOut == []:
+        self.var.requestOut.append(self.Queue.subscribe())
+S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
+S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
+@action(S2S1)
+def f13(self):
+    for req in self.var.requestOut:
+        req.cancel()
+    self.Queue.put_event.restart()
+@action(S2S2)
+def f14(self):
+    if self.var.requestOut[0].item is None:
+        return
+    for request in self.var.requestOut:
+        if request.check():
+            request.confirm()
+            self.var.requestOut.remove(request)
+            self.Queue.items.remove(request.item)
+            break
+    for request in self.var.requestOut:
+        request.cancel()
+Sending._transitions=[S2S1,S2S2]
+StoreSelect._states = [Sending]
 
 # %% TESTS
 
@@ -369,12 +394,24 @@ if __name__ == '__main__':
     if len(c) == 1 and len(d) == 5:
         print('OK switch')
 
+if __name__ == '__main__':
+    env = Environment()
+    a = Server(env,serviceTime=1)
+    b = StoreSelect(env)
+    c = Store(env,5)
+    a.Next = b.Queue
+    b.Next = c
+    for i in range(1,7):
+        a.Store.put(i)
+    env.run(20)
+    if len(c) == 5 and len(b.Queue) == 1:
+        print('OK switch')
 
 # %% old
 
 
 
-raise BaseException('End')
+raise StopIteration('End')
 
 
             
