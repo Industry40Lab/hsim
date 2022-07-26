@@ -21,22 +21,27 @@ class Switch(Router):
             return False
         
 class Server(ServerDoubleBuffer):
-    pass
-ForwardingOut = Server._states_dict('ForwardingOut')
-@function(ForwardingOut)
-def f4(self):
-    self.var.entityOut = self.var.requestOut.read()
-    self.var.entityOut.routing.remove(self._name)
+    def build(self):
+        super().build()
+        self.Control = None
+Working = Server._states_dict('Working')
+Blocking = Server._states_dict('Blocking')
+@function(Working)
+def f(self):
+    self.var.entity = self.var.request.read()
+    self.var.entity.routing.remove(self._name)
+W2B = Transition(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)), action = lambda self: self.Control.refresh())
+Working._transitions = [W2B]
+
 
 class Generator(Generator):
     def build(self):
         self.Go = self.env.event()
 Sending = Generator._states_dict('Sending')
 Waiting = Generator._states_dict('Waiting')
-S2W = Transition(Sending,Waiting,lambda self: self.Go,action=lambda self:self.Go.restart())
+S2W = Transition(Sending,Waiting,lambda self: self.Release,action=lambda self:self.Release.restart())
 Sending._transitions = [S2W]
-    
-   
+
 class OR():
     def __init__(self,limits,objs):
         self.objs = objs
@@ -46,7 +51,7 @@ class OR():
             return True
         else:
             return False
-        
+
 class CONWIP(OR):
     def __call__(self):
         x = 0
