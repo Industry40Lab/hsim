@@ -77,7 +77,7 @@ class Subscription(Event):
 class Store(FilterStore):
     def __len__(self):
         return len(self.items)
-    def subscribe(self,item=None):
+    def subscribe(self,item=None,filter=None):
         return Subscription(self,item)
     def _do_get(self, event):        
         for item in self.items:
