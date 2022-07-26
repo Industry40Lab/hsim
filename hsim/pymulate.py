@@ -253,10 +253,11 @@ Sending = State('Sending',True)
 def f12(self):
     self.var.requestIn = self.Queue.put_event
     self.var.requestOut = []
+    self.var.requestDict = {}
     for item in self.Queue.items:
         for next in self.Next:
-            if self.condition_check(item,next):
-                self.var.requestOut.append(next.subscribe(item))
+            self.var.requestOut.append(next.subscribe(item))
+            self.var.requestDict[self.var.requestOut[-1]] = next
     if self.var.requestOut == []:
         self.var.requestOut.append(self.Queue.subscribe())
 S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
@@ -272,10 +273,11 @@ def f14(self):
         return
     for request in self.var.requestOut:
         if request.check():
-            request.confirm()
-            self.Queue.forward(request.item)
-            self.var.requestOut.remove(request)
-            break
+            if self.condition_check(request.item,self.var.requestDict[request]):
+                request.confirm()
+                self.Queue.forward(request.item)
+                self.var.requestOut.remove(request)
+                break
     for request in self.var.requestOut:
         request.cancel()
 Sending._transitions=[S2S1,S2S2]
@@ -292,9 +294,9 @@ Sending = State('Sending',True)
 def f12(self):
     self.var.requestIn = self.Queue.put_event
     self.var.requestOut = []
+    self.var.requestDict = {}
     for item in self.Queue.items:
-        if self.condition_check(item,self.Next):
-            self.var.requestOut.append(self.Next.subscribe(item))
+        self.var.requestOut.append(self.Next.subscribe(item))
     if self.var.requestOut == []:
         self.var.requestOut.append(self.Queue.subscribe())
 S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
@@ -310,10 +312,11 @@ def f14(self):
         return
     for request in self.var.requestOut:
         if request.check():
-            request.confirm()
-            self.var.requestOut.remove(request)
-            self.Queue.items.remove(request.item)
-            break
+            if self.condition_check(request.item,self.Next):
+                request.confirm()
+                self.var.requestOut.remove(request)
+                self.Queue.items.remove(request.item)
+                break
     for request in self.var.requestOut:
         request.cancel()
 Sending._transitions=[S2S1,S2S2]
@@ -383,7 +386,7 @@ if __name__ == '__main__':
 if __name__ == '__main__':
     env = Environment()
     a = Server(env,serviceTime=1)
-    b = Router(env)
+    b = OutputSwitch(env)
     c = Store(env,1)
     d = Store(env)
     a.Next = b.Queue
@@ -394,6 +397,20 @@ if __name__ == '__main__':
     if len(c) == 1 and len(d) == 5:
         print('OK switch')
 
+if __name__ == '__main__':
+    env = Environment()
+    a = Server(env,serviceTime=1)
+    b = Router(env)
+    c = Store(env,1)
+    d = Store(env)
+    a.Next = b.Queue
+    b.Next = [c,d]
+    for i in range(1,7):
+        a.Store.put(i)
+    env.run(20)
+    if len(c) == 1 and len(d) == 5:
+        print('OK switch')
+        
 if __name__ == '__main__':
     env = Environment()
     a = Server(env,serviceTime=1)
