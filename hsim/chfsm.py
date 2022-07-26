@@ -382,7 +382,10 @@ class Transition():
             return self._evaluate(None)
             self._target._state = self._state
         self._event = method_lambda(self,self._trigger)
-        self._event.callbacks.append(self._evaluate)
+        try:
+            self._event.callbacks.append(self._evaluate)
+        except:
+            self._event.callbacks = [self._evaluate]
         return self._event
  
 class Pseudostate(State):
