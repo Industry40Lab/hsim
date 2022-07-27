@@ -137,7 +137,7 @@ class Box(Store):
     def put(self,item=None): #debug
         return super().put(item)
     def _do_put(self, event):
-        if len(self.items) < inf: #len(self.put_queue):
+        if len(self.items) < len(self.put_queue):
             self.items.append(event.item)
             # event.item = None
         self._trigger_get(event)
@@ -334,7 +334,7 @@ if __name__ == "__main__":
     print(a.items,a.put_queue)
     req=a.subscribe(1)
     print(a.items,a.put_queue)
-    req2=a.subscribe(1)
+    req2=a.subscribe(2)
     print(a.items,a.put_queue)
     
     env.run(1)
