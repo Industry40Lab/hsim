@@ -252,13 +252,13 @@ class Router(CHFSM):
 Sending = State('Sending',True)
 @function(Sending)
 def f12(self):
-    print([self.Queue.items,[req.item for req in self.Queue.put_queue],self.Queue.put_queue])
     self.var.requestIn = self.Queue.put_event
     self.var.requestOut = []
     self.var.requestDict = {}
     for item in self.Queue.items:
         for next in self.Next:
-            self.var.requestOut.append(next.subscribe(item))
+            if self.condition_check(item,next):
+                self.var.requestOut.append(next.subscribe(item))
     if self.var.requestOut == []:
         self.var.requestOut.append(self.Dummy.subscribe())
 S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
