@@ -33,6 +33,8 @@ class Subscription(Event):
         else:
             self.resource._trigger_put(self)
     def confirm(self,item=None):
+        if self.item in self.resource.items:
+            return
         if not self.item:
             self._value = self.resource.get_now(self)
             self.resource._trigger_put(None)
@@ -62,10 +64,18 @@ class Subscription(Event):
                     return y
         return False
     def cancel(self):
-        if not self.triggered:
-            self.resource.put_queue.remove(self)
+        if self.item:
+            if not self.triggered:
+                self.resource.put_queue.remove(self)
+            else:
+                self.renounce()
+            if self.item in self.resource.items:
+                self.resource.items.remove(self.item)
         else:
-            self.renounce()
+            if not self.triggered:
+                self.resource.get_queue.remove(self)
+            else:
+                self.renounce()
     def choose(self,item):
         if not self.item:
             self.filter = lambda x: x is item
@@ -96,8 +106,8 @@ class Store(FilterStore):
             event.succeed()
             if not isinstance(event,Subscription):
                 self.items.append(event.item)
-                # if not self.put_event.triggered:
-                #     self.put_event.succeed()
+                if not self.put_event.triggered:
+                    self.put_event.succeed()
                 return 
             else:
                 return True
@@ -141,8 +151,8 @@ class Box(Store):
             self.items.append(event.item)
             # event.item = None
         self._trigger_get(event)
-        # if not self.put_event.triggered:
-        #     self.put_event.succeed()
+        if not self.put_event.triggered:
+            self.put_event.succeed()
         return True
     def _do_get(self,event):
         super()._do_get(event) 
