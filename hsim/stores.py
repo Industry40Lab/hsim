@@ -137,12 +137,12 @@ class Box(Store):
     def put(self,item=None): #debug
         return super().put(item)
     def _do_put(self, event):
-        if len(self.items) < len(self.put_queue):
+        if len(self.items) < inf: #len(self.put_queue):
             self.items.append(event.item)
             # event.item = None
         self._trigger_get(event)
-        if not self.put_event.triggered:
-            self.put_event.succeed()
+        # if not self.put_event.triggered:
+        #     self.put_event.succeed()
         return True
     def _do_get(self,event):
         super()._do_get(event) 
