@@ -261,7 +261,7 @@ def f12(self):
     if self.var.requestOut == []:
         self.var.requestOut.append(self.Dummy.subscribe())
 S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
-S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
+S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut),action=lambda self:print(1))
 @action(S2S1)
 def f13(self):
     for req in self.var.requestOut:
