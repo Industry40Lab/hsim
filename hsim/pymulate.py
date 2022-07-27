@@ -331,7 +331,7 @@ if __name__ == '__main__':
         a.Store.put(i)
     env.run(20)
     if a.current_state[0]._name == 'Blocking' and len(a.Next) == 5:
-        print('OK')
+        print('OK server')
         
 if __name__ == '__main__':
     env = Environment()
@@ -341,7 +341,7 @@ if __name__ == '__main__':
         a.QueueIn.put(i)
     env.run(10)
     if a.current_state[0]._name == 'Blocking' and len(a.Next) == 5:
-        print('OK')
+        print('OK server with buffer')
 
 if __name__ == '__main__':
     env = Environment()
@@ -351,7 +351,7 @@ if __name__ == '__main__':
         a.QueueIn.put(i)
     env.run(10)
     if a.current_state[0]._name == 'Starving' and len(a.Next) == 5 and len(a.QueueOut) == 4:
-        print('OK')
+        print('OK server with 2 buffers')
 
 if __name__ == '__main__':
     env = Environment()
@@ -372,7 +372,7 @@ if __name__ == '__main__':
         a.Store.put(i)
     env.run(10)
     if a.current_state[0]._name == 'Forwarding' and len(a.Next) == 5 and len(a.Store) == 4:
-        print('OK')
+        print('OK queue')
 
 if __name__ == '__main__':
     env = Environment()
@@ -383,7 +383,7 @@ if __name__ == '__main__':
         a.Store.put(i)
     env.run(10)
     if b.current_state[0]._name == 'Idle' and len(a.Next) == 5 and a.current_state[0]._name == 'Blocking':
-        print('OK')
+        print('OK manual station')
  
 if __name__ == '__main__':
     env = Environment()
