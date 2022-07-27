@@ -6,19 +6,21 @@ Created on Tue Jun 14 18:03:34 2022
 """
 
 import pymulate as sim
-from pymulate import Generator, Server, Router, ServerDoubleBuffer,ServerWithBuffer
-from pymulate import function
+from pymulate import Generator, Server, Router, ServerDoubleBuffer,ServerWithBuffer, Queue
+from pymulate import function, action
 from chfsm import Transition, State
 import numpy as np
 import pandas as pd
 from simpy import AllOf, AnyOf
-
+from collections import OrderedDict
 
         
 class Server(ServerWithBuffer):
     def build(self):
         super().build()
         self.Control = None
+    def subscribe(self,item):
+        return self.QueueIn.subscribe(item)
 Working = Server._states_dict('Working')
 Blocking = Server._states_dict('Blocking')
 @function(Working)
@@ -29,18 +31,24 @@ def f(self):
 # Working._transitions = [W2B]
 
 
-class Generator(Generator):
+class PreShop(Queue):
     def build(self):
-        self.Next = None
+        super().build()
         self.Release = self.env.event()
-Sending = State('Sending',True)
-@function(Sending)
-def f5(self):
+Forwarding = PreShop._states_dict('Forwarding')
+@function(Forwarding)
+def f7(self):
     self.Release.restart()
-    self.var.entity = self.createEntity()
-S2S = Transition(Sending,Sending,lambda self: AllOf(self.env,[self.Release, self.Next.put(self.var.entity)]))
-Sending._transitions = [S2S]
-Generator._states = [Sending]
+    self.var.entity = self.var.request.read()
+f2r = Transition(Forwarding,PreShop._states_dict('Retrieving'),lambda self: self.Next.put(self.var.entity))
+@action(f2r)
+def f9(self):
+    if self.var.request.check():
+        self.var.request.confirm()
+    else:
+        self.var.request.cancel()
+Forwarding._transitions = [f2r]
+
 
 class OR():
     def __init__(self,limits):
@@ -70,7 +78,8 @@ class CONWIP():
     def control(self):
         x = 0
         for obj in env._objects:
-            x += countWIP(obj)
+            if type(obj) is not PreShop:
+                x += countWIP(obj)
         if x<self.limits:
             return True
         else:
@@ -117,23 +126,60 @@ class Entity():
         self.serviceTime = serviceTime
         self.routing = routing
    
-            
+          
+   
+def router_control(item,target):
+    if item.routing is []:
+        if target._name == 'T':
+            return True
+        else:
+            return False
+    elif item.routing[0] == target._name:
+        return True
+    else:
+        return False
+    
 # %% code
-if __name__ == '__main__' and 1:
+if __name__ == '__main__' and 0:
     env = sim.Environment()
     C = CONWIP(10)
-    g = Generator(env)
+    g = Generator(env,serviceTime=0.5)
     g.createEntity = createEntity(1,'F')
-    s = Server(env,'M1',serviceTime=1)
+    preshop_pool = PreShop(env)
+    s=Server(env,'M1',serviceTime=1)
     T = sim.Store(env)
-    C.Release = g.Release
-    s.Control = C
+    C.Release = preshop_pool.Release
+    g.Next = preshop_pool.Store
+    preshop_pool.Next = s.QueueIn
     s.Next = T
-    g.Next = s.QueueIn
     while env.now<20:
         env.step()
         C()
 
+
+if __name__ == '__main__':
+    n_machines = 2
+    env = sim.Environment()
+    C = CONWIP(10)
+    g = Generator(env,serviceTime=0.5)
+    g.createEntity = createEntity(n_machines,'F')
+    preshop_pool = PreShop(env)
+    router = Router(env)
+    router.condition_check = router_control
+    servers = OrderedDict()
+    for i in range(1,n_machines+1):
+        name = 'M'+str(i)
+        servers[name] =Server(env,name,serviceTime=1)
+        servers[name].Next = router.Queue
+    T = sim.Store(env)
+    T._name = 'T'
+    C.Release = preshop_pool.Release
+    g.Next = preshop_pool.Store
+    preshop_pool.Next = router.Queue
+    router.Next = [server for server in servers.values()]+[T]
+    while env.now<20:
+        env.step()
+        # C()
 
 if __name__ == '__main__' and 0:
     env = sim.Environment()
