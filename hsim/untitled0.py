@@ -35,13 +35,15 @@ class PreShop(Queue):
     def build(self):
         super().build()
         self.Release = self.env.event()
+        self.Dummy = self.env.event()
+        self.Dummy.succeed()
 Forwarding = PreShop._states_dict('Forwarding')
 @function(Forwarding)
 def f7(self):
     self.Release.restart()
-    self.var.entity = self.var.request.read()
+    self.var.entity = self.var.request.confirm()
     self.Next.put(self.var.entity)
-f2r = Transition(Forwarding,PreShop._states_dict('Retrieving'),None)
+f2r = Transition(Forwarding,PreShop._states_dict('Retrieving'),lambda self:self.Dummy)
 @action(f2r)
 def f9(self):
     if self.var.request.check():
@@ -130,7 +132,7 @@ class Entity():
           
    
 def router_control(item,target):
-    if item.routing is []:
+    if item.routing == []:
         if target._name == 'T':
             return True
         else:
