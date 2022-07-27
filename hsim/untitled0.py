@@ -40,7 +40,8 @@ Forwarding = PreShop._states_dict('Forwarding')
 def f7(self):
     self.Release.restart()
     self.var.entity = self.var.request.read()
-f2r = Transition(Forwarding,PreShop._states_dict('Retrieving'),lambda self: self.Next.put(self.var.entity))
+    self.Next.put(self.var.entity)
+f2r = Transition(Forwarding,PreShop._states_dict('Retrieving'),None)
 @action(f2r)
 def f9(self):
     if self.var.request.check():
