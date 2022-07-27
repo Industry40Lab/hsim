@@ -382,6 +382,8 @@ class Transition():
             return self._evaluate(None)
             self._target._state = self._state
         self._event = method_lambda(self,self._trigger)
+        if self._event == None:
+            print(1)
         try:
             self._event.callbacks.append(self._evaluate)
         except:
