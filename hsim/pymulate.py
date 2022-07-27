@@ -249,33 +249,40 @@ class Router(CHFSM):
         self.refreshRate = refreshRate
     def build(self):
         self.Queue = Box(self.env)
-        self.Wait = self.env.event()
-        self.Dummy = self.env.event()
-        self.Dummy.succeed()
+        # self.Wait = self.env.event()
+        # self.Dummy = self.env.event()
+        # self.Dummy.succeed()
         self.Next = list()
     def condition_check(self,item,target):
         return True
 Sending = State('Sending',True)
-Waiting = State('Waiting')
 @function(Sending)
-def f11(self):
-    self.Wait.restart()
+def f10(self):
+    self.var.requestOut = []
     for item in self.Queue.items:
         for next in self.Next:
             if self.condition_check(item,next):
-                req = next.subscribe(item)
-                if req.triggered:
-                    req.confirm()
-                    self.Wait.succeed()
-                    break
-                else:
-                    req.cancel()
-S2S = Transition(Sending,Sending,lambda self: self.Wait)
-S2W = Transition(Sending,Waiting,lambda self: self.Dummy)
-W2S = Transition(Waiting,Sending,lambda self: self.env.timeout(self.refreshRate),action=lambda self:print(1))
-Sending._transitions = [S2S,S2W]
-Waiting._transitions = [W2S]
-Router._states = [Sending,Waiting]
+                self.var.requestOut.append(next.subscribe(item))
+    if self.var.requestOut == []:
+        self.Queue.put_event.restart()
+        self.var.requestOut = [self.Queue.put_event]
+    return
+S2S = Transition(Sending,Sending,lambda self: AnyOf(self.env,self.var.requestOut))
+@action(S2S)
+def f120(self):
+    if True:
+        return
+    else:
+        for req in self.var.requestOut:
+            if req.check():
+                req.confirm()
+                self.Queue.forward(req.item)
+                self.var.requestOut.remove(req)
+                break
+        for req in self.var.requestOut:
+            req.cancel()
+Sending._transitions = [S2S]
+Router._states = [Sending]
 
 class StoreSelect(CHFSM):
     def build(self):
