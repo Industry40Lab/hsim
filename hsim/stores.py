@@ -29,9 +29,9 @@ class Subscription(Event):
     def renounce(self):
         # to be triggered if refusing to get/put after subscribing
         if self.item:
-            self.resource._do_get(self)
+            self.resource._trigger_get(self)
         else:
-            self.resource._do_put(self)
+            self.resource._trigger_put(self)
     def confirm(self,item=None):
         if not self.item:
             self._value = self.resource.get_now(self)
