@@ -179,7 +179,7 @@ if __name__ == '__main__':
     router.Next = [server for server in servers.values()]+[T]
     while env.now<20:
         env.step()
-        # C()
+        C()
 
 if __name__ == '__main__' and 0:
     env = sim.Environment()
