@@ -244,44 +244,43 @@ OutputSwitch._states = [Working]
 
 
 class Router(CHFSM):
-    def __init__(self, env, name=None, refreshRate=10e-10):
-        super().__init__(env,name)
-        self.refreshRate = refreshRate
     def build(self):
         self.Queue = Box(self.env)
-        # self.Wait = self.env.event()
-        # self.Dummy = self.env.event()
-        # self.Dummy.succeed()
-        self.Next = list()
+        self.Dummy = Store(self.env)
     def condition_check(self,item,target):
         return True
 Sending = State('Sending',True)
 @function(Sending)
-def f10(self):
+def f12(self):
+    self.var.requestIn = self.Queue.put_event
     self.var.requestOut = []
+    self.var.requestDict = {}
     for item in self.Queue.items:
         for next in self.Next:
-            if self.condition_check(item,next):
-                self.var.requestOut.append(next.subscribe(item))
+            self.var.requestOut.append(next.subscribe(item))
     if self.var.requestOut == []:
-        self.Queue.put_event.restart()
-        self.var.requestOut = [self.Queue.put_event]
-    return
-S2S = Transition(Sending,Sending,lambda self: AnyOf(self.env,self.var.requestOut))
-@action(S2S)
-def f120(self):
-    if True:
+        self.var.requestOut.append(self.Dummy.subscribe())
+S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
+S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
+@action(S2S1)
+def f13(self):
+    for req in self.var.requestOut:
+        req.cancel()
+    self.Queue.put_event.restart()
+@action(S2S2)
+def f14(self):
+    if self.var.requestOut[0].item is None:
+        self.var.requestOut[0].cancel()
         return
-    else:
-        for req in self.var.requestOut:
-            if req.check():
-                req.confirm()
-                self.Queue.forward(req.item)
-                self.var.requestOut.remove(req)
-                break
-        for req in self.var.requestOut:
-            req.cancel()
-Sending._transitions = [S2S]
+    for request in self.var.requestOut:
+        if request.check():
+            request.confirm()
+            self.Queue.forward(request.item)
+            self.var.requestOut.remove(request)
+            break
+    for request in self.var.requestOut:
+        request.cancel()
+Sending._transitions=[S2S1,S2S2]
 Router._states = [Sending]
 
 class StoreSelect(CHFSM):
