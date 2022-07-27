@@ -30,7 +30,6 @@ def f(self):
 # W2B = Transition(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
 # Working._transitions = [W2B]
 
-
 class PreShop(Queue):
     def build(self):
         super().build()
@@ -51,7 +50,6 @@ def f9(self):
     else:
         self.var.request.cancel()
 Forwarding._transitions = [f2r]
-
 
 class OR():
     def __init__(self,limits):
@@ -106,8 +104,7 @@ class DEWIP():
         pass
     def get_by_name(self,name):
         return [obj for obj in env._objects if obj.name == name][0]
-            
-            
+                        
 class createEntity():
     def __init__(self,n_machines,config):
         self.index = 1
@@ -128,9 +125,7 @@ class Entity():
     def __init__(self,serviceTime,routing):
         self.serviceTime = serviceTime
         self.routing = routing
-   
-          
-   
+      
 def router_control(item,target):
     if item.routing == []:
         if target._name == 'T':
@@ -158,7 +153,6 @@ if __name__ == '__main__' and 0:
     while env.now<20:
         env.step()
         C()
-
 
 if __name__ == '__main__':
     n_machines = 2
