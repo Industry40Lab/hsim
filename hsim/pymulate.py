@@ -12,17 +12,17 @@ from collections.abc import Iterable
 from copy import deepcopy
 
 # %% add
-def calculateServiceTime(self,entity,attribute='serviceTime'):
+def calculateServiceTime(self,entity=None,attribute='serviceTime'):
     if self.var.serviceTimeFunction == None:
         if type(self.var.serviceTime)==int or type(self.var.serviceTime)==float:
             return self.var.serviceTime
         elif self.var.serviceTime == None:
-            time = getattr(self.var.entity,attribute)
+            time = getattr(entity,attribute)
             if type(time) is dict:
                 time = time[self.name]
             return time
         elif len(self.var.serviceTime)==0:
-            time = getattr(self.var.entity,attribute)
+            time = getattr(entity,attribute)
             if type(time) is dict:
                 time = time[self.name]
             return time
@@ -33,7 +33,7 @@ def calculateServiceTime(self,entity,attribute='serviceTime'):
             return self.var.serviceTimeFunction(self.var.serviceTime)
         try:
             if self.var.serviceTime==None:
-                time = getattr(self.var.entity,attribute)
+                time = getattr(entity,attribute)
                 if type(time) is dict:
                     time = time[self.name]
                 return self.var.serviceTimeFunction(time)
@@ -130,16 +130,16 @@ class Generator(CHFSM):
         setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
     def createEntity(self):
         return object()
-Sending = State('Sending',True)
-Waiting = State('Waiting')
-@function(Waiting)
+Sending = State('Sending')
+Creating = State('Creating',True)
+@function(Creating)
 def f5(self):
     self.var.entity = self.createEntity()
-S2W = Transition(Sending,Waiting,lambda self: self.Next.put(self.var.entity))
-W2S = Transition(Waiting,Sending,lambda self: self.env.timeout(self.calculateServiceTime(None)))
-Sending._transitions = [W2S]
-Waiting._transitions = [S2W]
-Generator._states = [Waiting,Sending]
+S2C = Transition(Sending,Creating,lambda self: self.Next.put(self.var.entity))
+C2S = Transition(Creating,Sending,lambda self: self.env.timeout(self.calculateServiceTime(None)))
+Creating._transitions = [C2S]
+Sending._transitions = [S2C]
+Generator._states = [Creating,Sending]
 
 
 class Queue(CHFSM):
@@ -244,45 +244,38 @@ OutputSwitch._states = [Working]
 
 
 class Router(CHFSM):
+    def __init__(self, env, name=None, refreshRate=10e-10):
+        super().__init__(env,name)
+        self.refreshRate = refreshRate
     def build(self):
         self.Queue = Box(self.env)
+        self.Wait = self.env.event()
+        self.Dummy = self.env.event()
+        self.Dummy.succeed()
+        self.Next = list()
     def condition_check(self,item,target):
         return True
 Sending = State('Sending',True)
+Waiting = State('Waiting')
 @function(Sending)
-def f12(self):
-    self.var.requestIn = self.Queue.put_event
-    self.var.requestOut = []
-    self.var.requestDict = {}
+def f11(self):
+    self.Wait.restart()
     for item in self.Queue.items:
         for next in self.Next:
-            self.var.requestOut.append(next.subscribe(item))
-            self.var.requestDict[self.var.requestOut[-1]] = next
-    if self.var.requestOut == []:
-        self.var.requestOut.append(self.Queue.subscribe())
-S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
-S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
-@action(S2S1)
-def f13(self):
-    for req in self.var.requestOut:
-        req.cancel()
-    self.Queue.put_event.restart()
-@action(S2S2)
-def f14(self):
-    if self.var.requestOut[0].item is None:
-        return
-    for request in self.var.requestOut:
-        if request.check():
-            if self.condition_check(request.item,self.var.requestDict[request]):
-                request.confirm()
-                self.Queue.forward(request.item)
-                self.var.requestOut.remove(request)
-                break
-    for request in self.var.requestOut:
-        request.cancel()
-Sending._transitions=[S2S1,S2S2]
-Router._states = [Sending]
-
+            if self.condition_check(item,next):
+                req = next.subscribe(item)
+                if req.triggered:
+                    req.confirm()
+                    self.Wait.succeed()
+                    break
+                else:
+                    req.cancel()
+S2S = Transition(Sending,Sending,lambda self: self.Wait)
+S2W = Transition(Sending,Waiting,lambda self: self.Dummy)
+W2S = Transition(Waiting,Sending,lambda self: self.env.timeout(self.refreshRate),action=lambda self:print(1))
+Sending._transitions = [S2S,S2W]
+Waiting._transitions = [W2S]
+Router._states = [Sending,Waiting]
 
 class StoreSelect(CHFSM):
     def build(self):
@@ -358,9 +351,12 @@ if __name__ == '__main__':
     env = Environment()
     a = Generator(env,serviceTime=1)
     a.Next = Store(env,5)
+    env.run(5)
+    if len(a.Next) == 4:
+        print('OK generator')
     env.run(10)
-    if a.current_state[0]._name == 'Waiting' and len(a.Next) == 5:
-        print('OK')
+    if len(a.Next) == 5:
+        print('OK generator 2x')
         
 if __name__ == '__main__':
     env = Environment()
@@ -409,7 +405,7 @@ if __name__ == '__main__':
         a.Store.put(i)
     env.run(20)
     if len(c) == 1 and len(d) == 5:
-        print('OK switch')
+        print('OK router')
         
 if __name__ == '__main__':
     env = Environment()
