@@ -119,12 +119,7 @@ class StateMachine():
         self._states = copy.deepcopy(self._states)
         for state in self._states:
             state.set_parent_sm(self)
-    # def copy_states(self):
-    #     for element in dir(self):
-    #         x = getattr(self, element)
-    #         if type(x) == State:
-    #             x.set_parent_sm(self)
-    #             self.add_state(x)
+
     @property
     def name(self):
         return self._name
