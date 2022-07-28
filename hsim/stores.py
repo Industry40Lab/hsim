@@ -42,7 +42,8 @@ class Subscription(Event):
         else:
             if item:
                 self.item = item
-            self.resource.put_now(self.item)
+            if type(self.resource) is not Box:
+                self.resource.put_now(self.item)
             self.resource._trigger_get(None)
     def read(self): #useless
         if self.check() is not False:
@@ -166,6 +167,19 @@ class Box(Store):
         self.put_queue.remove(event)
         self.items.remove(event.item)
         # self.put_event.restart()
+    def subscribe(self,item=None,filter=None):
+        return Subscription(self,item)
+    def _trigger_put(self,get_event):
+        idx = len(self.put_queue) - 1
+        while idx < len(self.put_queue):
+            put_event = self.put_queue[idx]
+            proceed = self._do_put(put_event)
+            if not put_event.triggered:
+                idx += 1
+            elif self.put_queue.pop(idx) != put_event:
+                raise RuntimeError('Put queue invariant violated')
+            if not proceed:
+                break
     @property
     def list_items(self):
         return [event.item for event in self.put_queue]
