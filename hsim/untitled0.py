@@ -6,7 +6,7 @@ Created on Tue Jun 14 18:03:34 2022
 """
 
 import pymulate as sim
-from pymulate import Generator, Server, Router, ServerDoubleBuffer,ServerWithBuffer, Queue
+from pymulate import Generator, Server, Router, ServerDoubleBuffer,ServerWithBuffer, Queue, StoreSelect
 from pymulate import function, action
 from chfsm import Transition, State
 import numpy as np
@@ -30,26 +30,16 @@ def f(self):
 # W2B = Transition(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
 # Working._transitions = [W2B]
 
-class PreShop(Queue):
+class PreShop(StoreSelect):
     def build(self):
         super().build()
         self.Release = self.env.event()
-        self.Dummy = self.env.event()
-        self.Dummy.succeed()
-Forwarding = PreShop._states_dict('Forwarding')
-@function(Forwarding)
-def f7(self):
-    self.Release.restart()
-    self.var.entity = self.var.request.confirm()
-    self.Next.put(self.var.entity)
-f2r = Transition(Forwarding,PreShop._states_dict('Retrieving'),lambda self:self.Dummy)
-@action(f2r)
-def f9(self):
-    if self.var.request.check():
-        self.var.request.confirm()
-    else:
-        self.var.request.cancel()
-Forwarding._transitions = [f2r]
+#         self.Dummy = self.env.event()
+#         self.Dummy.succeed()
+Sending = PreShop._states_dict('Sending')
+# refresh = Transition(Sending,Sending,lambda self:AllOf(self.env,[self.Queue.subscribe(),self.env.timeout(0.1)]),action=lambda self:print(len(self.Queue.items)))
+refresh = Transition(Sending,Sending,lambda self:self.Release,action=lambda self:self.Release.restart())
+Sending._transitions.append(refresh)
 
 class OR():
     def __init__(self,limits):
@@ -85,11 +75,11 @@ class CONWIP():
             return True
         else:
             return False
-    def __call__(self):
+    def __call__(self,*args):
         if self.control():
-            if not self.Release.triggered:
-                self.Release.succeed()
-
+            return True
+        else:
+            return False
 class COBACABANA():
     def __call__(self,obj):
         pass
@@ -107,12 +97,13 @@ class DEWIP():
                         
 class createEntity():
     def __init__(self,n_machines,config):
-        self.index = 1
+        self.index = 0
         self.n_machines = n_machines
         self.config = config
         self.n = 3
     def __call__(self):
-        return Entity(self._serviceTime(),self._routing())
+        self.index += 1
+        return Entity(self.index,self._serviceTime(),self._routing())
     def _serviceTime(self):
         pass
     def _routing(self):
@@ -122,7 +113,8 @@ class createEntity():
         return [str('M%d' %i) for i in x]
 
 class Entity():
-    def __init__(self,serviceTime,routing):
+    def __init__(self,ID,serviceTime,routing):
+        self.ID = ID
         self.serviceTime = serviceTime
         self.routing = routing
       
@@ -136,6 +128,8 @@ def router_control(item,target):
         return True
     else:
         return False
+    
+
     
 # %% code
 if __name__ == '__main__' and 0:
@@ -155,10 +149,10 @@ if __name__ == '__main__' and 0:
         C()
 
 if __name__ == '__main__':
-    n_machines = 2
+    n_machines = 6
     env = sim.Environment()
-    C = CONWIP(10)
-    g = Generator(env,serviceTime=0.5)
+    C = CONWIP(3)
+    g = Generator(env,serviceTime=1)
     g.createEntity = createEntity(n_machines,'F')
     preshop_pool = PreShop(env)
     router = Router(env)
@@ -170,13 +164,43 @@ if __name__ == '__main__':
         servers[name].Next = router.Queue
     T = sim.Store(env)
     T._name = 'T'
-    C.Release = preshop_pool.Release
-    g.Next = preshop_pool.Store
+    g.Next = preshop_pool.Queue
+    preshop_pool.condition_check = C
     preshop_pool.Next = router.Queue
     router.Next = [server for server in servers.values()]+[T]
-    while env.now<20:
+    
+    # create = createEntity(n_machines,'F')
+    # for i in range(10):
+    #     preshop_pool.Queue.put(create())
+    env.run(3600)
+    # while env.now<=1000:
+    #     env.step()
+    #     print(env._eid.__reduce__()[1][0],[req.item.ID for req in router.Queue.put_queue],[item.ID for item in router.Queue.items])
+    #     try:
+    #         print(env._eid.__reduce__()[1][0],[req.item.ID for req in preshop_pool.var.requestOut],[item.ID for item in preshop_pool.Queue.items])
+    #     except:
+    #         pass
+        # if C.control() and not preshop_pool.Release.triggered:
+        #     preshop_pool.Release.succeed()
+    
+if False:
+    i = 0
+    while i<=40:
+        i+=1
         env.step()
-        C()
+        print(i,[req.item.ID for req in router.Queue.put_queue],[item.ID for item in router.Queue.items])
+        try:
+            print(i,[req.item.ID for req in preshop_pool.var.requestOut],[item.ID for item in preshop_pool.Queue.items])
+        except:
+            pass
+    while i<=300:
+        i+=1
+        env.step()
+        print(i,[req.item.ID for req in router.Queue.put_queue],[item.ID for item in router.Queue.items])
+        try:
+            print(i,[req.item.ID for req in preshop_pool.var.requestOut],[item.ID for item in preshop_pool.Queue.items])
+        except:
+            pass
 
 if __name__ == '__main__' and 0:
     env = sim.Environment()
