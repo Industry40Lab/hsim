@@ -147,10 +147,12 @@ class Queue(CHFSM):
         self.capacity = capacity
         super().__init__(env,name)
     def build(self):
-        self.Store = Store(self.env)
+        self.Store = Store(self.env,self.capacity)
     @property
     def items(self):
         return self.Store.items
+    def __len__(self):
+        return len(self.Store.items)
 Retrieving = State('Retrieving',True)
 @function(Retrieving)
 def f6(self):
@@ -275,6 +277,9 @@ def f14(self):
         return
     for request in self.var.requestOut:
         if request.check():
+            if not request.item in self.Queue.items:
+                request.cancel()
+                break
             request.confirm()
             self.Queue.forward(request.item)
             self.var.requestOut.remove(request)
@@ -296,27 +301,28 @@ def f12(self):
     self.var.requestOut = []
     self.var.requestDict = {}
     for item in self.Queue.items:
-        self.var.requestOut.append(self.Next.subscribe(item))
+        if self.condition_check(item,self.Next):
+            self.var.requestOut.append(self.Next.subscribe(item))
     if self.var.requestOut == []:
-        self.var.requestOut.append(self.Queue.subscribe())
+        self.var.requestOut = [self.var.requestIn]
 S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
 S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
 @action(S2S1)
 def f13(self):
-    for req in self.var.requestOut:
-        req.cancel()
+    if hasattr(self.var.requestOut[0],'item'):
+        for req in self.var.requestOut:
+            req.cancel()
     self.Queue.put_event.restart()
 @action(S2S2)
 def f14(self):
-    if self.var.requestOut[0].item is None:
+    if not hasattr(self.var.requestOut[0],'item'):
         return
     for request in self.var.requestOut:
         if request.check():
-            if self.condition_check(request.item,self.Next):
-                request.confirm()
-                self.var.requestOut.remove(request)
-                self.Queue.items.remove(request.item)
-                break
+            request.confirm()
+            self.var.requestOut.remove(request)
+            self.Queue.items.remove(request.item)
+            break
     for request in self.var.requestOut:
         request.cancel()
 Sending._transitions=[S2S1,S2S2]
@@ -409,9 +415,26 @@ if __name__ == '__main__':
     a.Next = b.Queue
     b.Next = [c,d]
     for i in range(1,7):
-        a.Store.put(i)
+        b.Queue.put(i)
     env.run(20)
     if len(c) == 1 and len(d) == 5:
+        print('OK router')
+        
+if __name__ == '__main__':
+    env = Environment()
+    b = Router(env)
+    c = Store(env,1)
+    d = Queue(env,capacity=3)
+    e = Server(env,serviceTime = 5)
+    f = Store(env)
+    a.Next = b.Queue
+    b.Next = [d.Store,c]
+    d.Next = e.Store
+    e.Next = f
+    for i in range(1,10):
+        b.Queue.put(i)
+    env.run(20)
+    if len(c) == 1 and len(d) == 3:
         print('OK router')
         
 if __name__ == '__main__':
