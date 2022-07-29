@@ -296,7 +296,7 @@ class StoreSelect(CHFSM):
         return True
 Sending = State('Sending',True)
 @function(Sending)
-def f12(self):
+def f20(self):
     self.var.requestIn = self.Queue.put_event
     self.var.requestOut = []
     self.var.requestDict = {}
