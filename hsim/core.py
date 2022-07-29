@@ -90,7 +90,7 @@ class dotdict(dict):
         return len(self.keys())
     
 def method_lambda(self,function):
-    if function.__name__ == '<lambda>':
+    if not hasattr(function,'__self__'):
         return function(self)
     else:
         return function()
