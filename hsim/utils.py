@@ -21,3 +21,4 @@ def stats(env):
             v[state] = x
         stats[res] = v
     return stats
+
