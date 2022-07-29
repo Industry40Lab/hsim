@@ -246,6 +246,10 @@ OutputSwitch._states = [Working]
 
 
 class Router(CHFSM):
+    def __init__(self, env, name=None):
+        super().__init__(env, name)
+        self.var.requestOut = []
+        self.var.sent = []
     def build(self):
         self.Queue = Box(self.env)
         self.Dummy = Store(self.env)
@@ -257,12 +261,14 @@ def f12(self):
     self.var.requestIn = self.Queue.put_event
     self.var.requestOut = []
     self.var.requestDict = {}
+    # self.var.requestOut = []
     for item in self.Queue.items:
         for next in self.Next:
             if self.condition_check(item,next):
                 self.var.requestOut.append(next.subscribe(item))
     if self.var.requestOut == []:
         self.var.requestOut.append(self.Dummy.subscribe())
+        self.var.requestOut.append(self.var.requestIn)
 S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
 S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
 @action(S2S1)
