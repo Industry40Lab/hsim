@@ -143,6 +143,8 @@ class Entity():
         self.routing = routing
       
 def router_control(item,target):
+    print(item.routing,target._name)
+
     if item.routing == []:
         if target._name == 'T':
             return True
@@ -158,6 +160,7 @@ def router_control(item,target):
 # %% code
 
 if __name__ == '__main__':
+    np.random.seed(1)
     n_machines = 10
     env = sim.Environment()
     C = CONWIP(12)
@@ -183,6 +186,7 @@ if __name__ == '__main__':
     
     from time import time
     tic = time()
-    env.run(7200)
+    env.run(20)
     print(time()-tic)
     # 
+    env.run(15)
