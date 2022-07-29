@@ -27,8 +27,8 @@ Blocking = Server._states_dict('Blocking')
 def f(self):
     self.var.entity = self.var.request.read()
     self.var.entity.routing.remove(self.sm._name)
-# W2B = Transition(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
-# Working._transitions = [W2B]
+W2B = Transition(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)),action=lambda self:self.Control.refresh())
+Working._transitions = [W2B]
 
 class PreShop(StoreSelect):
     def build(self):
@@ -36,11 +36,22 @@ class PreShop(StoreSelect):
         self.Release = self.env.event()
 #         self.Dummy = self.env.event()
 #         self.Dummy.succeed()
+'''
 Sending = PreShop._states_dict('Sending')
-# refresh = Transition(Sending,Sending,lambda self:AllOf(self.env,[self.Queue.subscribe(),self.env.timeout(0.1)]),action=lambda self:print(len(self.Queue.items)))
-refresh = Transition(Sending,Sending,lambda self:self.Release,action=lambda self:self.Release.restart())
+@function(Sending)
+def f20(self):
+    self.var.requestIn = self.Release
+    self.var.requestOut = []
+    self.var.requestDict = {}
+    for item in self.Queue.items:
+        if self.condition_check(item,self.Next):
+            self.var.requestOut.append(self.Next.subscribe(item))
+    if self.var.requestOut == []:
+        self.var.requestOut = [self.var.requestIn]
+refresh = Transition(Sending,Sending,lambda self:self.Release)
+Sending._transitions.pop(0)
 Sending._transitions.append(refresh)
-
+'''
 class OR():
     def __init__(self,limits):
         self.limits = limits
@@ -66,7 +77,8 @@ def countWIP(obj):
 class CONWIP():
     def __init__(self,limits):
         self.limits = limits
-    def control(self):
+        self.PreShop = None
+    def control(self,*args):
         x = 0
         for obj in env._objects:
             if type(obj) is not PreShop:
@@ -80,6 +92,9 @@ class CONWIP():
             return True
         else:
             return False
+    def refresh(self):
+        if not self.PreShop.Release.triggered:
+            self.PreShop.Release.succeed()
 class COBACABANA():
     def __call__(self,obj):
         pass
@@ -149,30 +164,36 @@ if __name__ == '__main__' and 0:
         C()
 
 if __name__ == '__main__':
-    n_machines = 6
+    n_machines = 10
     env = sim.Environment()
-    C = CONWIP(3)
+    C = CONWIP(12)
     g = Generator(env,serviceTime=1)
-    g.createEntity = createEntity(n_machines,'F')
     preshop_pool = PreShop(env)
     router = Router(env)
-    router.condition_check = router_control
     servers = OrderedDict()
     for i in range(1,n_machines+1):
         name = 'M'+str(i)
         servers[name] =Server(env,name,serviceTime=1)
         servers[name].Next = router.Queue
+        servers[name].Control = C
     T = sim.Store(env)
     T._name = 'T'
+    
     g.Next = preshop_pool.Queue
-    preshop_pool.condition_check = C
+    g.createEntity = createEntity(n_machines,'F')
+    C.PreShop = preshop_pool
     preshop_pool.Next = router.Queue
+    preshop_pool.condition_check = C.control
     router.Next = [server for server in servers.values()]+[T]
+    router.condition_check = router_control
     
     # create = createEntity(n_machines,'F')
     # for i in range(10):
     #     preshop_pool.Queue.put(create())
-    env.run(3600)
+    from time import time
+    tic = time()
+    env.run(100)
+    print(time()-tic)
     # while env.now<=1000:
     #     env.step()
     #     print(env._eid.__reduce__()[1][0],[req.item.ID for req in router.Queue.put_queue],[item.ID for item in router.Queue.items])
@@ -182,7 +203,7 @@ if __name__ == '__main__':
     #         pass
         # if C.control() and not preshop_pool.Release.triggered:
         #     preshop_pool.Release.succeed()
-    
+'''    
 if False:
     i = 0
     while i<=40:
@@ -214,3 +235,4 @@ if __name__ == '__main__' and 0:
     T.items.pop()
     g.var.Trigger.succeed()
     env.run(20)
+    '''
