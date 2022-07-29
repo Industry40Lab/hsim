@@ -260,38 +260,40 @@ Sending = State('Sending',True)
 def f12(self):
     self.var.requestIn = self.Queue.put_event
     self.var.requestOut = []
-    self.var.requestDict = {}
-    # self.var.requestOut = []
+    # for item in list(set(self.Queue.items)-set(self.var.sent)):
     for item in self.Queue.items:
         for next in self.Next:
             if self.condition_check(item,next):
+                if not item in self.var.sent:
+                    self.var.sent.append(item)
                 self.var.requestOut.append(next.subscribe(item))
     if self.var.requestOut == []:
-        self.var.requestOut.append(self.Dummy.subscribe())
+        # self.var.requestOut.append(self.Dummy.subscribe())
         self.var.requestOut.append(self.var.requestIn)
 S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
 S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
 @action(S2S1)
 def f13(self):
-    for req in self.var.requestOut:
-        req.cancel()
     self.Queue.put_event.restart()
 @action(S2S2)
 def f14(self):
-    if self.var.requestOut[0].item is None:
-        self.var.requestOut[0].cancel()
+    if not hasattr(self.var.requestOut[0],'item'):
+        self.Queue.put_event.restart()
         return
+    new_req=list()
     for request in self.var.requestOut:
-        if request.check():
-            if not request.item in self.Queue.items:
-                request.cancel()
-                break
-            request.confirm()
-            self.Queue.forward(request.item)
-            self.var.requestOut.remove(request)
-            break
-    for request in self.var.requestOut:
-        request.cancel()
+        if not request.item in self.Queue.items:
+            request.cancel()
+            continue
+        if request.triggered:
+            if request.check():
+                request.confirm()
+                self.Queue.forward(request.item)
+                continue
+            else:
+                new_req.append(request.resource.subscribe(request.item))
+        self.var.requestOut = new_req+[req for req in self.var.requestOut if not req.triggered]
+
 Sending._transitions=[S2S1,S2S2]
 Router._states = [Sending]
 
@@ -305,7 +307,6 @@ Sending = State('Sending',True)
 def f20(self):
     self.var.requestIn = self.Queue.put_event
     self.var.requestOut = []
-    self.var.requestDict = {}
     for item in self.Queue.items:
         if self.condition_check(item,self.Next):
             self.var.requestOut.append(self.Next.subscribe(item))

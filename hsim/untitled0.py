@@ -34,8 +34,6 @@ class PreShop(StoreSelect):
     def build(self):
         super().build()
         self.Release = self.env.event()
-#         self.Dummy = self.env.event()
-#         self.Dummy.succeed()
 Sending = PreShop._states_dict('Sending')
 @function(Sending)
 def f20(self):
@@ -143,8 +141,6 @@ class Entity():
         self.routing = routing
       
 def router_control(item,target):
-    print(item.routing,target._name)
-
     if item.routing == []:
         if target._name == 'T':
             return True
@@ -165,6 +161,7 @@ if __name__ == '__main__':
     env = sim.Environment()
     C = CONWIP(12)
     g = Generator(env,serviceTime=1)
+    init = Queue(env)
     preshop_pool = PreShop(env)
     router = Router(env)
     servers = OrderedDict()
@@ -179,14 +176,15 @@ if __name__ == '__main__':
     g.Next = preshop_pool.Queue
     g.createEntity = createEntity(n_machines,'F')
     C.PreShop = preshop_pool
-    preshop_pool.Next = router.Queue
+    preshop_pool.Next = init.Store
+    init.Next = router.Queue
     preshop_pool.condition_check = C.control
     router.Next = [server for server in servers.values()]+[T]
     router.condition_check = router_control
     
     from time import time
     tic = time()
-    env.run(20)
+    env.run(2000)
     print(time()-tic)
     # 
     env.run(15)
