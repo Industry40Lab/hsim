@@ -33,6 +33,7 @@ class Subscription(Event):
         else:
             self.resource._trigger_put(self)
     def confirm(self,item=None):
+        self._ok = True
         if self.item in self.resource.items:
             return
         if not self.item:
