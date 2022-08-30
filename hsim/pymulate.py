@@ -244,6 +244,33 @@ def f12(self):
 Working._transitions=[W2W]
 OutputSwitch._states = [Working]
 
+class OutputSwitchC(CHFSM):
+    def build(self):
+        self.Queue = Box(self.env)
+    def condition_check(self,item,target):
+        return True
+Retrieving = State('Retrieving',True)
+Sending = State('Sending')
+@function(Retrieving)
+def f13(self):
+    self.var.requestIn = self.Queue.subscribe()
+R2S = Transition(Retrieving,Sending,lambda self: self.var.requestIn)
+@function(Sending)
+def f14(self):
+    self.var.entity = self.var.requestIn.read()
+    self.var.requestOut = [next.subscribe(self.var.entity) for next in self.Next if self.condition_check(self.var.entity,next)]
+S2R = Transition(Sending,Retrieving,lambda self: AnyOf(self.env,self.var.requestIn))
+@action(S2R)
+def f15(self):
+    for req in self.var.requestOut:
+        if req.triggered:
+            req.confirm()
+        else:
+            req.cancel()
+Retrieving._transitions=[R2S]
+Sending._transitions=[S2R]
+OutputSwitchC._states = [Retrieving,Sending]
+
 
 class Router(CHFSM):
     def __init__(self, env, name=None):
@@ -252,35 +279,25 @@ class Router(CHFSM):
         self.var.sent = []
     def build(self):
         self.Queue = Box(self.env)
-        self.Dummy = Store(self.env)
     def condition_check(self,item,target):
         return True
 Sending = State('Sending',True)
 @function(Sending)
-def f12(self):
-    self.var.requestIn = self.Queue.put_event
-    self.var.requestOut = []
-    # for item in list(set(self.Queue.items)-set(self.var.sent)):
-    for item in self.Queue.items:
-        for next in self.Next:
-            if self.condition_check(item,next):
-                if not item in self.var.sent:
-                    self.var.sent.append(item)
-                self.var.requestOut.append(next.subscribe(item))
-    if self.var.requestOut == []:
-        # self.var.requestOut.append(self.Dummy.subscribe())
-        self.var.requestOut.append(self.var.requestIn)
+def f121(self):
+    self.sm.var.requestIn = self.sm.Queue.put_event
+    self.sm.var.requestOut = [item for sublist in [[next.subscribe(item) for next in self.sm.Next if self.sm.condition_check(item,next)] for item in self.sm.Queue.items] for item in sublist]
+    if self.sm.var.requestOut == []:
+        self.sm.var.requestOut.append(self.sm.var.requestIn)
 S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
 S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
 @action(S2S1)
-def f13(self):
+def f131(self):
     self.Queue.put_event.restart()
 @action(S2S2)
-def f14(self):
+def f141(self):
     if not hasattr(self.var.requestOut[0],'item'):
         self.Queue.put_event.restart()
         return
-    new_req=list()
     for request in self.var.requestOut:
         if not request.item in self.Queue.items:
             request.cancel()
@@ -290,12 +307,45 @@ def f14(self):
                 request.confirm()
                 self.Queue.forward(request.item)
                 continue
-            else:
-                new_req.append(request.resource.subscribe(request.item))
-        self.var.requestOut = new_req+[req for req in self.var.requestOut if not req.triggered]
-
 Sending._transitions=[S2S1,S2S2]
 Router._states = [Sending]
+
+
+class Router0(CHFSM):
+    def __init__(self, env, name=None):
+        super().__init__(env, name)
+        self.var.requestOut = []
+        self.var.flag = 0
+    def build(self):
+        self.Queue = Box(self.env)
+        self.Dummy = Store(self.env)
+    def condition_check(self,item,target):
+        return True
+Sending = State('Sending',True)
+@function(Sending)
+def f121(self):
+    self.sm.var.requestIn = self.sm.Queue.put_event
+    if self.var.flag:
+        self.var.flag = 0
+        self.sm.var.requestOut = [item for sublist in [[next.put(item) for next in self.sm.Next if self.sm.condition_check(item,next)] for item in self.sm.Queue.items] for item in sublist]
+    if self.sm.var.requestOut == []:
+        self.sm.var.requestOut.append(self.sm.var.requestIn)
+S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
+S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
+@action(S2S1)
+def f131(self):
+    self.Queue.put_event.restart()
+    self.var.flag=1
+@action(S2S2)
+def f141(self):
+    if not hasattr(self.var.requestOut[0],'item'):
+        self.Queue.put_event.restart()
+        return
+    [self.Queue.forward(request.item) for request in self.var.requestOut if request.triggered]
+    self.var.requestOut = [req for req in self.var.requestOut if not req.triggered]
+Sending._transitions=[S2S1,S2S2]
+Router0._states = [Sending]
+
 
 class StoreSelect(CHFSM):
     def build(self):
