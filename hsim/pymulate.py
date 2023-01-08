@@ -44,7 +44,8 @@ def calculateServiceTime(self,entity=None,attribute='serviceTime'):
         elif len(self.var.serviceTime)>0:
             return self.var.serviceTimeFunction(*self.var.serviceTime)
 
-
+def getState(name:str,states):
+    return next(state for state in states if state.name is name)
 
 # %% obj    
 class Server(CHFSM):
@@ -56,22 +57,19 @@ class Server(CHFSM):
     def build(self):
         self.Store = Store(self.env,1)
         
-Starving = State('Starving',True)
-@do(Starving)
-def f(self):
-    self.var.request = self.Store.subscribe()
-Working = State('Working') 
-@do(Working)
-def f(self):
-    self.var.entity = self.var.request.read()
-Blocking = State('Blocking')
-S2W = Transition(Starving, Working, lambda self: self.var.request)
-W2B = Transition(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
-B2S = Transition(Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
-Starving._transitions = [S2W]
-Working._transitions = [W2B]
-Blocking._transitions = [B2S]
-Server._states = [Starving,Working,Blocking]
+    Starving = State('Starving',True)
+    @do(Starving)
+    def f(self):
+        self.var.request = self.Store.subscribe()
+    Working = State('Working') 
+    @do(Working)
+    def f(self):
+        self.var.entity = self.var.request.read()
+    Blocking = State('Blocking')
+    Transition(Starving, Working, lambda self: self.var.request)
+    Transition(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+    Transition(Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
+    _states = [Starving,Working,Blocking]
 
 
 class ServerWithBuffer(Server):
@@ -81,19 +79,17 @@ class ServerWithBuffer(Server):
     def build(self):
         super().build()
         self.QueueIn = Store(self.env,self.capacityIn)
-Retrieving = State('Retrieving',True)
-@do(Retrieving)
-def f1(self):
-    self.var.requestIn = self.QueueIn.subscribe()
-Forwarding = State('Forwarding')
-@do(Forwarding)
-def f2(self):
-    self.var.entityIn = self.var.requestIn.read()
-r2f = Transition(Retrieving,Forwarding,lambda self: self.var.requestIn)
-f2r = Transition(Forwarding,Retrieving,lambda self: self.Store.put(self.var.entityIn),action=lambda self:self.var.requestIn.confirm())
-Retrieving._transitions = [r2f]
-Forwarding._transitions = [f2r]
-ServerWithBuffer._states = Server._states + [Retrieving,Forwarding]
+    Retrieving = State('Retrieving',True)
+    @do(Retrieving)
+    def f1(self):
+        self.var.requestIn = self.QueueIn.subscribe()
+    Forwarding = State('Forwarding')
+    @do(Forwarding)
+    def f2(self):
+        self.var.entityIn = self.var.requestIn.read()
+    Transition(Retrieving,Forwarding,lambda self: self.var.requestIn)
+    Transition(Forwarding,Retrieving,lambda self: self.Store.put(self.var.entityIn),action=lambda self:self.var.requestIn.confirm())
+    _states = Server._states + [Retrieving,Forwarding]
 
 
 class ServerDoubleBuffer(ServerWithBuffer):
@@ -103,23 +99,20 @@ class ServerDoubleBuffer(ServerWithBuffer):
     def build(self):
         super().build()
         self.QueueOut = Store(self.env,self.capacityOut)
-RetrievingOut = State('RetrievingOut',True)
-@do(RetrievingOut)
-def f3(self):
-    self.var.requestOut = self.QueueOut.subscribe()
-ForwardingOut = State('ForwardingOut')
-@do(ForwardingOut)
-def f4(self):
-    self.var.entityOut = self.var.requestOut.read()
-r2fOut = Transition(RetrievingOut,ForwardingOut,lambda self: self.var.requestOut)
-f2rOut = Transition(ForwardingOut,RetrievingOut,lambda self: self.Next.put(self.var.entityOut),action=lambda self:self.var.requestOut.confirm())
-RetrievingOut._transitions = [r2fOut]
-ForwardingOut._transitions = [f2rOut]
-ServerDoubleBuffer._states = deepcopy(ServerWithBuffer._states)
-Blocking = ServerDoubleBuffer._states_dict('Blocking')
-B2S = Transition(Blocking, ServerDoubleBuffer._states_dict('Starving'), lambda self: self.QueueOut.put(self.var.entity),action=lambda self: self.var.request.confirm())
-Blocking._transitions = [B2S]
-ServerDoubleBuffer._states += [RetrievingOut,ForwardingOut]
+    RetrievingOut = State('RetrievingOut',True)
+    @do(RetrievingOut)
+    def f3(self):
+        self.var.requestOut = self.QueueOut.subscribe()
+    ForwardingOut = State('ForwardingOut')
+    @do(ForwardingOut)
+    def f4(self):
+        self.var.entityOut = self.var.requestOut.read()
+    Transition(RetrievingOut,ForwardingOut,lambda self: self.var.requestOut)
+    Transition(ForwardingOut,RetrievingOut,lambda self: self.Next.put(self.var.entityOut),action=lambda self:self.var.requestOut.confirm())
+    _states = deepcopy(ServerWithBuffer._states)
+    getState('Blocking',_states)._transitions = []
+    Transition(getState('Blocking',_states), getState('Starving',_states), lambda self: self.QueueOut.put(self.var.entity),action=lambda self: self.var.request.confirm())
+    _states += [RetrievingOut,ForwardingOut]
 
 
 class Generator(CHFSM):
@@ -130,16 +123,14 @@ class Generator(CHFSM):
         setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
     def createEntity(self):
         return object()
-Sending = State('Sending')
-Creating = State('Creating',True)
-@do(Creating)
-def f5(self):
-    self.var.entity = self.createEntity()
-S2C = Transition(Sending,Creating,lambda self: self.Next.put(self.var.entity))
-C2S = Transition(Creating,Sending,lambda self: self.env.timeout(self.calculateServiceTime(None)))
-Creating._transitions = [C2S]
-Sending._transitions = [S2C]
-Generator._states = [Creating,Sending]
+    Sending = State('Sending')
+    Creating = State('Creating',True)
+    @do(Creating)
+    def f5(self):
+        self.var.entity = self.createEntity()
+    Transition(Sending,Creating,lambda self: self.Next.put(self.var.entity))
+    Transition(Creating,Sending,lambda self: self.env.timeout(self.calculateServiceTime(None)))
+    _states = [Creating,Sending]
 
 
 class Queue(CHFSM):
@@ -153,19 +144,17 @@ class Queue(CHFSM):
         return self.Store.items
     def __len__(self):
         return len(self.Store.items)
-Retrieving = State('Retrieving',True)
-@do(Retrieving)
-def f6(self):
-    self.var.request = self.Store.subscribe()
-Forwarding = State('Forwarding')
-@do(Forwarding)
-def f7(self):
-    self.var.entity = self.var.request.read()
-r2f = Transition(Retrieving,Forwarding,lambda self: self.var.request)
-f2r = Transition(Forwarding,Retrieving,lambda self: self.Next.put(self.var.entity),action=lambda self:self.var.request.confirm())
-Retrieving._transitions = [r2f]
-Forwarding._transitions = [f2r]
-Queue._states = [Retrieving,Forwarding]
+    Retrieving = State('Retrieving',True)
+    @do(Retrieving)
+    def f6(self):
+        self.var.request = self.Store.subscribe()
+    Forwarding = State('Forwarding')
+    @do(Forwarding)
+    def f7(self):
+        self.var.entity = self.var.request.read()
+    Transition(Retrieving,Forwarding,lambda self: self.var.request)
+    Transition(Forwarding,Retrieving,lambda self: self.Next.put(self.var.entity),action=lambda self:self.var.request.confirm())
+    _states = [Retrieving,Forwarding]
 
 
 class ManualStation(Server):
@@ -174,22 +163,19 @@ class ManualStation(Server):
         self.WaitOperator = self.env.event()
         self.NeedOperator = self.env.event()
         self.Operators = Store(self.env)
-ManualStation._states = deepcopy(Server._states)
-Starving = ManualStation._states_dict('Starving')
-Working = ManualStation._states_dict('Working')
-Idle = State('Idle')
-S2I = Transition(Starving, Idle, lambda self: self.var.request, action = lambda self: self.NeedOperator.succeed())
-I2W = Transition(Idle, Working, lambda self: self.WaitOperator, action = lambda self: [self.NeedOperator.restart(),self.WaitOperator.restart()])
-W2B = Transition(Working, ManualStation._states_dict('Blocking'), lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
-@action(W2B)
-def f11(self):
-    for op in self.Operators.items:
-        op.Pause.succeed()
-        self.Operators.items.remove(op)
-Starving._transitions = [S2I]
-Idle._transitions = [I2W]
-Working._transitions = [W2B]
-ManualStation._states += [Idle]
+    _states = deepcopy(Server._states)
+    getState('Starving',_states)._transitions = []
+    getState('Working',_states)._transitions = []
+    Idle = State('Idle')
+    Transition(getState('Starving',_states), Idle, lambda self: self.var.request, action = lambda self: self.NeedOperator.succeed())
+    Transition(Idle, getState('Working',_states), lambda self: self.WaitOperator, action = lambda self: [self.NeedOperator.restart(),self.WaitOperator.restart()])
+    W2B = Transition(getState('Working',_states), getState('Blocking',_states), lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+    @action(W2B)
+    def f11(self):
+        for op in self.Operators.items:
+            op.Pause.succeed()
+            self.Operators.items.remove(op)
+    _states += [Idle]
 
 
 class Operator(CHFSM):
@@ -202,47 +188,44 @@ class Operator(CHFSM):
         for station in self.var.station:
             if station.NeedOperator.triggered and not station.WaitOperator.triggered:
                 return station
-Idle = State('Idle',True)
-Working = State('Working')
-@do(Idle)
-def f8(self):
-    self.var.request = AnyOf(self.env,[station.NeedOperator for station in self.var.station])
-@do(Working)
-def f9(self):
-    self.var.target = self.select()
-    self.var.target.WaitOperator.succeed()
-    self.var.target.Operators.put(self.sm)
-    self.Pause.restart()
-I2W = Transition(Idle, Working, lambda self: self.var.request)
-W2I = Transition(Working, Idle, lambda self: self.Pause)
-Idle._transitions = [I2W]
-Working._transitions = [W2I]
-Operator._states = [Idle,Working]
+    Idle = State('Idle',True)
+    Working = State('Working')
+    @do(Idle)
+    def f8(self):
+        self.var.request = AnyOf(self.env,[station.NeedOperator for station in self.var.station])
+    @do(Working)
+    def f9(self):
+        self.var.target = self.select()
+        self.var.target.WaitOperator.succeed()
+        self.var.target.Operators.put(self.sm)
+        self.Pause.restart()
+    Transition(Idle, Working, lambda self: self.var.request)
+    Transition(Working, Idle, lambda self: self.Pause)
+    _states = [Idle,Working]
 
 
 class OutputSwitch(CHFSM):
     def build(self):
         self.Queue = Box(self.env)
-Working = State('Working',True)
-@do(Working)
-def f11(self):
-    self.var.requestIn = self.Queue.subscribe()
-    self.var.requestsOut = [next.subscribe(object()) for next in self.Next]
-W2W = Transition(Working,Working,lambda self: AllOf(self.env,[self.var.requestIn,AnyOf(self.env,self.var.requestsOut)]))
-@action(W2W)
-def f12(self):
-    entity = self.var.requestIn.read()
-    for request in self.var.requestsOut:
-        if request.check():
-            request.item = entity
-            request.confirm()
-            break
-    for request in self.var.requestsOut:
-        if request.item is not entity:
-            request.cancel()
-    self.Queue.forward(entity)
-Working._transitions=[W2W]
-OutputSwitch._states = [Working]
+    Working = State('Working',True)
+    @do(Working)
+    def f11(self):
+        self.var.requestIn = self.Queue.subscribe()
+        self.var.requestsOut = [next.subscribe(object()) for next in self.Next]
+    W2W = Transition(Working,Working,lambda self: AllOf(self.env,[self.var.requestIn,AnyOf(self.env,self.var.requestsOut)]))
+    @action(W2W)
+    def f12(self):
+        entity = self.var.requestIn.read()
+        for request in self.var.requestsOut:
+            if request.check():
+                request.item = entity
+                request.confirm()
+                break
+        for request in self.var.requestsOut:
+            if request.item is not entity:
+                request.cancel()
+        self.Queue.forward(entity)
+    _states = [Working]
 
 class OutputSwitchC(CHFSM):
     def build(self):
