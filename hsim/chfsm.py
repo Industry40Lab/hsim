@@ -346,6 +346,7 @@ class Transition():
             self._trigger = trigger
         if action is not None:
             self._action = action
+        state._transitions.append(self)
     def __getattr__(self,attr):
         try:
             state = self.__getattribute__('_state')
@@ -474,17 +475,18 @@ if __name__ == "__main__" and 1:
         pass
     class WorkSM(CompositeState):
         pass
+    
+    
     Work = State('Work',True)
     Work._function = lambda self:print('Start working. Will finish in 10s')
-    t = Transition(Work, None, lambda self: self.env.timeout(10))
-    Work._transitions = [t]
+    Transition(Work, None, lambda self: self.env.timeout(10))
     
     Work0 = State('Work0',True)
     Work0._function = lambda self:print('Start working 0. Will finish in 5s')
-    t = Transition(Work0, None, lambda self: self.env.timeout(5))
-    Work0._transitions = [t]
+    Transition(Work0, None, lambda self: self.env.timeout(5))
     add_states(WorkSM,[Work0])
     Work.set_composite_state(WorkSM('WorkSM'))
+    
     add_states(Boh5,[Work])
     
     env = Environment()
