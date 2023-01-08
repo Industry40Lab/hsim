@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from chfsm import CHFSM, State, Transition, add_states, trigger, action, Pseudostate
-from chfsm import function
+from chfsm import do
 from stores import Store, Box
 from core import Environment, Event
 from simpy import AllOf, AnyOf
@@ -57,11 +57,11 @@ class Server(CHFSM):
         self.Store = Store(self.env,1)
         
 Starving = State('Starving',True)
-@function(Starving)
+@do(Starving)
 def f(self):
     self.var.request = self.Store.subscribe()
 Working = State('Working') 
-@function(Working)
+@do(Working)
 def f(self):
     self.var.entity = self.var.request.read()
 Blocking = State('Blocking')
@@ -82,11 +82,11 @@ class ServerWithBuffer(Server):
         super().build()
         self.QueueIn = Store(self.env,self.capacityIn)
 Retrieving = State('Retrieving',True)
-@function(Retrieving)
+@do(Retrieving)
 def f1(self):
     self.var.requestIn = self.QueueIn.subscribe()
 Forwarding = State('Forwarding')
-@function(Forwarding)
+@do(Forwarding)
 def f2(self):
     self.var.entityIn = self.var.requestIn.read()
 r2f = Transition(Retrieving,Forwarding,lambda self: self.var.requestIn)
@@ -104,11 +104,11 @@ class ServerDoubleBuffer(ServerWithBuffer):
         super().build()
         self.QueueOut = Store(self.env,self.capacityOut)
 RetrievingOut = State('RetrievingOut',True)
-@function(RetrievingOut)
+@do(RetrievingOut)
 def f3(self):
     self.var.requestOut = self.QueueOut.subscribe()
 ForwardingOut = State('ForwardingOut')
-@function(ForwardingOut)
+@do(ForwardingOut)
 def f4(self):
     self.var.entityOut = self.var.requestOut.read()
 r2fOut = Transition(RetrievingOut,ForwardingOut,lambda self: self.var.requestOut)
@@ -132,7 +132,7 @@ class Generator(CHFSM):
         return object()
 Sending = State('Sending')
 Creating = State('Creating',True)
-@function(Creating)
+@do(Creating)
 def f5(self):
     self.var.entity = self.createEntity()
 S2C = Transition(Sending,Creating,lambda self: self.Next.put(self.var.entity))
@@ -154,11 +154,11 @@ class Queue(CHFSM):
     def __len__(self):
         return len(self.Store.items)
 Retrieving = State('Retrieving',True)
-@function(Retrieving)
+@do(Retrieving)
 def f6(self):
     self.var.request = self.Store.subscribe()
 Forwarding = State('Forwarding')
-@function(Forwarding)
+@do(Forwarding)
 def f7(self):
     self.var.entity = self.var.request.read()
 r2f = Transition(Retrieving,Forwarding,lambda self: self.var.request)
@@ -204,10 +204,10 @@ class Operator(CHFSM):
                 return station
 Idle = State('Idle',True)
 Working = State('Working')
-@function(Idle)
+@do(Idle)
 def f8(self):
     self.var.request = AnyOf(self.env,[station.NeedOperator for station in self.var.station])
-@function(Working)
+@do(Working)
 def f9(self):
     self.var.target = self.select()
     self.var.target.WaitOperator.succeed()
@@ -224,7 +224,7 @@ class OutputSwitch(CHFSM):
     def build(self):
         self.Queue = Box(self.env)
 Working = State('Working',True)
-@function(Working)
+@do(Working)
 def f11(self):
     self.var.requestIn = self.Queue.subscribe()
     self.var.requestsOut = [next.subscribe(object()) for next in self.Next]
@@ -251,11 +251,11 @@ class OutputSwitchC(CHFSM):
         return True
 Retrieving = State('Retrieving',True)
 Sending = State('Sending')
-@function(Retrieving)
+@do(Retrieving)
 def f13(self):
     self.var.requestIn = self.Queue.subscribe()
 R2S = Transition(Retrieving,Sending,lambda self: self.var.requestIn)
-@function(Sending)
+@do(Sending)
 def f14(self):
     self.var.entity = self.var.requestIn.read()
     self.var.requestOut = [next.subscribe(self.var.entity) for next in self.Next if self.condition_check(self.var.entity,next)]
@@ -282,7 +282,7 @@ class Router(CHFSM):
     def condition_check(self,item,target):
         return True
 Sending = State('Sending',True)
-@function(Sending)
+@do(Sending)
 def f121(self):
     self.sm.var.requestIn = self.sm.Queue.put_event
     self.sm.var.requestOut = [item for sublist in [[next.subscribe(item) for next in self.sm.Next if self.sm.condition_check(item,next)] for item in self.sm.Queue.items] for item in sublist]
@@ -322,7 +322,7 @@ class Router0(CHFSM):
     def condition_check(self,item,target):
         return True
 Sending = State('Sending',True)
-@function(Sending)
+@do(Sending)
 def f121(self):
     self.sm.var.requestIn = self.sm.Queue.put_event
     if self.var.flag:
@@ -353,7 +353,7 @@ class StoreSelect(CHFSM):
     def condition_check(self,item,target):
         return True
 Sending = State('Sending',True)
-@function(Sending)
+@do(Sending)
 def f20(self):
     self.var.requestIn = self.Queue.put_event
     self.var.requestOut = []

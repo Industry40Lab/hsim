@@ -18,10 +18,10 @@ import pandas as pd
 import copy
 import dill
 
-def function(instance):
+def do(instance):
     def decorator(f):
         f = types.MethodType(f, instance)
-        setattr(instance, '_function', f)
+        setattr(instance, '_do', f)
         return f
     return decorator
 
@@ -146,7 +146,7 @@ class State(Process):
         self._child_state_machine = None
         self.sm = None
         self._interrupt_callbacks = []
-        self._function = lambda self: None
+        self._do = lambda self: None
         self.initial_state = initial_state
         self.callbacks = []
         self._value = None
@@ -208,7 +208,7 @@ class State(Process):
     def _resume(self, event):
         self.env._active_proc = self
         if isinstance(event,Initialize):
-            method_lambda(self,self._function)
+            method_lambda(self,self._do)
             events = list()
             for transition in self._transitions:
                 transition._state = self
@@ -387,7 +387,7 @@ if __name__ == "__main__" and 1:
     class Boh(StateMachine):
         def build(self):
             Idle = State('Idle',True)
-            @function(Idle)
+            @do(Idle)
             def printt(self):
                 print('%s is Idle' %self.sm._name)
                 return self.env.timeout(10)
@@ -402,7 +402,7 @@ if __name__ == "__main__" and 1:
                 print('%s idle state interrupted ok'  %self.sm._name)
             class Idle_SM(CompositeState):
                 Sub = State('Sub',True)
-                @function(Sub)
+                @do(Sub)
                 def printt(self):
                     print('%s will print this something in 20 s'  %self.sm._name)
                     return self.env.timeout(20)
@@ -419,7 +419,7 @@ if __name__ == "__main__" and 1:
     class Boh2(CHFSM):
         def build(self):
             Work = State('Work',True)
-            @function(Work)
+            @do(Work)
             def printt(self):
                 print('Start working. Will finish in 10s')
                 return self.env.timeout(10)
@@ -438,7 +438,7 @@ if __name__ == "__main__" and 1:
     class Boh3(CHFSM):
         pass
     Work = State('Work',True)
-    @function(Work)
+    @do(Work)
     def printt(self):
         print('Start working. Will finish in 10s')
         return self.env.timeout(10)
@@ -451,19 +451,19 @@ if __name__ == "__main__" and 1:
     class Boh4(CHFSM):
         pass
     Work = State('Work',True)
-    Work._function = lambda self:print('Start working. Will finish in 10s')
+    Work._do = lambda self:print('Start working. Will finish in 10s')
     t = Transition(Work, None, lambda self: self.env.timeout(10))
     Work._transitions = [t]
     add_states(Boh4,[Work])
     
     class Boh5(CHFSM):
         Work = State('Work',True)
-        Work._function = lambda self:print('Start working. Will finish in 10s')
+        Work._do = lambda self:print('Start working. Will finish in 10s')
         Transition(Work, None, lambda self: self.env.timeout(10))
         _states = [Work]
         class WorkSM(CompositeState):
             Work0 = State('Work0',True)
-            Work0._function = lambda self:print('Start working 0. Will finish in 5s')
+            Work0._do = lambda self:print('Start working 0. Will finish in 5s')
             Transition(Work0, None, lambda self: self.env.timeout(5))
             _states = [Work0]
         Work.set_composite_state(WorkSM('WorkSM'))
