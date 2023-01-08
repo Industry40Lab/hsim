@@ -60,22 +60,6 @@ def action(instance):
         return f
     return decorator
 
-def prova(instance):
-    def decorator(f):
-        f = types.MethodType(f, instance)
-        setattr(instance, '_generator', f)
-        return f
-    return decorator
-
-def do(instance):
-    def decorator(f):
-        f = types.MethodType(f, instance)
-        if f.__code__.co_argcount < 2:
-            raise TypeError('Probably missing trigger event') 
-        setattr(instance, '_do', f)
-        return f
-    return decorator
-
 @staticmethod
 def set_state(name,initial_state=False):
     state=State(name)
