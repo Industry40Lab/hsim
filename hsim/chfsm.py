@@ -116,6 +116,7 @@ class StateMachine():
     def stop(self):
         return self.interrupt()
     def _build_states(self):
+        # test [state for state in self.__class__.__dict__.values() if type(state) == State]
         self._states = copy.deepcopy(self._states)
         for state in self._states:
             state.set_parent_sm(self)
@@ -472,22 +473,22 @@ if __name__ == "__main__" and 1:
     add_states(Boh4,[Work])
     
     class Boh5(CHFSM):
-        pass
-    class WorkSM(CompositeState):
-        pass
+        Work = State('Work',True)
+        Work._function = lambda self:print('Start working. Will finish in 10s')
+        Transition(Work, None, lambda self: self.env.timeout(10))
+        _states = [Work]
+        class WorkSM(CompositeState):
+            Work0 = State('Work0',True)
+            Work0._function = lambda self:print('Start working 0. Will finish in 5s')
+            Transition(Work0, None, lambda self: self.env.timeout(5))
+            _states = [Work0]
+        Work.set_composite_state(WorkSM('WorkSM'))
     
     
-    Work = State('Work',True)
-    Work._function = lambda self:print('Start working. Will finish in 10s')
-    Transition(Work, None, lambda self: self.env.timeout(10))
     
-    Work0 = State('Work0',True)
-    Work0._function = lambda self:print('Start working 0. Will finish in 5s')
-    Transition(Work0, None, lambda self: self.env.timeout(5))
-    add_states(WorkSM,[Work0])
-    Work.set_composite_state(WorkSM('WorkSM'))
     
-    add_states(Boh5,[Work])
+    
+    
     
     env = Environment()
     foo = Boh5(env,1)
