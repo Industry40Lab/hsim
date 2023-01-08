@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from chfsm import CHFSM, State, Transition, add_states, trigger, action, Pseudostate
-from chfsm import function, do
+from chfsm import function
 from stores import Store, Box
 from core import Environment, Event
 from simpy import AllOf, AnyOf
