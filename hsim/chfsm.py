@@ -100,10 +100,21 @@ class StateMachine():
     def stop(self):
         return self.interrupt()
     def _build_states(self):
-        # test [state for state in self.__class__.__dict__.values() if type(state) == State]
-        self._states = copy.deepcopy(self._states)
+        self._states = []
+        for x in self.__class__.__dict__.values():
+            if hasattr(x,'__base__') and x.__base__ is State:
+                state = x()
+                self._states.append(state)
+                setattr(self,x.__name__,state)
         for state in self._states:
             state.set_parent_sm(self)
+        for transition in zip(self.__class__.__dict__.values(),self.__class__.__dict__.keys()):
+            if hasattr(transition[0],'__base__') and transition[0].__base__ is Transition:
+                # x è Transition
+                for state in self._states: 
+                    if type(state) is transition[0]._state:
+                        transition[0](state)
+                        setattr(self,transition[1],None)
 
     @property
     def name(self):
@@ -138,8 +149,8 @@ class CompositeState(StateMachine):
         super().start()
 
 class State(Process):
-    def __init__(self, name, initial_state=False):
-        self._name = name
+    def __init__(self):
+        self._name = self.__class__.__name__
         self._time = None
         self._entry_callbacks = []
         self._exit_callbacks = []
@@ -147,7 +158,8 @@ class State(Process):
         self.sm = None
         self._interrupt_callbacks = []
         self._do = lambda self: None
-        self.initial_state = initial_state
+        if not hasattr(self,'initial_state'):
+            self.initial_state = False
         self.callbacks = []
         self._value = None
         self._transitions = list()
@@ -324,13 +336,23 @@ class CHFSM(StateMachine):
                 self._messages[i] = getattr(self,i)
 
 class Transition():
+    @classmethod
+    def copy(cls, state, target=None, trigger=None, condition=None, action=None):
+        class Transition(cls):
+            _state = state
+            _target = target
+            if trigger is not None:
+                _trigger = trigger
+            if action is not None:
+                _action = action
+        return Transition
     def __init__(self, state, target=None, trigger=None, condition=None, action=None):
-        self._state = state
-        self._target = target
-        if trigger is not None:
-            self._trigger = trigger
-        if action is not None:
-            self._action = action
+        # self._state = state
+        # self._target = target
+        # if trigger is not None:
+        #     self._trigger = trigger
+        # if action is not None:
+        #     self._action = action
         state._transitions.append(self)
     def __getattr__(self,attr):
         try:
