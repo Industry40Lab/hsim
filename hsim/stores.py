@@ -90,6 +90,7 @@ class Store(FilterStore):
     def __init__(self, env, capacity=inf):
         super().__init__(env, capacity)
         self.put_event = env.event()
+        self.subscription_get_queue = list()
     def __len__(self):
         return len(self.items)
     def subscribe(self,item=None,filter=None):
@@ -113,12 +114,36 @@ class Store(FilterStore):
                 return 
             else:
                 return True
+    def _trigger_get(self, put_event):
+        idx = 0
+        while idx < len(self.get_queue):
+            get_event = self.get_queue[idx]
+            proceed = self._do_get(get_event)
+            if not get_event.triggered:
+                idx += 1
+            elif self.get_queue.pop(idx) != get_event:
+                raise RuntimeError('Get queue invariant violated')
+                
+            #keep track of triggered requests
+            if type(get_event) is Subscription:
+                self.subscription_get_queue.append(get_event)
+
+            if not proceed:
+                break
+    @property
+    def next_subscription_get(self):
+        if len(self.subscription_get_queue)>0:
+            return self.subscription_get_queue[0]
+        else:
+            raise(IndexError('Subscription get queue is empty'))
     def get_now(self,event):
         # self._trigger_put(None)
         for item in self.items:
             if event.filter(item):
                 self.items.remove(item)
                 return item
+        self.subscription_get_queue.remove(event)
+            
     def put_now(self,item):
         self.items.append(item)
         # self._trigger_get(None)
