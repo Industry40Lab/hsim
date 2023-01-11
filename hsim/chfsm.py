@@ -69,6 +69,14 @@ def set_state(name,initial_state=False):
 def add_states(sm,states):
     sm._states = states # [copy.deepcopy(state) for state in states] 
     
+def get_class_dict(par):
+    z=dict()
+    for cls in par.__mro__:
+        if cls.__name__ == 'CHFSM':
+            break
+        z = {**cls.__dict__, **z}
+    return z
+    
 class StateMachine():
     def __init__(self, env, name=None):
         self.env = env
@@ -101,20 +109,25 @@ class StateMachine():
         return self.interrupt()
     def _build_states(self):
         self._states = []
-        for x in self.__class__.__dict__.values():
+        for x in get_class_dict(self.__class__).values():
             if hasattr(x,'__base__') and x.__base__ is State:
                 state = x()
                 self._states.append(state)
                 setattr(self,x.__name__,state)
+                for y in x.__dict__.values():
+                    if hasattr(y,'__base__') and y.__base__.__name__ == 'CompositeState':
+                        state._child_state_machine = y(self)    
         for state in self._states:
             state.set_parent_sm(self)
-        for transition in zip(self.__class__.__dict__.values(),self.__class__.__dict__.keys()):
+        for transition in zip(get_class_dict(self.__class__).values(),get_class_dict(self.__class__).keys()):
             if hasattr(transition[0],'__base__') and transition[0].__base__ is Transition:
                 # x è Transition
                 for state in self._states: 
                     if type(state) is transition[0]._state:
                         transition[0](state)
                         setattr(self,transition[1],None)
+                    elif type(state) is transition[0]._target:
+                        transition[0]._target = state
 
     @property
     def name(self):
@@ -136,15 +149,15 @@ class StateMachine():
     
 
 class CompositeState(StateMachine):
-    def __init__(self, name=None):
+    def __init__(self, parent_state, name=None):
         if name==None:
             self._name = str('0x%x' %id(self))
         else:
             self._name = name
         self._current_state = None
-        self.parent_state = None
+        self.parent_state = parent_state
+        self.env = self.parent_state.env 
     def start(self):
-        self.env = self.parent_state.env
         self._build_states()
         super().start()
 
@@ -485,13 +498,12 @@ if __name__ == "__main__" and 1:
     class Boh5(CHFSM):
         class Work(State):
             initial_state=True
-            _do = lambda self: print('Start working. Will finish in 10s')
+            _do = lambda self: print('Start working at %d. Will finish in 10s' %env.now)
             class WorkSM(CompositeState):
                 class Work0(State):
-                    _do = lambda self:print('Start working 0. Will finish in 5s')
+                    initial_state=True
+                    _do = lambda self:print('Inner SM start working at %d. Will finish in 5s' %env.now)
                 T1=Transition.copy(Work0, None, lambda self: self.env.timeout(5))
-                # _states = [Work0]
-            # Work.set_composite_state(WorkSM('WorkSM'))
         T1=Transition.copy(Work, None, lambda self: self.env.timeout(10))
     
     
