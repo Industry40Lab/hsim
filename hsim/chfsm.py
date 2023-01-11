@@ -157,7 +157,8 @@ class State(Process):
         self._child_state_machine = None
         self.sm = None
         self._interrupt_callbacks = []
-        self._do = lambda self: None
+        if not hasattr(self,'_do'):
+            self._do = lambda self: None
         if not hasattr(self,'initial_state'):
             self.initial_state = False
         self.callbacks = []
@@ -406,6 +407,7 @@ class Pseudostate(State):
 # %% TESTS 
 
 if __name__ == "__main__" and 1:
+    '''
     class Boh(StateMachine):
         def build(self):
             Idle = State('Idle',True)
@@ -478,17 +480,19 @@ if __name__ == "__main__" and 1:
     Work._transitions = [t]
     add_states(Boh4,[Work])
     
+    '''
+    
     class Boh5(CHFSM):
-        Work = State('Work',True)
-        Work._do = lambda self:print('Start working. Will finish in 10s')
-        Transition(Work, None, lambda self: self.env.timeout(10))
-        _states = [Work]
-        class WorkSM(CompositeState):
-            Work0 = State('Work0',True)
-            Work0._do = lambda self:print('Start working 0. Will finish in 5s')
-            Transition(Work0, None, lambda self: self.env.timeout(5))
-            _states = [Work0]
-        Work.set_composite_state(WorkSM('WorkSM'))
+        class Work(State):
+            initial_state=True
+            _do = lambda self: print('Start working. Will finish in 10s')
+            class WorkSM(CompositeState):
+                class Work0(State):
+                    _do = lambda self:print('Start working 0. Will finish in 5s')
+                T1=Transition.copy(Work0, None, lambda self: self.env.timeout(5))
+                # _states = [Work0]
+            # Work.set_composite_state(WorkSM('WorkSM'))
+        T1=Transition.copy(Work, None, lambda self: self.env.timeout(10))
     
     
     
@@ -498,7 +502,7 @@ if __name__ == "__main__" and 1:
     
     env = Environment()
     foo = Boh5(env,1)
-    env.run(20)
+    env.run(50)
     foo.interrupt()
     env.run(200)
 
