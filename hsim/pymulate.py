@@ -119,6 +119,7 @@ class Generator(CHFSM):
     class Sending(State):
         pass
     class Creating(State):
+        initial_state=True
         def _do(self):
             self.var.entity = self.createEntity()
     T1=Transition.copy(Sending,Creating,lambda self: self.Next.put(self.var.entity))
@@ -136,6 +137,7 @@ class Queue(CHFSM):
     def __len__(self):
         return len(self.Store.items)
     class Retrieving(State):
+        initial_state=True
         def _do(self):
             self.var.request = self.Store.subscribe()
     class Forwarding(State):
@@ -144,26 +146,24 @@ class Queue(CHFSM):
     T1=Transition.copy(Retrieving,Forwarding,lambda self: self.var.request)
     T2=Transition.copy(Forwarding,Retrieving,lambda self: self.Next.put(self.var.entity),action=lambda self:self.var.request.confirm())
 
-'''
+
 class ManualStation(Server):
     def build(self):
         super().build()
         self.WaitOperator = self.env.event()
         self.NeedOperator = self.env.event()
         self.Operators = Store(self.env)
-    _states = deepcopy(Server._states)
-    getState('Starving',_states)._transitions = []
-    getState('Working',_states)._transitions = []
-    Idle = State('Idle')
-    Transition(getState('Starving',_states), Idle, lambda self: self.var.request, action = lambda self: self.NeedOperator.succeed())
-    Transition(Idle, getState('Working',_states), lambda self: self.WaitOperator, action = lambda self: [self.NeedOperator.restart(),self.WaitOperator.restart()])
-    W2B = Transition(getState('Working',_states), getState('Blocking',_states), lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
-    @action(W2B)
-    def f11(self):
+    class Idle(State):
+        pass
+    T1=Transition.copy(Server.Starving, Idle, lambda self: self.var.request, action = lambda self: self.NeedOperator.succeed())
+    T1b=Transition.copy(Idle, Server.Working, lambda self: self.WaitOperator, action = lambda self: [self.NeedOperator.restart(),self.WaitOperator.restart()])
+    T2 = Transition.copy(Server.Working, Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+    # @action(T2)
+    def action(self):
         for op in self.Operators.items:
             op.Pause.succeed()
             self.Operators.items.remove(op)
-    _states += [Idle]
+    T2._action = action
 
 
 class Operator(CHFSM):
@@ -176,33 +176,30 @@ class Operator(CHFSM):
         for station in self.var.station:
             if station.NeedOperator.triggered and not station.WaitOperator.triggered:
                 return station
-    Idle = State('Idle',True)
-    Working = State('Working')
-    @do(Idle)
-    def f8(self):
-        self.var.request = AnyOf(self.env,[station.NeedOperator for station in self.var.station])
-    @do(Working)
-    def f9(self):
-        self.var.target = self.select()
-        self.var.target.WaitOperator.succeed()
-        self.var.target.Operators.put(self.sm)
-        self.Pause.restart()
-    Transition(Idle, Working, lambda self: self.var.request)
-    Transition(Working, Idle, lambda self: self.Pause)
-    _states = [Idle,Working]
+    class Idle(State):
+        initial_state=True
+        def _do(self):
+            self.var.request = AnyOf(self.env,[station.NeedOperator for station in self.var.station])
+    class Working(State):
+        def _do(self):
+            self.var.target = self.select()
+            self.var.target.WaitOperator.succeed()
+            self.var.target.Operators.put(self.sm)
+            self.Pause.restart()
+    T1=Transition.copy(Idle, Working, lambda self: self.var.request)
+    T2=Transition.copy(Working, Idle, lambda self: self.Pause)
 
 
 class OutputSwitch(CHFSM):
     def build(self):
         self.Queue = Box(self.env)
-    Working = State('Working',True)
-    @do(Working)
-    def f11(self):
-        self.var.requestIn = self.Queue.subscribe()
-        self.var.requestsOut = [next.subscribe(object()) for next in self.Next]
-    W2W = Transition(Working,Working,lambda self: AllOf(self.env,[self.var.requestIn,AnyOf(self.env,self.var.requestsOut)]))
-    @action(W2W)
-    def f12(self):
+    class Working(State):
+        initial_state = True
+        def _do(self):
+            self.var.requestIn = self.Queue.subscribe()
+            self.var.requestsOut = [next.subscribe(object()) for next in self.Next]
+    W2W = Transition.copy(Working,Working,lambda self: AllOf(self.env,[self.var.requestIn,AnyOf(self.env,self.var.requestsOut)]))
+    def action(self):
         entity = self.var.requestIn.read()
         for request in self.var.requestsOut:
             if request.check():
@@ -213,8 +210,9 @@ class OutputSwitch(CHFSM):
             if request.item is not entity:
                 request.cancel()
         self.Queue.forward(entity)
-    _states = [Working]
-
+    W2W._action = action
+    
+'''
 class OutputSwitchC(CHFSM):
     def build(self):
         self.Queue = Box(self.env)
@@ -242,6 +240,7 @@ Retrieving._transitions=[R2S]
 Sending._transitions=[S2R]
 OutputSwitchC._states = [Retrieving,Sending]
 
+'''
 
 class Router(CHFSM):
     def __init__(self, env, name=None):
@@ -252,35 +251,35 @@ class Router(CHFSM):
         self.Queue = Box(self.env)
     def condition_check(self,item,target):
         return True
-Sending = State('Sending',True)
-@do(Sending)
-def f121(self):
-    self.sm.var.requestIn = self.sm.Queue.put_event
-    self.sm.var.requestOut = [item for sublist in [[next.subscribe(item) for next in self.sm.Next if self.sm.condition_check(item,next)] for item in self.sm.Queue.items] for item in sublist]
-    if self.sm.var.requestOut == []:
-        self.sm.var.requestOut.append(self.sm.var.requestIn)
-S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
-S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
-@action(S2S1)
-def f131(self):
-    self.Queue.put_event.restart()
-@action(S2S2)
-def f141(self):
-    if not hasattr(self.var.requestOut[0],'item'):
+    class Sending(State):
+        initial_state = True
+        def _do(self):
+            self.sm.var.requestIn = self.sm.Queue.put_event
+            self.sm.var.requestOut = [item for sublist in [[next.subscribe(item) for next in self.sm.Next if self.sm.condition_check(item,next)] for item in self.sm.Queue.items] for item in sublist]
+            if self.sm.var.requestOut == []:
+                self.sm.var.requestOut.append(self.sm.var.requestIn)
+    S2S1 = Transition.copy(Sending,Sending,lambda self:self.var.requestIn)
+    S2S2 = Transition.copy(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
+    def action(self):
         self.Queue.put_event.restart()
-        return
-    for request in self.var.requestOut:
-        if not request.item in self.Queue.items:
-            request.cancel()
-            continue
-        if request.triggered:
-            if request.check():
-                request.confirm()
-                self.Queue.forward(request.item)
+    S2S1._action = action
+    def action(self):
+        if not hasattr(self.var.requestOut[0],'item'):
+            self.Queue.put_event.restart()
+            return
+        for request in self.var.requestOut:
+            if not request.item in self.Queue.items:
+                request.cancel()
                 continue
-Sending._transitions=[S2S1,S2S2]
-Router._states = [Sending]
+            if request.triggered:
+                if request.check():
+                    request.confirm()
+                    self.Queue.forward(request.item)
+                    continue
+    S2S2._action = action
 
+
+'''
 
 class Router0(CHFSM):
     def __init__(self, env, name=None):
@@ -317,45 +316,44 @@ def f141(self):
 Sending._transitions=[S2S1,S2S2]
 Router0._states = [Sending]
 
+'''
 
 class StoreSelect(CHFSM):
     def build(self):
         self.Queue = Store(self.env)
     def condition_check(self,item,target):
         return True
-Sending = State('Sending',True)
-@do(Sending)
-def f20(self):
-    self.var.requestIn = self.Queue.put_event
-    self.var.requestOut = []
-    for item in self.Queue.items:
-        if self.condition_check(item,self.Next):
-            self.var.requestOut.append(self.Next.subscribe(item))
-    if self.var.requestOut == []:
-        self.var.requestOut = [self.var.requestIn]
-S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
-S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
-@action(S2S1)
-def f13(self):
-    if hasattr(self.var.requestOut[0],'item'):
-        for req in self.var.requestOut:
-            req.cancel()
-    self.Queue.put_event.restart()
-@action(S2S2)
-def f14(self):
-    if not hasattr(self.var.requestOut[0],'item'):
-        return
-    for request in self.var.requestOut:
-        if request.check():
-            request.confirm()
-            self.var.requestOut.remove(request)
-            self.Queue.items.remove(request.item)
-            break
-    for request in self.var.requestOut:
-        request.cancel()
-Sending._transitions=[S2S1,S2S2]
-StoreSelect._states = [Sending]
-'''
+    class Sending(State):
+        initial_state = True
+        def _do(self):
+            self.var.requestIn = self.Queue.put_event
+            self.var.requestOut = []
+            for item in self.Queue.items:
+                if self.condition_check(item,self.Next):
+                    self.var.requestOut.append(self.Next.subscribe(item))
+            if self.var.requestOut == []:
+                self.var.requestOut = [self.var.requestIn]
+    S2S1 = Transition.copy(Sending,Sending,lambda self:self.var.requestIn)
+    S2S2 = Transition.copy(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
+    def action(self):
+        if hasattr(self.var.requestOut[0],'item'):
+            for req in self.var.requestOut:
+                req.cancel()
+        self.Queue.put_event.restart()
+    S2S1._action = action
+    def action(self):
+        if not hasattr(self.var.requestOut[0],'item'):
+            return
+        for request in self.var.requestOut:
+            if request.check():
+                request.confirm()
+                self.var.requestOut.remove(request)
+                self.Queue.items.remove(request.item)
+                break
+        for request in self.var.requestOut:
+            request.cancel()
+    S2S2.action = action
+
 # %% TESTS
 
 if __name__ == '__main__' and 1:
@@ -370,7 +368,6 @@ if __name__ == '__main__' and 1:
         
 if __name__ == '__main__' and 1:
     env = Environment()
-    x=Server(env,serviceTime=1)
     b = ServerWithBuffer(env,serviceTime=1)
     b.Next = Store(env,5)
     for i in range(1,10):
@@ -409,7 +406,7 @@ if __name__ == '__main__':
     env.run(10)
     if a.current_state[0]._name == 'Forwarding' and len(a.Next) == 5 and len(a.Store) == 4:
         print('OK queue')
-'''
+        
 if __name__ == '__main__':
     env = Environment()
     a = ManualStation(env,serviceTime=1)
@@ -420,7 +417,7 @@ if __name__ == '__main__':
     env.run(10)
     if b.current_state[0]._name == 'Idle' and len(a.Next) == 5 and a.current_state[0]._name == 'Blocking':
         print('OK manual station')
- 
+
 if __name__ == '__main__':
     env = Environment()
     a = Server(env,serviceTime=1)
@@ -448,6 +445,7 @@ if __name__ == '__main__':
     env.run(20)
     if len(c) == 1 and len(d) == 5:
         print('OK router')
+
         
 if __name__ == '__main__':
     env = Environment()
@@ -465,8 +463,10 @@ if __name__ == '__main__':
     env.run(20)
     if len(c) == 1 and len(d) == 3:
         print('OK router')
-        
-if __name__ == '__main__' and False:
+  
+
+       
+if __name__ == '__main__' and 0:
     env = Environment()
     a = Server(env,serviceTime=1)
     b = StoreSelect(env)
@@ -478,7 +478,7 @@ if __name__ == '__main__' and False:
     env.run(20)
     if len(c) == 5 and len(b.Queue) == 1:
         print('OK switch')
-
+'''
 # %% old
 
 
