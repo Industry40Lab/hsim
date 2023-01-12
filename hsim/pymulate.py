@@ -52,7 +52,8 @@ class Server(CHFSM):
         setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
     def build(self):
         self.Store = Store(self.env,1)
-        
+    def put(self,item):
+        return self.Store.put(item)  
     class Starving(State):
         initial_state=True
         def _do(self):
