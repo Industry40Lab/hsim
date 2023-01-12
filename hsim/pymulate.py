@@ -510,13 +510,14 @@ class SwitchOut(CHFSM):
 # %% MIP
 
 class MachineMIP(Server):
-    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,failure_rate=0):
+    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,failure_rate=0,TTR=60):
         super().__init__(env,name,serviceTime,serviceTimeFunction)
         self.var.failure_rate = failure_rate
+        self.var.TTR = TTR
     class Fail(State):
         pass
     T1 = None
-    S2F = Transition.copy(Server.Starving, Server.Working, lambda self: self.var.request, condition=lambda self: np.random.uniform() < self.var.failure_rate)
+    S2F = Transition.copy(Server.Starving, Fail, lambda self: self.var.request, condition=lambda self: np.random.uniform() < self.var.failure_rate)
     S2W = Transition.copy(Server.Starving, Server.Working, lambda self: self.var.request)
     F2W = Transition.copy(Fail, Server.Working, lambda self: self.env.timeout(self.var.TTR))
 
@@ -537,138 +538,57 @@ class SwitchQualityMIP(CHFSM):
         self.var.Trigger = env.event()
         self.var.quality_rate = 0.1
         self.var.requests = list()
-    # def put(self,item):
-    #     return self.Queue.put(item)
-    # def subscribe(self,item=None):
-    #     return self.Queue.subscribe(item)
     def build(self):
         self.Queue = Store(self.env)
     class Wait(State):
-    @function(Wait)
-    def W(self):
-        return self.Queue.get()
-    @do(Wait)
-    def WW(self,event):
-        self.var.entity = event.value
-        return Work
-    T1 = Transition.copy(Wait,Work)
-    class Work(State):
+        initial_state=True
         def _do(self):
+            self.var.request = self.Queue.get()
+    class Working(State):
+        def _do(self):
+            self.var.entity = self.var.request.value
             if np.random.uniform() < self.var.quality_rate:
-                return self.connections['rework'].put(self.var.entity)
+                return self.Rework.put(self.var.entity)
             else:
-                return self.connections['after'].put(self.var.entity)
-    T2 = Transition.copy(Work,Wait)
+                return self.Next.put(self.var.entity)
+    T1 = Transition.copy(Wait, Working, lambda self: self.var.request)
+    T2 = Transition.copy(Working,Wait)
 
 
 class FinalAssemblyManualMIP(ManualStation):
-    def build(self):
-        Starve = State('Starve',True)
-        @function(Starve)
-        def starveF(self):
+    class Starving(State):
+        def _do(self):
             self.var.request = [self.connections['before1'].get(),self.connections['before2'].get()]
-            return AllOf(self.env,self.var.request)
-        @do(Starve)
-        def starveDo(self,event):
-            self.var.entity = event._events[0].value
-            return Idle
-        Idle = State('Idle')
-        @function(Idle)
-        def idlef(self):
+    class Idle(State):
+        def _do(self):
+            self.var.entity = self.var.request._events[0].value
             self.var.NeedOperator.succeed()
-            return self.var.WaitOperator
-        @do(Idle)
-        def idledo(self,event):
-            self.var.NeedOperator.restart()
-            self.var.WaitOperator.restart()
-            return Work
-        Work = State('Work')
-        @function(Work)
-        def workF(self):
-            serviceTime = self.sm.calculateServiceTime(self.var.entity)
-            return self.env.timeout(serviceTime)
-        @do(Work)
-        def workDo(self,event):
-            self.var.operator.var.Pause.succeed()
-            self.var.operator = None
-            return Block
-        Block = State('Block')
-        @function(Block)
-        def blockk(self):
-            req = self.connections['after'].put(self.var.entity)
-            return req
-        @do(Block)
-        def blockkk(self,event):
-            # self.var.request.confirm()
-            return Starve
-        return [Starve,Idle,Work,Block]
+    S2I = Transition.copy(Starving, Idle, lambda self: AllOf(self.env,self.var.request))
+    I2W = Transition.copy(Idle, ManualStation.Working, lambda self: self.var.WaitOperator, action=lambda self:(self.var.NeedOperator.restart(),self.var.WaitOperator.restart()))
+
     
 class FinalAssemblyMIP(Server):
-    def build(self):
-        states = super().build()
-        states.pop(0)
-        Work = [state for state in states if state._name=='Work'][0]
-        Starve = State('Starve',True)
-        @function(Starve)
-        def starveF(self):
+    class Starving(State):
+        def _do(self):
             self.var.request = [self.connections['before1'].get(),self.connections['before2'].get()]
-            return AllOf(self.env,self.var.request)
-        @do(Starve)
-        def starveDo(self,event):
-            self.var.entity = event._events[0].value
-            return Work
-        states.insert(0,Starve)
-        return states
-    
+    class Working(State):
+        def _do(self):
+            self.var.entity = self.var.request._events[0].value
+    S2W = Transition.copy(Starving, Working, lambda self: AllOf(self.env,self.var.request))
+    T2=Transition.copy(Working, Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+
+  
 class AutomatedMIP(ManualStation):
-    def build(self):
-        Starve = State('Starve',True)
-        @function(Starve)
-        def starveF(self):
-            self.var.request = self.Store.subscribe()
-            return self.var.request
-        @do(Starve)
-        def starveDo(self,event):
-            self.var.entity = event.read()
-            return Idle
-        Idle = State('Idle')
-        @function(Idle)
-        def idlef(self):
-            self.var.NeedOperator.succeed()
-            return self.var.WaitOperator
-        @do(Idle)
-        def idledo(self,event):
-            self.var.NeedOperator.restart()
-            self.var.WaitOperator.restart()
-            return Setup
-        Setup = State('Setup')
-        @function(Setup)
-        def suF(self):
-            serviceTime = (0.1+np.random.uniform()/10) * self.sm.calculateServiceTime(self.var.entity)
-            return self.env.timeout(serviceTime)
-        @do(Setup)
-        def suDo(self,event):
+    class Setup(State):
+        pass
+    class Working(State):
+        def _do(self,event):
             self.var.operator.var.Pause.succeed()
             self.var.operator = None
-            return Work
-        Work = State('Work')
-        @function(Work)
-        def workF(self):
-            serviceTime = self.sm.calculateServiceTime(self.var.entity)
-            return self.env.timeout(serviceTime)
-        @do(Work)
-        def workDo(self,event):
-            return Block
-        Block = State('Block')
-        @function(Block)
-        def blockk(self):
-            req = self.connections['after'].put(self.var.entity)
-            return req
-        @do(Block)
-        def blockkk(self,event):
-            self.var.request.confirm()
-            return Starve
-        return [Starve,Idle,Setup,Work,Block]
+    T1c=Transition.copy(ManualStation.Idle, Setup, lambda self: self.WaitOperator, action = lambda self: [self.NeedOperator.restart(),self.WaitOperator.restart()])
+    T1b=Transition.copy(Setup, Working, lambda self: self.self.env.timeout((0.1+np.random.uniform()/10) * self.sm.calculateServiceTime(self.var.entity)), action = lambda self: [self.NeedOperator.restart(),self.WaitOperator.restart()])
+    T2 = Transition.copy(Working, ManualStation.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+
     
 if __name__ == "__main__":
     
@@ -706,4 +626,3 @@ if __name__ == "__main__":
     import utils
     s = utils.stats(env)
     
-'''
