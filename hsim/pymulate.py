@@ -107,7 +107,7 @@ class ServerDoubleBuffer(ServerWithBuffer):
     TFRO=Transition.copy(ForwardingOut,RetrievingOut,lambda self: self.Next.put(self.var.entityOut),action=lambda self:self.var.requestOut.confirm())
     T3=Transition.copy(Server.Blocking, Server.Starving, lambda self: self.QueueOut.put(self.var.entity),action=lambda self: self.var.request.confirm())
 
-'''
+
 class Generator(CHFSM):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
         super().__init__(env,name)
@@ -116,15 +116,13 @@ class Generator(CHFSM):
         setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
     def createEntity(self):
         return object()
-    Sending = State('Sending')
-    Creating = State('Creating',True)
-    @do(Creating)
-    def f5(self):
-        self.var.entity = self.createEntity()
-    Transition(Sending,Creating,lambda self: self.Next.put(self.var.entity))
-    Transition(Creating,Sending,lambda self: self.env.timeout(self.calculateServiceTime(None)))
-    _states = [Creating,Sending]
-
+    class Sending(State):
+        pass
+    class Creating(State):
+        def _do(self):
+            self.var.entity = self.createEntity()
+    T1=Transition.copy(Sending,Creating,lambda self: self.Next.put(self.var.entity))
+    T2=Transition.copy(Creating,Sending,lambda self: self.env.timeout(self.calculateServiceTime(None)))
 
 class Queue(CHFSM):
     def __init__(self, env, name=None, capacity=np.inf):
@@ -137,19 +135,16 @@ class Queue(CHFSM):
         return self.Store.items
     def __len__(self):
         return len(self.Store.items)
-    Retrieving = State('Retrieving',True)
-    @do(Retrieving)
-    def f6(self):
-        self.var.request = self.Store.subscribe()
-    Forwarding = State('Forwarding')
-    @do(Forwarding)
-    def f7(self):
-        self.var.entity = self.var.request.read()
-    Transition(Retrieving,Forwarding,lambda self: self.var.request)
-    Transition(Forwarding,Retrieving,lambda self: self.Next.put(self.var.entity),action=lambda self:self.var.request.confirm())
-    _states = [Retrieving,Forwarding]
+    class Retrieving(State):
+        def _do(self):
+            self.var.request = self.Store.subscribe()
+    class Forwarding(State):
+        def _do(self):
+            self.var.entity = self.var.request.read()
+    T1=Transition.copy(Retrieving,Forwarding,lambda self: self.var.request)
+    T2=Transition.copy(Forwarding,Retrieving,lambda self: self.Next.put(self.var.entity),action=lambda self:self.var.request.confirm())
 
-
+'''
 class ManualStation(Server):
     def build(self):
         super().build()
@@ -393,7 +388,7 @@ if __name__ == '__main__' and 1:
     env.run(10)
     if a.current_state[0]._name == 'Starving' and len(a.Next) == 5 and len(a.QueueOut) == 4:
         print('OK server with 2 buffers')
-'''
+
 if __name__ == '__main__':
     env = Environment()
     a = Generator(env,serviceTime=1)
@@ -414,7 +409,7 @@ if __name__ == '__main__':
     env.run(10)
     if a.current_state[0]._name == 'Forwarding' and len(a.Next) == 5 and len(a.Store) == 4:
         print('OK queue')
-
+'''
 if __name__ == '__main__':
     env = Environment()
     a = ManualStation(env,serviceTime=1)
