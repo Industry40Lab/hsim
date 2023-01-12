@@ -480,12 +480,7 @@ if __name__ == '__main__' and 0:
         print('OK switch')
 '''
 # %% old
-
-
-
-
-
-            
+           
 class SwitchOut(CHFSM):
     def put(self,item):
         return self.Queue.put(item)
