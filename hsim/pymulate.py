@@ -158,7 +158,6 @@ class ManualStation(Server):
     T1=Transition.copy(Server.Starving, Idle, lambda self: self.var.request, action = lambda self: self.NeedOperator.succeed())
     T1b=Transition.copy(Idle, Server.Working, lambda self: self.WaitOperator, action = lambda self: [self.NeedOperator.restart(),self.WaitOperator.restart()])
     T2 = Transition.copy(Server.Working, Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
-    # @action(T2)
     def action(self):
         for op in self.Operators.items:
             op.Pause.succeed()
@@ -352,7 +351,7 @@ class StoreSelect(CHFSM):
                 break
         for request in self.var.requestOut:
             request.cancel()
-    S2S2.action = action
+    S2S2._action = action
 
 # %% TESTS
 
@@ -466,7 +465,7 @@ if __name__ == '__main__':
   
 
        
-if __name__ == '__main__' and 0:
+if __name__ == '__main__' and 1:
     env = Environment()
     a = Server(env,serviceTime=1)
     b = StoreSelect(env)
