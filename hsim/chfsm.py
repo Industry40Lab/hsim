@@ -124,10 +124,11 @@ class StateMachine():
                 # x è Transition
                 for state in self._states: 
                     if type(state) is transition[0]._state:
-                        transition[0](state)
+                        x = transition[0](state)
                         setattr(self,transition[1],None)
-                    elif type(state) is transition[0]._target:
-                        transition[0]._target = state
+                        for target in self._states: 
+                            if type(target) is transition[0]._target:
+                                x._target = target
 
     @property
     def name(self):
@@ -361,7 +362,7 @@ class Transition():
                 _action = action
         return Transition
     def __init__(self, state, target=None, trigger=None, condition=None, action=None):
-        # self._state = state
+        self._state = state
         # self._target = target
         # if trigger is not None:
         #     self._trigger = trigger
@@ -506,18 +507,27 @@ if __name__ == "__main__" and 1:
                 T1=Transition.copy(Work0, None, lambda self: self.env.timeout(5))
         T1=Transition.copy(Work, None, lambda self: self.env.timeout(10))
     
-    
-    
+    class Boh6(CHFSM):
+        class Work(State):
+            initial_state=True
+            _do = lambda self: print('Start working at %d. Will finish in 10s' %env.now)
+        class Rest(State):
+            _do = lambda self: print('Start resting at %d. Will finish in 10s' %env.now)
+        T1=Transition.copy(Work, Rest, lambda self: self.env.timeout(10))
+        T2=Transition.copy(Rest, Work, lambda self: self.env.timeout(10))
     
     
     
     
     env = Environment()
-    foo = Boh5(env,1)
+    foo = Boh6(env,1)
     env.run(50)
     foo.interrupt()
     env.run(200)
 
+    env = Environment()
+    foo2 = Boh6(env,1)
+    env.run(50)
     
 
 
