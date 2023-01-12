@@ -1,15 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from chfsm import CHFSM, State, Transition, add_states, trigger, action, Pseudostate
-from chfsm import do
+from chfsm import CHFSM, State, Transition, Pseudostate
 from stores import Store, Box
 from core import Environment, Event
 from simpy import AllOf, AnyOf
-from simpy.events import PENDING 
 import types
 import numpy as np
-from collections.abc import Iterable
-from copy import deepcopy
 
 # %% add
 def calculateServiceTime(self,entity=None,attribute='serviceTime'):
