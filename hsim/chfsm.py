@@ -101,7 +101,7 @@ class StateMachine():
             if state.initial_state == True:
                 state.start()
         if not any([state.initial_state for state in self._states]):
-            print('Warning: no initial state set')
+            print('Warning: no initial state set in %s' %self)
     def interrupt(self):
         for state in self._states:
             state.interrupt()
