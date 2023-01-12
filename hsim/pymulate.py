@@ -445,7 +445,6 @@ if __name__ == '__main__':
     if len(c) == 1 and len(d) == 5:
         print('OK router')
 
-        
 if __name__ == '__main__':
     env = Environment()
     b = Router(env)
@@ -462,9 +461,7 @@ if __name__ == '__main__':
     env.run(20)
     if len(c) == 1 and len(d) == 3:
         print('OK router')
-  
 
-       
 if __name__ == '__main__' and 1:
     env = Environment()
     a = Server(env,serviceTime=1)
@@ -477,6 +474,7 @@ if __name__ == '__main__' and 1:
     env.run(20)
     if len(c) == 5 and len(b.Queue) == 1:
         print('OK switch')
+
 '''
 # %% old
            
