@@ -471,9 +471,11 @@ if __name__ == '__main__' and 1:
     if len(c) == 5 and len(b.Queue) == 1:
         print('OK switch')
 
-'''
+
 # %% old
-           
+
+'''     
+  
 class SwitchOut(CHFSM):
     def put(self,item):
         return self.Queue.put(item)
@@ -504,46 +506,30 @@ class SwitchOut(CHFSM):
             return
         return [Work]
 
+'''
+# %% MIP
 
 class MachineMIP(Server):
-    def build(self):
-        Starve = State('Starve',True)
-        @function(Starve)
-        def starveF(self):
-            self.var.request = self.Store.subscribe()
-            return self.var.request
-        @do(Starve)
-        def starveDo(self,event):
-            self.var.entity = event.read()
-            if np.random.uniform() < self.var.failure_rate:
-                return Fail
-            return Work
-        Fail = State('Fail')
-        @function(Fail)
-        def failF(self):
-            return self.env.timeout(self.var.TTR)
-        @do(Fail)
-        def failDo(self,event):
-            return Work
-        Work = State('Work')
-        @function(Work)
-        def workF(self):
-            serviceTime = self.sm.calculateServiceTime(self.var.entity)
-            return self.env.timeout(serviceTime)
-        @do(Work)
-        def workDo(self,event):
-            return Block
-        Block = State('Block')
-        @function(Block)
-        def blockk(self):
-            req = self.connections['after'].put(self.var.entity)
-            self.var.req = req
-            return req
-        @do(Block)
-        def blockkk(self,event):
-            self.var.request.confirm()
-            return Starve
-        return [Starve,Fail,Work,Block]
+    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,failure_rate=0):
+        super().__init__(env,name,serviceTime,serviceTimeFunction)
+        self.var.failure_rate = failure_rate
+    class Fail(State):
+        pass
+    T1 = None
+    S2F = Transition.copy(Server.Starving, Server.Working, lambda self: self.var.request, condition=lambda self: np.random.uniform() < self.var.failure_rate)
+    S2W = Transition.copy(Server.Starving, Server.Working, lambda self: self.var.request)
+    F2W = Transition.copy(Fail, Server.Working, lambda self: self.env.timeout(self.var.TTR))
+
+if __name__ == '__main__' and 1:
+    env = Environment()
+    a = MachineMIP(env,serviceTime=1,failure_rate=1)
+    a.Next = Store(env,5)
+    for i in range(1,7):
+        a.Store.put(i)
+    env.run(20)
+    if a.current_state[0]._name == 'Blocking' and len(a.Next) == 5:
+        print('OK server') 
+
         
 class SwitchQualityMIP(CHFSM):
     def __init__(self, env, name=None):
@@ -551,32 +537,29 @@ class SwitchQualityMIP(CHFSM):
         self.var.Trigger = env.event()
         self.var.quality_rate = 0.1
         self.var.requests = list()
-    def put(self,item):
-        return self.Queue.put(item)
-    def subscribe(self,item=None):
-        return self.Queue.subscribe(item)
-    def build_c(self):
-        self.Queue = Store(self.env)
+    # def put(self,item):
+    #     return self.Queue.put(item)
+    # def subscribe(self,item=None):
+    #     return self.Queue.subscribe(item)
     def build(self):
-        Wait = State('Wait',True)
-        @function(Wait)
-        def W(self):
-            return self.Queue.get()
-        @do(Wait)
-        def WW(self,event):
-            self.var.entity = event.value
-            return Work
-        Work = State('Work')
-        @function(Work)
-        def W0(self):
+        self.Queue = Store(self.env)
+    class Wait(State):
+    @function(Wait)
+    def W(self):
+        return self.Queue.get()
+    @do(Wait)
+    def WW(self,event):
+        self.var.entity = event.value
+        return Work
+    T1 = Transition.copy(Wait,Work)
+    class Work(State):
+        def _do(self):
             if np.random.uniform() < self.var.quality_rate:
                 return self.connections['rework'].put(self.var.entity)
             else:
                 return self.connections['after'].put(self.var.entity)
-        @do(Work)
-        def WW0(self,event):
-            return Wait
-        return [Work,Wait]
+    T2 = Transition.copy(Work,Wait)
+
 
 class FinalAssemblyManualMIP(ManualStation):
     def build(self):
@@ -722,5 +705,5 @@ if __name__ == "__main__":
 
     import utils
     s = utils.stats(env)
-# %%
+    
 '''
