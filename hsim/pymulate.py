@@ -363,7 +363,7 @@ StoreSelect._states = [Sending]
 '''
 # %% TESTS
 
-if __name__ == '__main__' and 0:
+if __name__ == '__main__' and 1:
     env = Environment()
     a = Server(env,serviceTime=1)
     a.Next = Store(env,5)
