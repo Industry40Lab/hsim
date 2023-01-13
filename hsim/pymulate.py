@@ -524,20 +524,21 @@ class MachineMIP(Server):
         initial_state = True
         def _do(self):
             self.var.request = self.Store.subscribe()
-            self.var.param = np.random.uniform()
     T1 = 'ciao'
-    S2F = Transition.copy(Server.Starving, Fail, lambda self: self.var.request, condition=lambda self: self.var.param < self.var.failure_rate)
-    S2W = Transition.copy(Server.Starving, Server.Working, lambda self: self.var.request, condition=lambda self: self.var.param > self.var.failure_rate)
+    S2F = Transition.copy(Starving, Fail, lambda self: self.var.request, condition=lambda self: np.random.uniform() < self.var.failure_rate)
+    S2W = Transition.copy(Starving, Server.Working, lambda self: self.var.request, condition=lambda self: self.var.param > self.var.failure_rate)
     F2W = Transition.copy(Fail, Server.Working, lambda self: self.env.timeout(self.var.TTR))
+    T3=Transition.copy(Server.Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
+
 
 if __name__ == '__main__' and 1:
     env = Environment()
-    a = MachineMIP(env,serviceTime=1,failure_rate=1)
-    a.Next = Store(env,5)
+    a = MachineMIP(env,serviceTime=1,failure_rate=1,TTR=3)
+    a.Next = Store(env,10)
     for i in range(1,7):
         a.Store.put(i)
     env.run(20)
-    if a.current_state[0]._name == 'Blocking' and len(a.Next) == 5:
+    if a.current_state[0]._name == 'Working' and len(a.Next) == 4:
         print('OK server') 
 
         
@@ -549,6 +550,8 @@ class SwitchQualityMIP(CHFSM):
         self.var.requests = list()
     def build(self):
         self.Queue = Store(self.env)
+    def put(self,item):
+        return self.Queue.put(item)
     class Wait(State):
         initial_state=True
         def _do(self):
@@ -557,11 +560,11 @@ class SwitchQualityMIP(CHFSM):
         def _do(self):
             self.var.entity = self.var.request.value
             if np.random.uniform() < self.var.quality_rate:
-                return self.Rework.put(self.var.entity)
+                self.var.putRequest = self.Rework.put(self.var.entity)
             else:
-                return self.Next.put(self.var.entity)
+                self.var.putRequest = self.Next.put(self.var.entity)
     T1 = Transition.copy(Wait, Working, lambda self: self.var.request)
-    T2 = Transition.copy(Working,Wait)
+    T2 = Transition.copy(Working,Wait,lambda self: self.var.putRequest)
 
 
 class FinalAssemblyManualMIP(ManualStation):
@@ -571,8 +574,8 @@ class FinalAssemblyManualMIP(ManualStation):
             self.var.request = [self.connections['before1'].get(),self.connections['before2'].get()]
     class Idle(State):
         def _do(self):
-            self.var.entity = self.var.request._events[0].value
-            self.var.NeedOperator.succeed()
+            self.var.entity = self.var.request[0].value
+            self.NeedOperator.succeed()
     S2I = Transition.copy(Starving, Idle, lambda self: AllOf(self.env,self.var.request))
     I2W = Transition.copy(Idle, ManualStation.Working, lambda self: self.var.WaitOperator, action=lambda self:(self.var.NeedOperator.restart(),self.var.WaitOperator.restart()))
 
@@ -597,11 +600,11 @@ class AutomatedMIP(ManualStation):
             self.var.operator.var.Pause.succeed()
             self.var.operator = None
     T1c=Transition.copy(ManualStation.Idle, Setup, lambda self: self.WaitOperator, action = lambda self: [self.NeedOperator.restart(),self.WaitOperator.restart()])
-    T1b=Transition.copy(Setup, Working, lambda self: self.self.env.timeout((0.1+np.random.uniform()/10) * self.sm.calculateServiceTime(self.var.entity)), action = lambda self: [self.NeedOperator.restart(),self.WaitOperator.restart()])
+    T1b=Transition.copy(Setup, Working, lambda self: self.env.timeout((0.1+np.random.uniform()/10) * self.sm.calculateServiceTime(self.var.request.read())), action = lambda self: [self.NeedOperator.restart(),self.WaitOperator.restart()])
     T2 = Transition.copy(Working, ManualStation.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
 
     
-if __name__ == "__main__":
+if False and __name__ == "__main__":
     
     if 1:
         env = Environment()
