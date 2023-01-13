@@ -73,7 +73,7 @@ class Entity():
 # filename = 'Group8_GSOM_original_v.2.xlsx'
 
 folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP EMBA INDUSTRY40 SIMULATION CASE 11-6-22/'
-filename = 'MIP1 - eco1.xlsx'
+filename = 'MIP1.xlsx'
 path = folder+filename
 a=pd.read_excel(path,sheet_name='Redesign_in',header=1,index_col=0)
 a=a.fillna(int(0))
@@ -235,7 +235,68 @@ ele2queueIn = Queue(env,capacity=4)
 ele2 = MachineMIP(env,'ele2',serviceTime=d.loc[d.index==10].values,serviceTimeFunction=normal_dist_bounded)
 ele2queueOut = Queue(env,'aaa',capacity=4)
 
-for i in range(2,25,2):
+j=11
+if c.loc[c.index==j]['M/A/T'].values == 'M':
+    ele_line2 = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'S':
+    ele_line2= AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'A':
+    ele_line2 = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'C':
+    ele_line2 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
+
+j=12
+if c.loc[c.index==j]['M/A/T'].values == 'M':
+    ele_line4 = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'S':
+    ele_line4= AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'A':
+    ele_line4 = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'C':
+    ele_line4 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
+
+j=13
+if c.loc[c.index==j]['M/A/T'].values == 'M':
+    ele_line6 = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'S':
+    ele_line6= AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'A':
+    ele_line6 = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'C':
+    ele_line6 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
+
+j=14
+if c.loc[c.index==j]['M/A/T'].values == 'M':
+    ele_line8 = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'S':
+    ele_line8= AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'A':
+    ele_line8 = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'C':
+    ele_line8 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
+
+j=15
+if c.loc[c.index==j]['M/A/T'].values == 'M':
+    ele_line10 = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'S':
+    ele_line10 = AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'A':
+    ele_line10 = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'C':
+    ele_line10 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
+
+j=16
+if c.loc[c.index==j]['M/A/T'].values == 'M':
+    ele_line12 = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'S':
+    ele_line12 = AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'A':
+    ele_line12 = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+elif c.loc[c.index==j]['M/A/T'].values == 'C':
+    ele_line12 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
+
+
+for i in range(14,25,2):
     j = int(i/2+10)
     g = globals()
     if c.loc[c.index==j]['M/A/T'].values == 'M':
@@ -331,7 +392,7 @@ case3queueOut.Next = case4
 
 case4.Next = case4quality
 case4quality.Next = case5queueIn
-case4quality.connections['rework'] = case4scrap
+case4quality.Rework = case4scrap
 
 if c.loc[c.index==6]['M/A/T'].values == 'M':
     case5queueIn.Next = case5
@@ -343,10 +404,10 @@ case5queueOut.Next = case6queueIn
 
 if c.loc[c.index==3]['M/A/T'].values == 'M':
     case6queueIn.Next = case6
-    case6.Next = case6queueOut
+    case6.Next = final1case
 else:
     case6queueIn.Next = case6
-    case6.Next = case6queueOut
+    case6.Next = final1case
 case6queueOut.Next = final1case
 
 g_ele.Next = ele0
@@ -386,10 +447,10 @@ ele_line26in.Next = ele_line26
 ele_line26.Next = ele_line26out
 ele_line26out.Next = ele_quality
 ele_quality.Next = final1ele
-ele_quality.connections['rework'] = ele_scrap
+ele_quality.Rework = ele_scrap
 
-final2assebly.connections['before1'] = final1case
-final2assebly.connections['before2'] = final1ele
+final2assebly.Before1 = final1case
+final2assebly.Before2 = final1ele
 final2assebly.Next = final2inspect
 final2inspect.Next = final3
 final3.Next = final4pack
@@ -404,31 +465,17 @@ list_stations_ele = [ele0,ele1,ele2,ele_line2,ele_line4,ele_line6,ele_line8,ele_
 list_stations_final = [final2assebly,final2inspect,final4pack,final5pallet]
 list_stations = list_stations_case + list_stations_ele + list_stations_final
 op_list = list()
-#temp
-env.op_list=op_list
+
 for i in range(1,n_max+1):
     if b[i].sum():
-        op = Operator(env)
-        # op_list.append(Operator(env))
+        # op = Operator(env)
+        op_list.append(Operator(env))
         for j in b[i].index:
             if b[i][j]>0:
                 if c['M/A/T'][j]=='M' or c['M/A/T'][j]=='S' or c['M/A/T'][j]=='C':
-                    # if isinstance(list_stations[int(j-1)],Iterable):
-                    #     for s in list_stations[int(j-1)]:
-                    #         op.add_station(s)
-                    # else:
-                    # op.add_station(list_stations[int(j-1)])
-                    op.var.station.append(list_stations[int(j-1)])
-                    # op_list[-1].var.station.append(list_stations[int(j-1)])
-            # elif c['M/A/T'][j]=='M' or c['M/A/T'][j]=='S': #remove
-            #     if isinstance(list_stations[int(j-1)],Iterable):
-            #         for s in list_stations[int(j-1)]:
-            #             op.add_station(s)
-            #     else:
-            #         op.add_station(list_stations[int(j-1)])
-        
-        op_list.append(op)
-        del(op)
+                    op_list[-1].var.station.append(list_stations[int(j-1)])
+        # op_list.append(op)
+        # del(op)
         if len(op_list)==n_lim:
             break
  
@@ -448,7 +495,7 @@ for index in std_machines:
 
 import time
 step = 900
-time_end = 5*3600
+time_end = 24*3600
 prod_parts = list();
 time_start = time.time()
 print('Good luck!')
