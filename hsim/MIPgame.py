@@ -404,6 +404,8 @@ list_stations_ele = [ele0,ele1,ele2,ele_line2,ele_line4,ele_line6,ele_line8,ele_
 list_stations_final = [final2assebly,final2inspect,final4pack,final5pallet]
 list_stations = list_stations_case + list_stations_ele + list_stations_final
 op_list = list()
+#temp
+env.op_list=op_list
 for i in range(1,n_max+1):
     if b[i].sum():
         op = Operator(env)
@@ -446,7 +448,7 @@ for index in std_machines:
 
 import time
 step = 900
-time_end = 1*24*3600
+time_end = 5*3600
 prod_parts = list();
 time_start = time.time()
 print('Good luck!')
