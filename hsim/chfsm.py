@@ -257,67 +257,6 @@ class State(Process):
                 self._value = None
                 self.callbacks = []
                 self.env.schedule(self)
-            
-            '''
-                elif event._ok:
-                    try:
-                        event = self._do(event)
-                    except:
-                        warnings.warn('Error in %s (%s)' %(self,self.sm))
-                        raise StopIteration
-                    if event is None:
-                        event = self
-                        self._do_start()
-                        return
-                    else:
-                        if type(event) is type(self):
-                            self.stop()
-                            event()
-                        else:
-                            event()
-                            raise StopIteration
-                elif isinstance(event,Interruption):
-                    event = None
-                    self._ok = True
-                    self._value = None
-                    self.callbacks = []
-                    self.env.schedule(self)
-                    break
-                else:
-                    event._defused = True
-                    exc = type(event._value)(*event._value.args)
-                    exc.__cause__ = event._value
-                    event = self._generator.throw(exc)
-                    warnings.warn('%s' %self)
-            except StopIteration as e:
-                event = None
-                self._ok = True
-                self._value = e.args[0] if len(e.args) else None
-                self.callbacks = []
-                self.env.schedule(self)
-                self.stop()
-                break
-            except BaseException as e:
-                event = None
-                self._ok = False
-                tb = e.__traceback__
-                e.__traceback__ = tb.tb_next
-                self._value = e
-                self.callbacks = []
-                self.env.schedule(self)
-                break
-            try:
-                if event.callbacks is not None:
-                    event.callbacks.append(self._resume)
-                    break
-            except AttributeError:
-                if not hasattr(event, 'callbacks'):
-                    msg = 'Invalid yield value "%s"' % event
-                descr = self._generator #_describe_frame(self._generator.gi_frame)
-                error = RuntimeError('\n%s%s' % (descr, msg))
-                error.__cause__ = None
-                raise error
-                '''
         self._target = event
         self.env._active_proc = None
 
