@@ -35,7 +35,7 @@ class Entity():
             
 # %% path
     
-folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP EMBA INDUSTRY40 SIMULATION CASE 11-6-22/'
+# folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP EMBA INDUSTRY40 SIMULATION CASE 11-6-22/'
 
 # gourp 1
 # folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 1/'
@@ -69,11 +69,11 @@ folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP EMBA INDUSTRY40 SIMUL
 # filename = 'Assignment I4 scenario4.xlsx'
 
 #group 8
-folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 8/'
-filename = 'Group8_GSOM_original_v.2.xlsx'
+# folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 8/'
+# filename = 'Group8_GSOM_original_v.2.xlsx'
 
-# folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP EMBA INDUSTRY40 SIMULATION CASE 11-6-22/'
-# filename = 'MIP1.xlsx'
+folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP EMBA INDUSTRY40 SIMULATION CASE 11-6-22/'
+filename = 'MIP1 - eco1.xlsx'
 path = folder+filename
 a=pd.read_excel(path,sheet_name='Redesign_in',header=1,index_col=0)
 a=a.fillna(int(0))
