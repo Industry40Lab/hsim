@@ -495,7 +495,6 @@ if __name__ == "__main__" and 1:
     add_states(Boh4,[Work])
     
     '''
-    
     class Boh5(CHFSM):
         class Work(State):
             initial_state=True
@@ -510,12 +509,21 @@ if __name__ == "__main__" and 1:
     class Boh6(CHFSM):
         class Work(State):
             initial_state=True
-            _do = lambda self: print('Start working at %d. Will finish in 10s' %env.now)
+            _do = lambda self: print('Start working at %d. Will finish in 10s' %self.env.now)
         class Rest(State):
-            _do = lambda self: print('Start resting at %d. Will finish in 10s' %env.now)
+            _do = lambda self: print('Start resting at %d. Will finish in 10s' %self.env.now)
         T1=Transition.copy(Work, Rest, lambda self: self.env.timeout(10))
         T2=Transition.copy(Rest, Work, lambda self: self.env.timeout(10))
     
+    class Boh7(CHFSM):
+        class Work(State):
+            initial_state=True
+            _do = lambda self: print('Start working at %d. Will finish in 10s' %self.env.now)
+        class Rest(State):
+            _do = lambda self: print('Start resting at %d. Will finish in 10s' %self.env.now)
+        T1=Transition.copy(Work, Rest, lambda self: self.E,action=print(100))
+        T1a=Transition.copy(Work, Rest, lambda self: self.E,action=print(100))
+        T2=Transition.copy(Rest, Work, lambda self: self.env.timeout(10))
     
     
     
@@ -526,7 +534,8 @@ if __name__ == "__main__" and 1:
     env.run(200)
 
     env = Environment()
-    foo2 = Boh6(env,1)
+    foo2 = Boh7(env,1)
+    foo2.E = env.event()
     env.run(50)
     
 

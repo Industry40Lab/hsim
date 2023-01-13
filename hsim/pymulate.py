@@ -126,6 +126,8 @@ class Queue(CHFSM):
     def __init__(self, env, name=None, capacity=np.inf):
         self.capacity = capacity
         super().__init__(env,name)
+    def put(self,item):
+        return self.Store.put(item)
     def build(self):
         self.Store = Store(self.env,self.capacity)
     @property
@@ -141,7 +143,7 @@ class Queue(CHFSM):
         def _do(self):
             self.var.entity = self.var.request.read()
     T1=Transition.copy(Retrieving,Forwarding,lambda self: self.var.request)
-    T2=Transition.copy(Forwarding,Retrieving,lambda self: self.Next.put(self.var.entity),action=lambda self:self.var.request.confirm())
+    T2=Transition.copy(Forwarding,Retrieving,lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
 
 
 class ManualStation(Server):
@@ -179,9 +181,10 @@ class Operator(CHFSM):
     class Working(State):
         def _do(self):
             self.var.target = self.select()
-            self.var.target.WaitOperator.succeed()
-            self.var.target.Operators.put(self.sm)
-            self.Pause.restart()
+            if self.var.target:
+                self.var.target.WaitOperator.succeed()
+                self.var.target.Operators.put(self.sm)
+                self.Pause.restart()
     T1=Transition.copy(Idle, Working, lambda self: self.var.request)
     T2=Transition.copy(Working, Idle, lambda self: self.Pause)
 
@@ -517,9 +520,14 @@ class MachineMIP(Server):
         self.var.TTR = TTR
     class Fail(State):
         pass
-    T1 = None
-    S2F = Transition.copy(Server.Starving, Fail, lambda self: self.var.request, condition=lambda self: np.random.uniform() < self.var.failure_rate)
-    S2W = Transition.copy(Server.Starving, Server.Working, lambda self: self.var.request)
+    class Starving(State):
+        initial_state = True
+        def _do(self):
+            self.var.request = self.Store.subscribe()
+            self.var.param = np.random.uniform()
+    T1 = 'ciao'
+    S2F = Transition.copy(Server.Starving, Fail, lambda self: self.var.request, condition=lambda self: self.var.param < self.var.failure_rate)
+    S2W = Transition.copy(Server.Starving, Server.Working, lambda self: self.var.request, condition=lambda self: self.var.param > self.var.failure_rate)
     F2W = Transition.copy(Fail, Server.Working, lambda self: self.env.timeout(self.var.TTR))
 
 if __name__ == '__main__' and 1:
@@ -558,6 +566,7 @@ class SwitchQualityMIP(CHFSM):
 
 class FinalAssemblyManualMIP(ManualStation):
     class Starving(State):
+        initial_state = True
         def _do(self):
             self.var.request = [self.connections['before1'].get(),self.connections['before2'].get()]
     class Idle(State):
@@ -570,6 +579,7 @@ class FinalAssemblyManualMIP(ManualStation):
     
 class FinalAssemblyMIP(Server):
     class Starving(State):
+        initial_state = True
         def _do(self):
             self.var.request = [self.connections['before1'].get(),self.connections['before2'].get()]
     class Working(State):

@@ -35,7 +35,7 @@ class Entity():
             
 # %% path
     
-# folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP EMBA INDUSTRY40 SIMULATION CASE 11-6-22/'
+folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP EMBA INDUSTRY40 SIMULATION CASE 11-6-22/'
 
 # gourp 1
 # folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 1/'
@@ -69,11 +69,11 @@ class Entity():
 # filename = 'Assignment I4 scenario4.xlsx'
 
 #group 8
-# folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 8/'
-# filename = 'Group8_GSOM_original_v.2.xlsx'
+folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 8/'
+filename = 'Group8_GSOM_original_v.2.xlsx'
 
-folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP EMBA INDUSTRY40 SIMULATION CASE 11-6-22/'
-filename = 'MIP1.xlsx'
+# folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP EMBA INDUSTRY40 SIMULATION CASE 11-6-22/'
+# filename = 'MIP1.xlsx'
 path = folder+filename
 a=pd.read_excel(path,sheet_name='Redesign_in',header=1,index_col=0)
 a=a.fillna(int(0))
@@ -229,11 +229,11 @@ g_ele = Generator(env,'g2',serviceTime=10)
 g_ele.createEntity = ggg
 
 ele0 = ManualStation(env,serviceTime=d.loc[d.index==8].values,serviceTimeFunction=normal_dist_bounded)
-ele1queue = Queue(env,4)
+ele1queue = Queue(env,capacity=4)
 ele1 = MachineMIP(env,'ele1',serviceTime=d.loc[d.index==9].values,serviceTimeFunction=normal_dist_bounded)
-ele2queueIn = Queue(env,4)
+ele2queueIn = Queue(env,capacity=4)
 ele2 = MachineMIP(env,'ele2',serviceTime=d.loc[d.index==10].values,serviceTimeFunction=normal_dist_bounded)
-ele2queueOut = Queue(env,4)
+ele2queueOut = Queue(env,'aaa',capacity=4)
 
 for i in range(2,25,2):
     j = int(i/2+10)
@@ -500,6 +500,7 @@ for machine in list_stations_final:
             statistics[m._name] = [{key._name:s[m][key]} for key in s[m]]
     except:
         statistics[machine._name] = [{key._name:s[machine][key]} for key in s[machine]]
+    
 
 states = pd.DataFrame([])
 for machine in statistics:
@@ -507,8 +508,8 @@ for machine in statistics:
     new_df = pd.DataFrame(new_dict,index=[0])
     states = pd.concat([states,new_df])
 states = states.fillna(0)
-states.drop(columns='GetIn',inplace=True)
-states.drop(columns='GetOut',inplace=True)
+# states.drop(columns='ForwardingIn',inplace=True)
+# states.drop(columns='RetrievingOut',inplace=True)
 
 statistics2 = OrderedDict()
 for op in op_list:
