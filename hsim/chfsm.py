@@ -342,6 +342,8 @@ class Transition():
             self._target._state = self._state
         self._event = method_lambda(self,self._trigger)
         if self._event == None:
+            self._event = self.env.event()
+            self._event.succeed()
             print('Missing trigger')
         try:
             self._event.callbacks.append(self._evaluate)
