@@ -238,7 +238,7 @@ class State(Process):
             method_lambda(self,self._do)
             events = list()
             for transition in self._transitions:
-                transition._state = self
+                # transition._state = self
                 event = transition()
                 events.append(event)
         else:
@@ -527,16 +527,18 @@ if __name__ == "__main__" and 1:
     
     
     
-    env = Environment()
-    foo = Boh6(env,1)
-    env.run(50)
-    foo.interrupt()
-    env.run(200)
+    # env = Environment()
+    # foo = Boh6(env,1)
+    # env.run(50)
+    # foo.interrupt()
+    # env.run(200)
 
     env = Environment()
     foo2 = Boh7(env,1)
     foo2.E = env.event()
     env.run(50)
+    foo2.E.succeed()
+    env.run(10)
     
 
 
