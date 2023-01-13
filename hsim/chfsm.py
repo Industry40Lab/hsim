@@ -329,7 +329,7 @@ class Transition():
     def cancel(self):
         self._event._value = False
     def _evaluate(self,event):
-        if self._event.value == False:
+        if self._event._value == False:
             return
         if method_lambda(self,self._condition):
             method_lambda(self,self._action)
