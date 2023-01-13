@@ -327,8 +327,10 @@ class Transition():
     def _otherwise(self):
         return self()
     def cancel(self):
-        self._event.callbacks = []
+        self._event._value = False
     def _evaluate(self,event):
+        if self._event.value == False:
+            return
         if method_lambda(self,self._condition):
             method_lambda(self,self._action)
             self._state._resume(self._target)
@@ -340,7 +342,7 @@ class Transition():
             self._target._state = self._state
         self._event = method_lambda(self,self._trigger)
         if self._event == None:
-            print(1)
+            print('Missing trigger')
         try:
             self._event.callbacks.append(self._evaluate)
         except:
@@ -476,6 +478,7 @@ if __name__ == "__main__" and 1:
     foo2 = Boh7(env,1)
     foo2.E = env.event()
     env.run(50)
+    print('go')
     foo2.E.succeed()
     env.run(10)
     
