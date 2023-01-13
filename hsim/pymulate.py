@@ -149,15 +149,19 @@ class Queue(CHFSM):
 class ManualStation(Server):
     def build(self):
         super().build()
-        self.WaitOperator = self.env.event()
+        self.GotOperator = self.env.event()
         self.NeedOperator = self.env.event()
         self.Operators = Store(self.env)
     class Idle(State):
         pass
     T1=Transition.copy(Server.Starving, Idle, lambda self: self.var.request, action = lambda self: self.NeedOperator.succeed())
-    T1b=Transition.copy(Idle, Server.Working, lambda self: self.WaitOperator, action = lambda self: [self.NeedOperator.restart(),self.WaitOperator.restart()])
+    T1b=Transition.copy(Idle, Server.Working, lambda self: self.GotOperator)
     T2 = Transition.copy(Server.Working, Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
     def action(self):
+        self.NeedOperator.restart()
+    T1b._action = action
+    def action(self):
+        self.GotOperator.restart()
         for op in self.Operators.items:
             op.Pause.succeed()
             self.Operators.items.remove(op)
@@ -167,12 +171,12 @@ class ManualStation(Server):
 class Operator(CHFSM):
     def __init__(self,env,name=None,station=[]):
         super().__init__(env, name)
-        self.var.station = station
+        self.var.station = list()
     def build(self):
         self.Pause = self.env.event()
     def select(self):
         for station in self.var.station:
-            if station.NeedOperator.triggered and not station.WaitOperator.triggered:
+            if station.NeedOperator.triggered and not station.GotOperator.triggered:
                 return station
     class Idle(State):
         initial_state=True
@@ -182,9 +186,12 @@ class Operator(CHFSM):
         def _do(self):
             self.var.target = self.select()
             if self.var.target:
-                self.var.target.WaitOperator.succeed()
+                self.var.target.GotOperator.succeed()
                 self.var.target.Operators.put(self.sm)
                 self.Pause.restart()
+            else:
+                if not self.Pause.triggered:
+                    self.Pause.succeed()
     T1=Transition.copy(Idle, Working, lambda self: self.var.request)
     T2=Transition.copy(Working, Idle, lambda self: self.Pause)
 
@@ -409,7 +416,8 @@ if __name__ == '__main__':
 if __name__ == '__main__':
     env = Environment()
     a = ManualStation(env,serviceTime=1)
-    b = Operator(env,station=[a])
+    b = Operator(env)
+    b.var.station=[a]
     a.Next = Store(env,5)
     for i in range(1,10):
         a.Store.put(i)
@@ -571,13 +579,12 @@ class FinalAssemblyManualMIP(ManualStation):
     class Starving(State):
         initial_state = True
         def _do(self):
-            self.var.request = [self.connections['before1'].get(),self.connections['before2'].get()]
-    class Idle(State):
-        def _do(self):
-            self.var.entity = self.var.request[0].value
-            self.NeedOperator.succeed()
-    S2I = Transition.copy(Starving, Idle, lambda self: AllOf(self.env,self.var.request))
-    I2W = Transition.copy(Idle, ManualStation.Working, lambda self: self.var.WaitOperator, action=lambda self:(self.var.NeedOperator.restart(),self.var.WaitOperator.restart()))
+            self.var.request = [self.Before1.subscribe(),self.Before2.get()]     
+    S2I = Transition.copy(Starving, ManualStation.Idle, lambda self: AllOf(self.env,self.var.request))
+    def action(self):
+        self.var.request = self.var.request[0]
+        self.NeedOperator.succeed()
+    S2I._action = action
 
     
 class FinalAssemblyMIP(Server):
