@@ -235,68 +235,9 @@ ele2queueIn = Queue(env,capacity=4)
 ele2 = MachineMIP(env,'ele2',serviceTime=d.loc[d.index==10].values,serviceTimeFunction=normal_dist_bounded)
 ele2queueOut = Queue(env,'aaa',capacity=4)
 
-j=11
-if c.loc[c.index==j]['M/A/T'].values == 'M':
-    ele_line2 = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'S':
-    ele_line2= AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'A':
-    ele_line2 = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'C':
-    ele_line2 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
-
-j=12
-if c.loc[c.index==j]['M/A/T'].values == 'M':
-    ele_line4 = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'S':
-    ele_line4= AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'A':
-    ele_line4 = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'C':
-    ele_line4 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
-
-j=13
-if c.loc[c.index==j]['M/A/T'].values == 'M':
-    ele_line6 = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'S':
-    ele_line6= AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'A':
-    ele_line6 = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'C':
-    ele_line6 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
-
-j=14
-if c.loc[c.index==j]['M/A/T'].values == 'M':
-    ele_line8 = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'S':
-    ele_line8= AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'A':
-    ele_line8 = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'C':
-    ele_line8 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
-
-j=15
-if c.loc[c.index==j]['M/A/T'].values == 'M':
-    ele_line10 = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'S':
-    ele_line10 = AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'A':
-    ele_line10 = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'C':
-    ele_line10 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
-
-j=16
-if c.loc[c.index==j]['M/A/T'].values == 'M':
-    ele_line12 = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'S':
-    ele_line12 = AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'A':
-    ele_line12 = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
-elif c.loc[c.index==j]['M/A/T'].values == 'C':
-    ele_line12 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
 
 
-for i in range(14,25,2):
+for i in range(2,25,2):
     j = int(i/2+10)
     g = globals()
     if c.loc[c.index==j]['M/A/T'].values == 'M':
@@ -407,8 +348,8 @@ if c.loc[c.index==3]['M/A/T'].values == 'M':
     case6.Next = final1case
 else:
     case6queueIn.Next = case6
-    case6.Next = final1case
-case6queueOut.Next = final1case
+    case6.Next = case6queueOut
+case6queueOut.Next = case6queueOut
 
 g_ele.Next = ele0
 ele0.Next = ele1queue
