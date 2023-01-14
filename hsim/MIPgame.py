@@ -349,7 +349,7 @@ if c.loc[c.index==3]['M/A/T'].values == 'M':
 else:
     case6queueIn.Next = case6
     case6.Next = case6queueOut
-case6queueOut.Next = case6queueOut
+case6queueOut.Next = final1case
 
 g_ele.Next = ele0
 ele0.Next = ele1queue
@@ -436,7 +436,7 @@ for index in std_machines:
 
 import time
 step = 900
-time_end = 24*3600
+time_end = 4*3600
 prod_parts = list();
 time_start = time.time()
 print('Good luck!')
