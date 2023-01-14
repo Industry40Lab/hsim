@@ -483,6 +483,18 @@ if __name__ == '__main__' and 1:
     if len(c) == 5 and len(b.Queue) == 1:
         print('OK switch')
 
+if __name__ == '__main__' and 1:
+    env = Environment()
+    a = Queue(env)
+    b = ServerDoubleBuffer(env,serviceTime=1,capacityOut=5)
+    a.Next = b
+    b.Next = Store(env,5)
+    for i in range(1,10):
+        a.put(i)
+    env.run(10)
+    if a.current_state[0]._name == 'Starving' and len(a.Next) == 5 and len(a.QueueOut) == 4:
+        print('OK server with 2 buffers')
+
 
 # %% old
 

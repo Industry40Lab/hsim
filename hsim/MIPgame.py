@@ -239,15 +239,15 @@ ele2queueOut = Queue(env,'aaa',capacity=4)
 
 for i in range(2,25,2):
     j = int(i/2+10)
-    g = globals()
+    glob = globals()
     if c.loc[c.index==j]['M/A/T'].values == 'M':
-        g['ele_line'+str(i)] = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+        glob['ele_line'+str(i)] = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==j]['M/A/T'].values == 'S':
-        g['ele_line'+str(i)] = AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+        glob['ele_line'+str(i)] = AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==j]['M/A/T'].values == 'A':
-        g['ele_line'+str(i)] = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+        glob['ele_line'+str(i)] = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==j]['M/A/T'].values == 'C':
-        g['ele_line'+str(i)] = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
+        glob['ele_line'+str(i)] = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
 
     
 ele_line1 = Queue(env)
@@ -328,11 +328,12 @@ if c.loc[c.index==4]['M/A/T'].values == 'M':
     case3.Next = case3queueOut
 else:
     case3queueIn.Next = case3
-    case3.Next = case5queueOut
+    case3.Next = case3queueOut
 case3queueOut.Next = case4
 
 case4.Next = case4quality
 case4quality.Next = case5queueIn
+
 case4quality.Rework = case4scrap
 
 if c.loc[c.index==6]['M/A/T'].values == 'M':
@@ -348,7 +349,7 @@ if c.loc[c.index==3]['M/A/T'].values == 'M':
     case6.Next = final1case
 else:
     case6queueIn.Next = case6
-    case6.Next = case6queueOut
+    case6.Next = final1case
 case6queueOut.Next = final1case
 
 g_ele.Next = ele0
@@ -440,6 +441,7 @@ time_end = 4*3600
 prod_parts = list();
 time_start = time.time()
 print('Good luck!')
+
 for i in range(step,time_end,step):
     env.run(i)
     prod_parts.append(len(T))
