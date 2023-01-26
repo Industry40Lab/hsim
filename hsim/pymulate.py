@@ -106,7 +106,7 @@ class ServerDoubleBuffer(ServerWithBuffer):
 
 
 class Generator(CHFSM):
-    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
+    def __init__(self,env,name=None,serviceTime=1,serviceTimeFunction=None):
         super().__init__(env,name)
         self.var.serviceTime = serviceTime
         self.var.serviceTimeFunction = serviceTimeFunction
@@ -121,6 +121,9 @@ class Generator(CHFSM):
             self.var.entity = self.createEntity()
     T1=Transition.copy(Sending,Creating,lambda self: self.Next.put(self.var.entity))
     T2=Transition.copy(Creating,Sending,lambda self: self.env.timeout(self.calculateServiceTime(None)))
+
+class Terminator(Store):
+    pass
 
 class Queue(CHFSM):
     def __init__(self, env, name=None, capacity=np.inf):
