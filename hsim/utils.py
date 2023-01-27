@@ -6,9 +6,10 @@ Created on Mon Jun  6 16:48:02 2022
 """
 
    
+import pandas as pd
 
 def stats(env):
-    y = env.state_log2
+    y = pd.DataFrame(env.state_log,columns=['Resource', 'ResourceID', 'State', 'StateID', 'timeIn', 'timeOut'])
     t = env.now
     y.loc[y.timeOut.values==None,'timeOut'] = t
     y=y.fillna(t) #test
@@ -21,3 +22,4 @@ def stats(env):
             v[state] = x
         stats[res] = v
     return stats
+

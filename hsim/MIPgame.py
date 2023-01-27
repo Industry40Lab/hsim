@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
-from pymulate import Store, Queue, Environment, Generator, Server, ServerWithBuffer, ServerDoubleBuffer, Operator, ManualStation, SwitchOut
+from pymulate import Store, Queue, Environment, Generator, Server, ServerDoubleBuffer, Operator, ManualStation
 
 from pymulate import MachineMIP, SwitchQualityMIP, FinalAssemblyManualMIP, FinalAssemblyMIP, AutomatedMIP
 
@@ -165,8 +165,8 @@ for index in c.index:
 
 # %% case 
 ggg = gen_motor()
-g_case = Generator(env,'g1',serviceTime=10,createEntity=ggg)
-g_case.var.createEntity = ggg
+g_case = Generator(env,'g1',serviceTime=10)
+g_case.createEntity = ggg
 
 case0 = ManualStation(env,serviceTime=d.loc[d.index==1].values,serviceTimeFunction=normal_dist_bounded)
 case1 = ServerDoubleBuffer(env,serviceTime=d.loc[d.index==2].values,serviceTimeFunction=normal_dist_bounded,capacityIn = 4, capacityOut = 4)
@@ -225,27 +225,29 @@ case6queueOut = Queue(env,capacity = 4)
 
 # %% electronics
 ggg = gen_motor()
-g_ele = Generator(env,'g2',serviceTime=10,createEntity=ggg)
-g_ele.var.createEntity = ggg
+g_ele = Generator(env,'g2',serviceTime=10)
+g_ele.createEntity = ggg
 
 ele0 = ManualStation(env,serviceTime=d.loc[d.index==8].values,serviceTimeFunction=normal_dist_bounded)
-ele1queue = Queue(env,4)
+ele1queue = Queue(env,capacity=4)
 ele1 = MachineMIP(env,'ele1',serviceTime=d.loc[d.index==9].values,serviceTimeFunction=normal_dist_bounded)
-ele2queueIn = Queue(env,4)
+ele2queueIn = Queue(env,capacity=4)
 ele2 = MachineMIP(env,'ele2',serviceTime=d.loc[d.index==10].values,serviceTimeFunction=normal_dist_bounded)
-ele2queueOut = Queue(env,4)
+ele2queueOut = Queue(env,'aaa',capacity=4)
+
+
 
 for i in range(2,25,2):
     j = int(i/2+10)
-    g = globals()
+    glob = globals()
     if c.loc[c.index==j]['M/A/T'].values == 'M':
-        g['ele_line'+str(i)] = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+        glob['ele_line'+str(i)] = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==j]['M/A/T'].values == 'S':
-        g['ele_line'+str(i)] = AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+        glob['ele_line'+str(i)] = AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==j]['M/A/T'].values == 'A':
-        g['ele_line'+str(i)] = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+        glob['ele_line'+str(i)] = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==j]['M/A/T'].values == 'C':
-        g['ele_line'+str(i)] = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
+        glob['ele_line'+str(i)] = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
 
     
 ele_line1 = Queue(env)
@@ -307,94 +309,95 @@ elif a['Dispatching'][27] == 1:
 T = Store(env)
 
 # %% connect
-g_case.connections['after'] = case0
+g_case.Next = case0
 
-case0.connections['after'] = case1
+case0.Next = case1
 
-case1.connections['after'] = case2queueIn
+case1.Next = case2queueIn
 
 if c.loc[c.index==3]['M/A/T'].values == 'M':
-    case2queueIn.connections['after'] = case2
-    case2.connections['after'] = case2queueOut
+    case2queueIn.Next = case2
+    case2.Next = case2queueOut
 else:
-    case2queueIn.connections['after'] = case2
-    case2.connections['after'] = case2queueOut
-case2queueOut.connections['after'] = case3queueIn
+    case2queueIn.Next = case2
+    case2.Next = case2queueOut
+case2queueOut.Next = case3queueIn
 
 if c.loc[c.index==4]['M/A/T'].values == 'M':
-    case3queueIn.connections['after'] = case3
-    case3.connections['after'] = case3queueOut
+    case3queueIn.Next = case3
+    case3.Next = case3queueOut
 else:
-    case3queueIn.connections['after'] = case3
-    case3.connections['after'] = case5queueOut
-case3queueOut.connections['after'] = case4
+    case3queueIn.Next = case3
+    case3.Next = case3queueOut
+case3queueOut.Next = case4
 
-case4.connections['after'] = case4quality
-case4quality.connections['after'] = case5queueIn
-case4quality.connections['rework'] = case4scrap
+case4.Next = case4quality
+case4quality.Next = case5queueIn
+
+case4quality.Rework = case4scrap
 
 if c.loc[c.index==6]['M/A/T'].values == 'M':
-    case5queueIn.connections['after'] = case5
-    case5.connections['after'] = case5queueOut
+    case5queueIn.Next = case5
+    case5.Next = case5queueOut
 else:
-    case5queueIn.connections['after'] = case5
-    case5.connections['after'] = case5queueOut
-case5queueOut.connections['after'] = case6queueIn
+    case5queueIn.Next = case5
+    case5.Next = case5queueOut
+case5queueOut.Next = case6queueIn
 
 if c.loc[c.index==3]['M/A/T'].values == 'M':
-    case6queueIn.connections['after'] = case6
-    case6.connections['after'] = case6queueOut
+    case6queueIn.Next = case6
+    case6.Next = final1case
 else:
-    case6queueIn.connections['after'] = case6
-    case6.connections['after'] = case6queueOut
-case6queueOut.connections['after'] = final1case
+    case6queueIn.Next = case6
+    case6.Next = final1case
+case6queueOut.Next = final1case
 
-g_ele.connections['after'] = ele0
-ele0.connections['after'] = ele1queue
-ele1queue.connections['after'] = ele1
-ele1.connections['after'] = ele2queueIn
-ele2queueIn.connections['after'] = ele2
-ele2.connections['after'] = ele2queueOut
-ele2queueOut.connections['after'] = ele_line1
-ele_line1.connections['after'] = ele_line2
-ele_line2.connections['after'] = ele_line3
-ele_line3.connections['after'] = ele_line4
-ele_line4.connections['after'] = ele_line5
-ele_line5.connections['after'] = ele_line6
-ele_line6.connections['after'] = ele_line7
-ele_line7.connections['after'] = ele_line8
-ele_line8.connections['after'] = ele_line9
-ele_line9.connections['after'] = ele_line10
-ele_line10.connections['after'] = ele_line11
-ele_line11.connections['after'] = ele_line12
-ele_line12.connections['after'] = ele_line13
-ele_line13.connections['after'] = ele_line14
-ele_line14.connections['after'] = ele_line15
-ele_line15.connections['after'] = ele_line16
-ele_line16.connections['after'] = ele_line17
-ele_line17.connections['after'] = ele_line18
-ele_line18.connections['after'] = ele_line19
-ele_line19.connections['after'] = ele_line20
-ele_line20.connections['after'] = ele_line21
-ele_line21.connections['after'] = ele_line22
-ele_line22.connections['after'] = ele_line23
-ele_line23.connections['after'] = ele_line24
-ele_line24.connections['after'] = ele_line25
-ele_line25.connections['after'] = ele_line26in
+g_ele.Next = ele0
+ele0.Next = ele1queue
+ele1queue.Next = ele1
+ele1.Next = ele2queueIn
+ele2queueIn.Next = ele2
+ele2.Next = ele2queueOut
+ele2queueOut.Next = ele_line1
+ele_line1.Next = ele_line2
+ele_line2.Next = ele_line3
+ele_line3.Next = ele_line4
+ele_line4.Next = ele_line5
+ele_line5.Next = ele_line6
+ele_line6.Next = ele_line7
+ele_line7.Next = ele_line8
+ele_line8.Next = ele_line9
+ele_line9.Next = ele_line10
+ele_line10.Next = ele_line11
+ele_line11.Next = ele_line12
+ele_line12.Next = ele_line13
+ele_line13.Next = ele_line14
+ele_line14.Next = ele_line15
+ele_line15.Next = ele_line16
+ele_line16.Next = ele_line17
+ele_line17.Next = ele_line18
+ele_line18.Next = ele_line19
+ele_line19.Next = ele_line20
+ele_line20.Next = ele_line21
+ele_line21.Next = ele_line22
+ele_line22.Next = ele_line23
+ele_line23.Next = ele_line24
+ele_line24.Next = ele_line25
+ele_line25.Next = ele_line26in
 
-ele_line26in.connections['after'] = ele_line26
-ele_line26.connections['after'] = ele_line26out
-ele_line26out.connections['after'] = ele_quality
-ele_quality.connections['after'] = final1ele
-ele_quality.connections['rework'] = ele_scrap
+ele_line26in.Next = ele_line26
+ele_line26.Next = ele_line26out
+ele_line26out.Next = ele_quality
+ele_quality.Next = final1ele
+ele_quality.Rework = ele_scrap
 
-final2assebly.connections['before1'] = final1case
-final2assebly.connections['before2'] = final1ele
-final2assebly.connections['after'] = final2inspect
-final2inspect.connections['after'] = final3
-final3.connections['after'] = final4pack
-final4pack.connections['after'] = final5pallet
-final5pallet.connections['after'] = T
+final2assebly.Before1 = final1case
+final2assebly.Before2 = final1ele
+final2assebly.Next = final2inspect
+final2inspect.Next = final3
+final3.Next = final4pack
+final4pack.Next = final5pallet
+final5pallet.Next = T
 
 # %% operators
 n_lim = e['# of operators'].values[0]
@@ -404,29 +407,17 @@ list_stations_ele = [ele0,ele1,ele2,ele_line2,ele_line4,ele_line6,ele_line8,ele_
 list_stations_final = [final2assebly,final2inspect,final4pack,final5pallet]
 list_stations = list_stations_case + list_stations_ele + list_stations_final
 op_list = list()
+
 for i in range(1,n_max+1):
     if b[i].sum():
-        op = Operator(env)
-        # op_list.append(Operator(env))
+        # op = Operator(env)
+        op_list.append(Operator(env))
         for j in b[i].index:
             if b[i][j]>0:
                 if c['M/A/T'][j]=='M' or c['M/A/T'][j]=='S' or c['M/A/T'][j]=='C':
-                    # if isinstance(list_stations[int(j-1)],Iterable):
-                    #     for s in list_stations[int(j-1)]:
-                    #         op.add_station(s)
-                    # else:
-                    # op.add_station(list_stations[int(j-1)])
-                    op.var.station.append(list_stations[int(j-1)])
-                    # op_list[-1].var.station.append(list_stations[int(j-1)])
-            # elif c['M/A/T'][j]=='M' or c['M/A/T'][j]=='S': #remove
-            #     if isinstance(list_stations[int(j-1)],Iterable):
-            #         for s in list_stations[int(j-1)]:
-            #             op.add_station(s)
-            #     else:
-            #         op.add_station(list_stations[int(j-1)])
-        
-        op_list.append(op)
-        del(op)
+                    op_list[-1].var.station.append(list_stations[int(j-1)])
+        # op_list.append(op)
+        # del(op)
         if len(op_list)==n_lim:
             break
  
@@ -446,10 +437,11 @@ for index in std_machines:
 
 import time
 step = 900
-time_end = 24*3600
+time_end = 4*3600
 prod_parts = list();
 time_start = time.time()
 print('Good luck!')
+
 for i in range(step,time_end,step):
     env.run(i)
     prod_parts.append(len(T))
@@ -460,7 +452,7 @@ for i in range(step,time_end,step):
         else:
             print(len(T))
         elapsed = time.time()-time_start
-        if elapsed>30:
+        if elapsed>300:
             print('timeout')
             break
         else:
@@ -500,6 +492,7 @@ for machine in list_stations_final:
             statistics[m._name] = [{key._name:s[m][key]} for key in s[m]]
     except:
         statistics[machine._name] = [{key._name:s[machine][key]} for key in s[machine]]
+    
 
 states = pd.DataFrame([])
 for machine in statistics:
@@ -507,8 +500,8 @@ for machine in statistics:
     new_df = pd.DataFrame(new_dict,index=[0])
     states = pd.concat([states,new_df])
 states = states.fillna(0)
-states.drop(columns='GetIn',inplace=True)
-states.drop(columns='GetOut',inplace=True)
+# states.drop(columns='ForwardingIn',inplace=True)
+# states.drop(columns='RetrievingOut',inplace=True)
 
 statistics2 = OrderedDict()
 for op in op_list:
