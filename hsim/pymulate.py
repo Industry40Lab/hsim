@@ -362,6 +362,15 @@ class StoreSelect(CHFSM):
         for request in self.var.requestOut:
             request.cancel()
     S2S2._action = action
+    
+class Gate(CHFSM):
+    def build(self):
+        self.Queue = Box(self.env)
+        self.Input = Store(self.env)
+    class Closed(State):
+        pass
+    class Open(State):
+        pass
 
 # %% TESTS
 
