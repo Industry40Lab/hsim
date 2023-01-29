@@ -3,6 +3,20 @@ import random
 import pygame
 import time
 from math import pi
+from chfsm import CHFSM, State, Transition
+
+class MovingAgent(CHFSM):
+    def __init__(self,env,position,max_speed,name=None):
+        super().__init__(env,name)
+        self.position = position
+        self.destintation = None
+        self.max_speed
+    class Moving(State):
+        pass
+    class NotMoving(State):
+        pass
+    TMN = Transition.copy(Moving) 
+
 
 class World:
     def __init__(self,size_x,size_y):
