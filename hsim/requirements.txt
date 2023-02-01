@@ -1,0 +1,9 @@
+dill==0.3.4
+hfsm==0.0.1
+numpy==1.24.1
+pandas==1.2.4
+plotly==5.3.1
+pygame==2.1.2
+resources==0.0.1
+simpy==4.0.1
+states==0.2.1
