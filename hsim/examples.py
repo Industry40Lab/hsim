@@ -4,6 +4,7 @@ Created on Thu Jan 26 11:49:46 2023
 
 @author: Lorenzo
 """
+import pandas as pd
 from pymulate import Environment
 from pymulate import Generator, Queue, Server, Terminator
 
@@ -31,3 +32,25 @@ class Plant:
 
 p = Plant()
 p.run(10)
+
+# %% 
+
+env = Environment()
+g = Generator(env)
+t = Terminator(env)
+
+q1 = Queue(env,capacity=3)
+q2 = Queue(env,capacity=3)
+
+s1 = Server(env,serviceTime=1)
+s2 = Server(env,serviceTime=1)
+s3 = Server(env,serviceTime=1)
+
+g.Next = s1 
+s1.Next = q1 
+q1.Next = s2 
+s2.Next = q2 
+q2.Next = s3
+s3.Next = t
+
+env.run(10)
