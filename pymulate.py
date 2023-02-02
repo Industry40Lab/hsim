@@ -40,7 +40,7 @@ def calculateServiceTime(self,entity=None,attribute='serviceTime'):
         elif len(self.var.serviceTime)>0:
             return self.var.serviceTimeFunction(*self.var.serviceTime)
 
-def getState(name:str,states):
+def getState(name,states):
     return next(state for state in states if state.name is name)
 
 # %% obj    
