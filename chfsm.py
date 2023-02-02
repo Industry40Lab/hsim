@@ -6,7 +6,6 @@ Created on Sat Mar 19 16:15:38 2022
 """
 
 from typing import List, Any, Optional, Callable
-import logging 
 from simpy import Process, Interrupt, Event
 from simpy.events import PENDING, Initialize, Interruption
 from core import Environment, dotdict, Interruption, method_lambda
@@ -74,7 +73,10 @@ def get_class_dict(par):
     for cls in par.__mro__:
         if cls.__name__ == 'CHFSM':
             break
-        z = {**cls.__dict__, **z}
+        znew = {}
+        for zz in (cls.__dict__, z): 
+            znew.update(zz)
+        z = znew
     return z
     
 class StateMachine():
@@ -201,7 +203,6 @@ class State(Process):
             raise ValueError("child_sm and parent_sm must be different")
         self.sm = parent_sm
     def start(self):
-        logging.debug(f"Entering {self._name}")
         self._last_state_record = [self.sm,self.sm._name,self,self._name,self.env.now,None]
         self.env.state_log.append(self._last_state_record)
         for callback in self._entry_callbacks:
@@ -210,7 +211,6 @@ class State(Process):
             self._child_state_machine.start()
         self._do_start()
     def stop(self):
-        logging.debug(f"Exiting {self._name}")
         self._last_state_record[-1] = self.env.now
         for callback in self._exit_callbacks:
             callback()
