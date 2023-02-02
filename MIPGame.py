@@ -72,8 +72,8 @@ class Entity():
 # folder = folder + 'GSOM EMBA INDUSTRY40 CASE STUDY/Group 8/'
 # filename = 'Group8_GSOM_original_v.2.xlsx'
 
-folder = 'C:/Users/Lorenzo/Dropbox (DIG)/Didattica/MIP/MIP EMBA INDUSTRY40 SIMULATION CASE 11-6-22/'
-filename = 'MIP1.xlsx'
+folder = 'C:/Users/Lorenzo/GitHub/hsim/'
+filename = 'GSOM_original.xlsx'
 path = folder+filename
 a=pd.read_excel(path,sheet_name='Redesign_in',header=1,index_col=0)
 a=a.fillna(int(0))
