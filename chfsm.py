@@ -5,7 +5,6 @@ Created on Sat Mar 19 16:15:38 2022
 @author: Lorenzo
 """
 
-from typing import List, Any, Optional, Callable
 from simpy import Process, Interrupt, Event
 from simpy.events import PENDING, Initialize, Interruption
 from core import Environment, dotdict, Interruption, method_lambda
@@ -437,8 +436,7 @@ if __name__ == "__main__" and 1:
     Work._transitions = [t]
     add_states(Boh4,[Work])
     
-    '''
-    class Boh5(CHFSM):
+        class Boh5(CHFSM):
         class Work(State):
             initial_state=True
             _do = lambda self: print('Start working at %d. Will finish in 10s' %env.now)
@@ -486,6 +484,6 @@ if __name__ == "__main__" and 1:
     
 
 
-
+'''
 
     
