@@ -34,14 +34,16 @@ class Entity():
             
 # %% path
     
-def main(filename,folder='',fullpath='',app=True):
-    if fullpath != '':
+def main(filename,folder='',fullpath='',app=True,pa=False):
+    if pa:
+        with open('target.txt') as f:
+            fullpath = f.read()[:-1]
         folder,filename=fullpath.rsplit('/',1)
         folder=folder+'/'
     if folder == '':
         path = filename
     else:
-        path = path+filename
+        path = folder+filename
         
     env = Environment()
     
@@ -508,13 +510,14 @@ def main(filename,folder='',fullpath='',app=True):
 
     if app==False:
         writer = pd.ExcelWriter(string, engine = 'xlsxwriter')
-        th.to_excel(writer, sheet_name = 'TH')
         states.to_excel(writer, sheet_name = 'U')
         states_op.to_excel(writer, sheet_name = 'U (operators)')
+        th.to_excel(writer, sheet_name = 'TH')
         writer.save()
     else:
         result = {'TH':th,'U':states,'Uop':states_op}
         return result
 
 
-            
+if __name__ == '__main__':
+    main('',app=False,pa=True)
