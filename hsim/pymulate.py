@@ -75,6 +75,8 @@ class ServerWithBuffer(Server):
     def build(self):
         super().build()
         self.QueueIn = Store(self.env,self.capacityIn)
+    def put(self,item):
+        return self.QueueIn.put(item)
     class Retrieving(State):
         initial_state=True
         def _do(self):
