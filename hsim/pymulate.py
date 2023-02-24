@@ -67,6 +67,12 @@ class Server(CHFSM):
     T2=Transition.copy(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
     T3=Transition.copy(Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
 
+class ParallelServer(Server):
+    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacity=1):
+        self._capacity = capacity
+        super().__init__(env,name,serviceTime,serviceTimeFunction)
+    def build(self):
+        self.Store = Store(self.env,self._capacity)
 
 class ServerWithBuffer(Server):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacityIn=np.inf):
