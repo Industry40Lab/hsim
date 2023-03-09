@@ -54,6 +54,8 @@ class Server(CHFSM):
         self.Store = Store(self.env,1)
     def put(self,item):
         return self.Store.put(item)  
+    def subscribe(self,item):
+        return self.Store.subscribe(item)
     class Starving(State):
         initial_state=True
         def _do(self):
@@ -67,12 +69,40 @@ class Server(CHFSM):
     T2=Transition.copy(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
     T3=Transition.copy(Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
 
-class ParallelServer(Server):
+# class ParallelServer(Server):
+#     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacity=1):
+#         self._capacity = capacity
+#         super().__init__(env,name,serviceTime,serviceTimeFunction)
+#     def build(self):
+#         self.Store = Store(self.env,self._capacity)
+
+class ParallelServer():
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacity=1):
+        self.env = env
+        self.name = name
         self._capacity = capacity
-        super().__init__(env,name,serviceTime,serviceTimeFunction)
-    def build(self):
-        self.Store = Store(self.env,self._capacity)
+        # self.Next = None
+        self.switch = OutputSwitch(env)
+        self.servers = []
+        self.switch.Next = self.servers
+        for i in range(capacity):
+            class MiniServer(Server):
+                @property
+                def Next(self):
+                    return self._group.Next
+                
+            self.servers.append(MiniServer(env,name,serviceTime,serviceTimeFunction))
+            self.servers[i]._group = self
+    def __len__(self):
+        return sum([len(server.Store.items) for server in self.servers])         
+    def put(self,item):
+        return self.switch.Queue.put(item)  
+    def subscribe(self,item):
+        return self.switch.Queue.subscribe(item)
+    
+    @property
+    def current_state(self):
+        return [server.current_state for server in self.servers]
 
 class ServerWithBuffer(Server):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacityIn=np.inf):
@@ -268,6 +298,8 @@ class Router(CHFSM):
         self.Queue = Box(self.env)
     def condition_check(self,item,target):
         return True
+    def put(self,item):
+        return self.Queue.put(item)
     class Sending(State):
         initial_state = True
         def _do(self):
