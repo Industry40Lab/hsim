@@ -77,7 +77,7 @@ class Gate(CHFSM):
                 e = self.Store.get()
                 self.Next.put(e.value)
             except:
-                print('Empty')
+                print('Empty at %s' %self.env.now)
     class Controlling(State):
         initial_state = True
         def _do(self):
