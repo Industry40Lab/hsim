@@ -299,6 +299,7 @@ class Transition():
                 _trigger = trigger
             if action is not None:
                 _action = action
+            _condition_eval = condition
         return Transition
     def __init__(self, state, target=None, trigger=None, condition=None, action=None):
         self._state = state
@@ -321,7 +322,10 @@ class Transition():
     def _trigger(self):
         pass
     def _condition(self):
-        return True
+        if self._condition_eval is None:
+            return True
+        else:
+            return self._condition_eval()
     def _action(self):
         return None
     def _otherwise(self):
