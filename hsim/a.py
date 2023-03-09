@@ -7,13 +7,21 @@ import numpy as np
 from simpy import AnyOf
 
 class Generator(pym.Generator):
+    def __init__(self,env,name=None,serviceTime=1,serviceTimeFunction=None):
+        super().__init__(env,name,serviceTime,serviceTimeFunction)
+        self.count = 0
     def createEntity(self):
+        self.count += 1
+        # return Entity()
         return object()
+        
     
 class Entity:
-    def __init__(self):
+    def __init__(self,ID=None):
+        self.ID = ID
         self.ok = True
         self.pt = dict()
+        self.pt['M3'] = 0
     @property
     def require_robot(self):
         if self.pt['M3']>0:
@@ -27,7 +35,7 @@ class Server(pym.Server):
         serviceTime = 10
         super().__init__(env,name,serviceTime,serviceTimeFunction)
     def completed(self):
-        if self.entity.ok:
+        if self.var.entity.ok:
             self.trigger.succeed()
             self.trigger.restart()
     T2=Transition.copy(pym.Server.Working, pym.Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)), action = lambda self: self.completed())
@@ -61,7 +69,6 @@ class Gate(CHFSM):
     def put(self,item):
         return self.Store.put(item)
     def load(self):
-        print(self.initialWIP)
         self.initialWIP = self.initialWIP - 1
     class Waiting(State):
         initial_state = True
@@ -70,7 +77,7 @@ class Gate(CHFSM):
                 e = self.Store.get()
                 self.Next.put(e.value)
             except:
-                pass
+                print('Empty')
     class Controlling(State):
         initial_state = True
         def _do(self):
@@ -84,9 +91,9 @@ class Gate(CHFSM):
 
 class RobotSwitch1(pym.Router):
     def condition_check(self, item, target):
-        if item.require_robot and target == "":
+        if item.require_robot and type(target) == Server:
             return True
-        elif not item.require_robot and target != "":
+        elif not item.require_robot and type(target) != Server:
             return True
         else:
             return False
@@ -102,9 +109,9 @@ class RobotSwitch2(pym.Router):
 
 class CloseOutSwitch(pym.Router):
     def condition_check(self, item, target):
-        if item.ok and target == "":
+        if item.ok and type(target) == Terminator:
             return True
-        elif not item.ok and target != "":
+        elif not item.ok and type(target) != Terminator:
             return True
         else:
             return False
@@ -112,8 +119,8 @@ class CloseOutSwitch(pym.Router):
 class Conveyor(pym.ParallelServer):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacity=1):
         self._capacity = capacity
-        self.serviceTime = capacity*3.5
-        super().__init__(env,name,serviceTime,serviceTimeFunction)
+        serviceTime = capacity*3.5
+        super().__init__(env,name,serviceTime,serviceTimeFunction,capacity)
 
 class Lab:
     def __init__(self,DR:str,OR:str,BN:str):
@@ -123,9 +130,9 @@ class Lab:
         self.gate = Gate(self.env,DR,OR)
         
         self.conv1 = Conveyor(self.env,capacity=3)
-        self.front = Server(self.env)
+        self.front = Server(self.env,'front')
         self.conv2 = Conveyor(self.env,capacity=3)
-        self.drill = Server(self.env)
+        self.drill = Server(self.env,'drill')
         self.conv3 = Conveyor(self.env,capacity=3)
         
         self.switch1 = RobotSwitch1(self.env)
@@ -135,16 +142,16 @@ class Lab:
         self.switch2 = RobotSwitch2(self.env)
         self.convRobot2 = Conveyor(self.env,capacity=3)
         self.convRobot3 = Conveyor(self.env,capacity=3)
-        self.robot = Server(self.env)
+        self.robot = Server(self.env,'robot')
         self.convRobotOut = Conveyor(self.env,capacity=3)
         self.conv5 = Conveyor(self.env,capacity=3)
-        self.camera = Server(self.env)
+        self.camera = Server(self.env,'camera')
         self.conv6 = Conveyor(self.env,capacity=3)
-        self.back = Server(self.env)
+        self.back = Server(self.env,'back')
         self.conv7 = Conveyor(self.env,capacity=3)
-        self.press = Server(self.env)
+        self.press = Server(self.env,'press')
         self.conv8 = Conveyor(self.env,capacity=10)
-        self.manual = Server(self.env)
+        self.manual = Server(self.env,'manual')
         self.outSwitch = CloseOutSwitch(self.env)
         self.terminator = Terminator(self.env)
         
@@ -160,6 +167,7 @@ class Lab:
         self.switch1.Next = [self.convRobot1,self.bridge]
         self.convRobot1.Next = self.switch2
         self.switch2.Next = [self.convRobot2,self.convRobot3]
+        self.convRobot2.Next = self.robot
         self.convRobot3.Next = self.convRobotOut
         self.robot.Next = self.convRobotOut
         self.convRobotOut.Next = self.conv5
@@ -184,6 +192,7 @@ class Lab:
 
 
 lab=Lab('FIFO','CONWIP','PAST')
-for i in range(20):
-    lab.gate.put(object())
-lab.run(1000)
+for i in range(3):
+    lab.conv1.put(Entity())
+lab.run(10000)
+
