@@ -35,6 +35,7 @@ class Server(pym.Server):
         serviceTime = 10
         super().__init__(env,name,serviceTime,serviceTimeFunction)
     def completed(self):
+        print(self,self.var.entity,self.env.now)
         if self.var.entity.ok:
             self.trigger.succeed()
             self.trigger.restart()
