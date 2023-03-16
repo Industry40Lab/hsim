@@ -303,11 +303,6 @@ class Transition():
         return Transition
     def __init__(self, state, target=None, trigger=None, condition=None, action=None):
         self._state = state
-        # self._target = target
-        # if trigger is not None:
-        #     self._trigger = trigger
-        # if action is not None:
-        #     self._action = action
         state._transitions.append(self)
     def __getattr__(self,attr):
         try:
@@ -339,6 +334,7 @@ class Transition():
             method_lambda(self,self._action)
             self._state._resume(self._target)
         else:
+            event._value = PENDING
             self._otherwise()
     def __call__(self):
         if self._trigger is None:
@@ -348,7 +344,7 @@ class Transition():
         if self._event == None:
             self._event = self.env.event()
             self._event.succeed()
-            print('Missing trigger')
+            # print('Missing trigger')
         try:
             self._event.callbacks.append(self._evaluate)
         except:
