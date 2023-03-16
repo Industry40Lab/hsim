@@ -98,8 +98,7 @@ class ParallelServer():
     def put(self,item):
         return self.switch.Queue.put(item)  
     def subscribe(self,item):
-        return self.switch.Queue.subscribe(item)
-    
+        return self.switch.Queue.subscribe(item)  
     @property
     def current_state(self):
         return [server.current_state for server in self.servers]
@@ -142,6 +141,38 @@ class ServerDoubleBuffer(ServerWithBuffer):
     TFRO=Transition.copy(ForwardingOut,RetrievingOut,lambda self: self.Next.put(self.var.entityOut),action=lambda self:self.var.requestOut.confirm())
     T3=Transition.copy(Server.Blocking, Server.Starving, lambda self: self.QueueOut.put(self.var.entity),action=lambda self: self.var.request.confirm())
 
+class Conveyor(CHFSM):
+    def __init__(self,env,name=None,length=1,speed=1):
+        super().__init__(env,name)
+        self.servers = list()
+        class MiniServer(Server):
+            @property
+            def Next(self):
+                return self._group.Next
+        for i in range(length):
+            self.servers.append(Server(env,serviceTime=speed))
+        self.servers[-1] = MiniServer(env,serviceTime=speed)
+        self.servers[-1]._group=self
+        for i in range(length-1):
+            self.servers[i].Next = self.servers[i+1]
+    class Working(State):
+        initial_state = True
+    def build(self):
+        self.Queue = Box(self.env)        
+    @property
+    def items(self):
+        return [server.Store.items for server in self.servers]
+    def put(self,item):
+        return self.servers[0].put(item)
+    def subscribe(self,item):
+        return self.servers[0].subscribe(item)
+    def __len__(self):
+        return sum(len(server.Store.items) for server in self.servers)
+        
+            
+            
+        
+        
 
 class Generator(CHFSM):
     def __init__(self,env,name=None,serviceTime=1,serviceTimeFunction=None):
@@ -307,7 +338,7 @@ class Router(CHFSM):
             self.sm.var.requestOut = [item for sublist in [[next.subscribe(item) for next in self.sm.Next if self.sm.condition_check(item,next)] for item in self.sm.Queue.items] for item in sublist]
             if self.sm.var.requestOut == []:
                 self.sm.var.requestOut.append(self.sm.var.requestIn)
-    S2S1 = Transition.copy(Sending,Sending,lambda self:self.var.requestIn)
+    S2S1 = Transition.copy(Sending,Sending,lambda self:AnyOf(self.env,[self.var.requestIn]))
     S2S2 = Transition.copy(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
     def action(self):
         self.Queue.put_event.restart()
