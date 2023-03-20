@@ -626,13 +626,20 @@ class FinalAssemblyMIP(Server):
 class AutomatedMIP(ManualStation):
     class Setup(State):
         pass
-    class Working(State):
-        def _do(self,event):
-            self.var.operator.var.Pause.succeed()
-            self.var.operator = None
-    T1c=Transition.copy(ManualStation.Idle, Setup, lambda self: self.WaitOperator, action = lambda self: [self.NeedOperator.restart(),self.WaitOperator.restart()])
-    T1b=Transition.copy(Setup, Working, lambda self: self.env.timeout((0.1+np.random.uniform()/10) * self.sm.calculateServiceTime(self.var.request.read())), action = lambda self: [self.NeedOperator.restart(),self.WaitOperator.restart()])
-    T2 = Transition.copy(Working, ManualStation.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+    # class Working(State):
+    #     pass
+        # def _do(self,event):
+        #     self.var.operator.var.Pause.succeed()
+        #     self.var.operator = None
+    T1c=Transition.copy(ManualStation.Idle, Setup, lambda self: self.GotOperator)
+    T1b=Transition.copy(Setup, ManualStation.Working, lambda self: self.env.timeout((0.1+np.random.uniform()/10) * self.sm.calculateServiceTime(self.var.request.read())))
+    T2 = Transition.copy(ManualStation.Working, ManualStation.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+    
+    # T1=Transition.copy(Server.Starving, Idle, lambda self: self.var.request, action = lambda self: self.NeedOperator.succeed())
+    # T1b=Transition.copy(Idle, Server.Working, lambda self: self.GotOperator)
+    
+    # T2 = Transition.copy(Server.Working, Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+
 
     
 if False and __name__ == "__main__":
