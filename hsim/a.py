@@ -472,7 +472,7 @@ class Result:
 
 
 results = list()
-for BN in ['present','future']:
+for BN in ['future','present']:
     for OR in ['CONWIP','DBR']:
         for DR in ['FIFO','SPT','LPT']:
             if DR == 'FIFO' and OR == 'CONWIP' and BN == 'future':
