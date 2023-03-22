@@ -175,6 +175,7 @@ class Operator(CHFSM):
     def __init__(self,env,name=None,station=[]):
         super().__init__(env, name)
         self.var.station = list()
+        self.var.target = None
     def build(self):
         self.Pause = self.env.event()
     def select(self):
@@ -193,8 +194,9 @@ class Operator(CHFSM):
                 self.var.target.Operators.put(self.sm)
                 self.Pause.restart()
             else:
-                if not self.Pause.triggered:
-                    self.Pause.succeed()
+                if self.Pause.triggered:
+                    self.Pause.restart()
+                self.Pause.succeed()
     T1=Transition.copy(Idle, Working, lambda self: self.var.request)
     T2=Transition.copy(Working, Idle, lambda self: self.Pause)
 
@@ -631,10 +633,15 @@ class AutomatedMIP(ManualStation):
         # def _do(self,event):
         #     self.var.operator.var.Pause.succeed()
         #     self.var.operator = None
-    T1c=Transition.copy(ManualStation.Idle, Setup, lambda self: self.GotOperator)
-    T1b=Transition.copy(Setup, ManualStation.Working, lambda self: self.env.timeout((0.1+np.random.uniform()/10) * self.sm.calculateServiceTime(self.var.request.read())))
+    T1b=Transition.copy(ManualStation.Idle, Setup, lambda self: self.GotOperator,action=lambda self:self.NeedOperator.restart())
+    T1c=Transition.copy(Setup, ManualStation.Working, lambda self: self.env.timeout((0.1+np.random.uniform()/10) * self.sm.calculateServiceTime(self.var.request.read())))
     T2 = Transition.copy(ManualStation.Working, ManualStation.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
-    
+    def action(self):
+        self.GotOperator.restart()
+        for op in self.Operators.items:
+            op.Pause.succeed()
+            self.Operators.items.remove(op)
+    T2._action = action
     # T1=Transition.copy(Server.Starving, Idle, lambda self: self.var.request, action = lambda self: self.NeedOperator.succeed())
     # T1b=Transition.copy(Idle, Server.Working, lambda self: self.GotOperator)
     
