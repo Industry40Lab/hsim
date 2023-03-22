@@ -16,13 +16,13 @@ def normal_dist_bounded(val):
     if mean < 0:
         raise BaseException()
     y = 0
-    while y <= 0:
-        y = np.random.normal(mean,std)
-    # for i in range(1000):
-    #     if y > 0:
-    #         return y
-    # return mean
-    return y
+    # while y <= 0:
+    #     y = np.random.normal(mean,std)
+    for i in range(1000):
+        if y > 0:
+            return y
+    return mean
+    # return y
         
 class gen_motor():
     def __init__(self):
@@ -85,15 +85,15 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
         elif a.loc[a.index.values==index,'Material handling'].values == 2:
             d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.1)
         elif a.loc[a.index.values==index,'Material handling'].values == 3 and agv_num>0:
-            d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.1)*(4*np.arctan(agv_num/agv_sat)/np.pi)
+            d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.1)/(4*np.arctan(agv_num/agv_sat)/np.pi)
     
     for index in range(11,12):
         if a.loc[a.index.values==index,'Material handling'].values == 1:
             d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.04)
         elif a.loc[a.index.values==index,'Material handling'].values == 2:
             d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.08)
-        elif a.loc[a.index.values==index,'Material handling'].values == 3:
-            d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.08)*(4*np.arctan(agv_num/agv_sat)/np.pi)
+        elif a.loc[a.index.values==index,'Material handling'].values == 3 and agv_num>0:
+            d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.08)/(4*np.arctan(agv_num/agv_sat)/np.pi)
         if a.loc[a.index.values==index,'Feeding'].values == 1:
             d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.04)
         elif a.loc[a.index.values==index,'Feeding'].values == 2:
@@ -117,7 +117,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
         elif a.loc[a.index.values==index,'Material handling'].values == 2:
             d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.1)
         elif a.loc[a.index.values==index,'Material handling'].values == 3 and agv_num>0:
-            d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.1)*(4*np.arctan(agv_num/agv_sat)/np.pi)
+            d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.1)/(4*np.arctan(agv_num/agv_sat)/np.pi)
     
     
     Q_case = (15-a['AI-augmented quality'][2:4].sum()*5/6)/100
@@ -436,10 +436,12 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     print('Done!')
     env.state_log2 = pd.DataFrame(env.state_log,columns = env.state_log2.columns)
         
+    prod_parts=prod_parts[round(len(prod_parts)/10):]
     th2=pd.Series(prod_parts).diff().dropna()
     th2 = th2*3600*24/step
     th = th2.describe()[1:]
     th[1] = th[1].round()
+    th.rename('Throughput [products/day]')
     
     
     from utils import stats
