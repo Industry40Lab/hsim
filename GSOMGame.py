@@ -18,6 +18,10 @@ def normal_dist_bounded(val):
     y = 0
     while y <= 0:
         y = np.random.normal(mean,std)
+    # for i in range(1000):
+    #     if y > 0:
+    #         return y
+    # return mean
     return y
         
 class gen_motor():
@@ -409,7 +413,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     
     import time
     step = 900
-    time_end = 4*3600
+    time_end = 24*3600
     prod_parts = list();
     time_start = time.time()
     print('Good luck!')
@@ -472,8 +476,12 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
         new_df = pd.DataFrame(new_dict,index=[0])
         states = pd.concat([states,new_df])
     states = states.fillna(0)
-    # states.drop(columns='ForwardingIn',inplace=True)
-    # states.drop(columns='RetrievingOut',inplace=True)
+    try:
+        states.drop(columns='ForwardingOut',inplace=True)
+        states.drop(columns='RetrievingOut',inplace=True)
+        states.drop(columns='Retrieving',inplace=True)
+    except:
+        pass
     states=states.drop(columns=[col for col in e.columns if "Retrieving" in col or 'Forwarding' in col])
     
     
