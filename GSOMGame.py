@@ -412,7 +412,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     # %% run
     
     import time
-    step = 900
+    step = 600
     time_end = 24*3600
     prod_parts = list();
     time_start = time.time()
@@ -437,11 +437,19 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     env.state_log2 = pd.DataFrame(env.state_log,columns = env.state_log2.columns)
         
     prod_parts=prod_parts[round(len(prod_parts)/10):]
+    print(prod_parts)
     th2=pd.Series(prod_parts).diff().dropna()
     th2 = th2*3600*24/step
-    th = th2.describe()[1:]
-    th[1] = th[1].round()
-    th.rename('Throughput [products/day]')
+    th = th2.describe()
+    # th[1] = th[1].round()
+    th.rename('Throughput [products/day]',inplace=True)
+    
+    from scipy.stats import t as t_dist
+    th[5]=th[1]+t_dist.ppf(0.05,th[0])*th[2]/th[0]**(1/2)
+    th[6]=th[1]+t_dist.ppf(0.95,th[0])*th[2]/th[0]**(1/2)
+    th[4]=th[7]
+    th.rename({th.index[4]:'max',th.index[5]:'lower bound - 95% confidence interval',th.index[6]:'upper bound - 95% confidence interval'},inplace=True)
+    th=th[1:-1]
     
     
     from utils import stats
