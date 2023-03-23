@@ -19,6 +19,7 @@ def normal_dist_bounded(val):
     # while y <= 0:
     #     y = np.random.normal(mean,std)
     for i in range(1000):
+        y = np.random.normal(mean,std)
         if y > 0:
             return y
     return mean
@@ -372,7 +373,9 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     final2assebly.Next = final2inspect
     final2inspect.Next = final3
     final3.Next = final4pack
-    final4pack.Next = final5pallet
+    buf = Queue(env)
+    buf.Next = final5pallet
+    final4pack.Next = buf
     final5pallet.Next = T
     
     # %% operators
@@ -400,13 +403,20 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     # raise BaseException
             
     # %% maintenance
-    TTR = 300
+    TTR = 300 #300
     std_machines = [9,10,25]
     for index in std_machines:
         A = M[index]
-        list_stations[index-1].var.TTR = TTR
-        list_stations[index-1].var.failure_rate = 1/(TTR+TTR*(A/(1-A)))*100
-    
+        list_stations[index-1].var.TTR = TTR/50
+        list_stations[index-1].var.failure_rate = 1/(TTR+TTR*(A/(1-A)))*100 #100
+        
+        # A = M[index]
+        # list_stations[index-1].var.TTR = TTR/(A**10)
+        # list_stations[index-1].var.failure_rate = 1/(TTR+TTR*(A/(1-A)))*100*500 #100
+        # if index == 25:
+        #     list_stations[index-1].var.TTR = TTR/50
+        #     list_stations[index-1].var.failure_rate = 1/(TTR+TTR*(A/(1-A)))*100 #100
+
     
     
     # %% run
@@ -536,6 +546,27 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
         result = {'TH':th,'U':states,'Uop':states_op}
         return result
 
+import signal
+
+class timeout:
+    def __init__(self, seconds=1, error_message='Timeout'):
+        self.seconds = seconds
+        self.error_message = error_message
+
+    def handle_timeout(self, signum, frame):
+        raise TimeoutError(self.error_message)
+
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.alarm(self.seconds)
+
+    def __exit__(self, type, value, traceback):
+        signal.alarm(0)
+
 
 if __name__ == '__main__':
-    main('',app=False,pa=True)
+    try:
+        with timeout(seconds=30):
+            main('',app=False,pa=True)
+    except:
+        pass
