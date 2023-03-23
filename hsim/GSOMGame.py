@@ -546,6 +546,10 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
         result = {'TH':th,'U':states,'Uop':states_op}
         return result
 
+
+if __name__ == '__main__':
+    main('',app=False,pa=True)
+
 import signal
 
 class timeout:
@@ -565,8 +569,5 @@ class timeout:
 
 
 if __name__ == '__main__':
-    try:
-        with timeout(seconds=30):
-            main('',app=False,pa=True)
-    except:
-        pass
+    with timeout(seconds=30):
+        main('',app=False,pa=True)
