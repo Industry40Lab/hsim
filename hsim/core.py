@@ -9,6 +9,7 @@ from simpy import Environment, Event
 from simpy.core import BoundClass
 from simpy.events import PENDING, Interruption
 import pandas as pd
+from warnings import warn
 # from states import State
 
 class Event(Event):
@@ -48,6 +49,11 @@ class Environment(Environment):
         self._objects.append(obj)
     # state = BoundClass(State)
     event = BoundClass(Event)
+    def threshold(self,value):
+        th = ev(1)
+        th.set_env(self)
+        return th
+        
 
 class State_Log(pd.DataFrame):
     def __init__(self):
@@ -98,3 +104,63 @@ def method_lambda(self,function):
     #     return function()
     # except TypeError:
     #     return function(self)
+
+class thvar(float,object):
+    def __init__(self,value):
+        self._value=value
+        self._threshold = dict()
+    def __add__(self,x):
+        return self.create(self._value + x)
+    def __sub__(self,x):
+        return self.create(self._value - x)
+    def __pow__(self,x):
+        return self.create(self._value**x)
+    def __float__(self):
+        return float(self._value)
+    def __int__(self):
+        return int(self._value)
+    def __repr__(self):
+        return str(self._value)
+    def __iadd__(self,other):       
+        return self.update(self._value + other)
+    def __isub__(self,other):
+        return self.update(self._value - other) 
+    def __imul__(self, other):
+        return self.update(self._value*other) 
+    def __ipow__(self, other):
+        return self.update(self._value**other) 
+    def __imod__(self,other):
+        return self.update(other) 
+    def __ilshift__(self,other):
+        self._threshold.update({'up':other})
+        return self
+    def __irshift__(self,other):
+        self._threshold.update({'down':other})
+        return self
+    def create(self,value):
+        return self.__class__(value)
+    def update(self,value):
+        self.threshold_fun(value)
+        self._value = value
+        return self
+    def threshold_fun(self,value):
+        if self.check(value):
+            warn(RuntimeWarning('Break threshold'))
+    def check(self,value):
+        if 'up' in self._threshold.keys():
+            if value > self._threshold['up']:
+                return True
+        if 'down' in self._threshold.keys():
+            if value < self._threshold['down']:
+                return True
+        return False
+    
+class ev(thvar,Event):
+    def threshold_fun(self,value):
+        if not self.check(value) and not self._event.triggered:
+            self.succeed()
+    def set_env(self,env):
+        super(Event,self).__init__(env)
+        return self
+    def triggered(self):
+        return self._ok
