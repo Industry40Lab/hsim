@@ -89,11 +89,11 @@ class StateMachine():
         self._build_states()
         self.start()
         self.env.add_object(self)
-    def __getattr__(self,attr):
-        for state in object.__getattribute__(self,'_states'):
-            if state._name == attr:
-                return state
-        raise AttributeError()
+    # def __getattr__(self,attr):
+    #     for state in object.__getattribute__(self,'_states'):
+    #         if state._name == attr:
+    #             return state
+    #     raise AttributeError()
     def __repr__(self):
         return '<%s (%s object) at 0x%x>' % (self._name, type(self).__name__, id(self))
     def start(self):
@@ -179,11 +179,17 @@ class State(Process):
         self._value = None
         self._transitions = list()
     def __getattr__(self,attr):
-        try:
-            sm = self.__getattribute__('sm')
-            return getattr(sm,attr)
-        except:
+        if attr in self.__dict__.keys():
             return object.__getattribute__(self,attr)
+        if 'sm' in self.__dict__.keys():
+            sm = object.__getattribute__(self,'sm')
+            if hasattr(sm,attr):
+                return object.__getattribute__(sm,attr)
+        raise AttributeError()
+            # sm = self.__getattribute__('sm')
+            # return getattr(sm,attr)
+        # except:
+        #     return 
     def __repr__(self):
         return '<%s (State) object at 0x%x>' % (self._name, id(self))
     def __call__(self):
@@ -266,13 +272,13 @@ class CHFSM(StateMachine):
         super().__init__(env,name)
         self._list_messages()
         self.connections = dict()
-    def __getattr__(self,attr):
-        for state in object.__getattribute__(self,'_states'):
-            if state._name == attr:
-                return state
-        if object.__getattribute__(self,'_messages').__contains__(attr):
-            return object.__getattribute__(self,'_messages')[attr]
-        raise AttributeError()
+    # def __getattr__(self,attr):
+    #     for state in object.__getattribute__(self,'_states'):
+    #         if state._name == attr:
+    #             return state
+    #     if object.__getattribute__(self,'_messages').__contains__(attr):
+    #         return object.__getattribute__(self,'_messages')[attr]
+    #     raise AttributeError()
     def build(self):
         pass
     def _associate(self):
@@ -305,15 +311,24 @@ class Transition():
         self._state = state
         state._transitions.append(self)
     def __getattr__(self,attr):
-        try:
-            state = self.__getattribute__('_state')
-            try:
-                return getattr(state,attr)
-            except:
-                sm = state.__getattribute__('sm')
-                return getattr(sm,attr)
-        except:
+        if attr in self.__dict__.keys():
             return object.__getattribute__(self,attr)
+        state = object.__getattribute__(self,'_state')
+        if attr in state.__dict__.keys():
+            return object.__getattribute__(state,attr)
+        sm = object.__getattribute__(state,'sm')
+        if hasattr(sm,attr):
+            return object.__getattribute__(sm,attr)
+        raise AttributeError()
+        # try:
+        #     state = self.__getattribute__('_state')
+        #     try:
+        #         return getattr(state,attr)
+        #     except:
+        #         sm = state.__getattribute__('sm')
+        #         return getattr(sm,attr)
+        # except:
+        #     return object.__getattribute__(self,attr)
     def _trigger(self):
         pass
     def _condition(self):
