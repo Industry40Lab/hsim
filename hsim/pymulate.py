@@ -65,9 +65,9 @@ class Server(CHFSM):
             self.var.entity = self.var.request.read()
     class Blocking(State):
         pass
-    T1=Transition.copy(Starving, Working, lambda self: self.var.request)
-    T2=Transition.copy(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
-    T3=Transition.copy(Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
+    T1=Transition(Starving, Working, lambda self: self.var.request)
+    T2=Transition(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+    T3=Transition(Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
 
 
 class ParallelServer():
@@ -113,8 +113,8 @@ class ServerWithBuffer(Server):
     class Forwarding(State):
         def _do(self):
             self.var.entityIn = self.var.requestIn.read()
-    TRF=Transition.copy(Retrieving,Forwarding,lambda self: self.var.requestIn)
-    TFR=Transition.copy(Forwarding,Retrieving,lambda self: self.Store.put(self.var.entityIn),action=lambda self:self.var.requestIn.confirm())
+    TRF=Transition(Retrieving,Forwarding,lambda self: self.var.requestIn)
+    TFR=Transition(Forwarding,Retrieving,lambda self: self.Store.put(self.var.entityIn),action=lambda self:self.var.requestIn.confirm())
 
 
 class ServerDoubleBuffer(ServerWithBuffer):
@@ -131,9 +131,9 @@ class ServerDoubleBuffer(ServerWithBuffer):
     class ForwardingOut(State):
         def _do(self):
             self.var.entityOut = self.var.requestOut.read()
-    TRFO=Transition.copy(RetrievingOut,ForwardingOut,lambda self: self.var.requestOut)
-    TFRO=Transition.copy(ForwardingOut,RetrievingOut,lambda self: self.Next.put(self.var.entityOut),action=lambda self:self.var.requestOut.confirm())
-    T3=Transition.copy(Server.Blocking, Server.Starving, lambda self: self.QueueOut.put(self.var.entity),action=lambda self: self.var.request.confirm())
+    TRFO=Transition(RetrievingOut,ForwardingOut,lambda self: self.var.requestOut)
+    TFRO=Transition(ForwardingOut,RetrievingOut,lambda self: self.Next.put(self.var.entityOut),action=lambda self:self.var.requestOut.confirm())
+    T3=Transition(Server.Blocking, Server.Starving, lambda self: self.QueueOut.put(self.var.entity),action=lambda self: self.var.request.confirm())
 
 class Conveyor(CHFSM):
     def __init__(self,env,name=None,length=1,speed=1):
@@ -182,8 +182,8 @@ class Generator(CHFSM):
         initial_state=True
         def _do(self):
             self.var.entity = self.createEntity()
-    T1=Transition.copy(Sending,Creating,lambda self: self.Next.put(self.var.entity))
-    T2=Transition.copy(Creating,Sending,lambda self: self.env.timeout(self.calculateServiceTime(None)))
+    T1=Transition(Sending,Creating,lambda self: self.Next.put(self.var.entity))
+    T2=Transition(Creating,Sending,lambda self: self.env.timeout(self.calculateServiceTime(None)))
 
 class Terminator(Store):
     pass
@@ -208,8 +208,8 @@ class Queue(CHFSM):
     class Forwarding(State):
         def _do(self):
             self.var.entity = self.var.request.read()
-    T1=Transition.copy(Retrieving,Forwarding,lambda self: self.var.request)
-    T2=Transition.copy(Forwarding,Retrieving,lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
+    T1=Transition(Retrieving,Forwarding,lambda self: self.var.request)
+    T2=Transition(Forwarding,Retrieving,lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
 
 
 class ManualStation(Server):
@@ -220,9 +220,9 @@ class ManualStation(Server):
         self.Operators = Store(self.env)
     class Idle(State):
         pass
-    T1=Transition.copy(Server.Starving, Idle, lambda self: self.var.request, action = lambda self: self.NeedOperator.succeed())
-    T1b=Transition.copy(Idle, Server.Working, lambda self: self.GotOperator)
-    T2 = Transition.copy(Server.Working, Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+    T1=Transition(Server.Starving, Idle, lambda self: self.var.request, action = lambda self: self.NeedOperator.succeed())
+    T1b=Transition(Idle, Server.Working, lambda self: self.GotOperator)
+    T2 = Transition(Server.Working, Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
     def action(self):
         self.NeedOperator.restart()
     T1b._action = action
@@ -260,8 +260,8 @@ class Operator(CHFSM):
                 if self.Pause.triggered:
                     self.Pause.restart()
                 self.Pause.succeed()
-    T1=Transition.copy(Idle, Working, lambda self: self.var.request)
-    T2=Transition.copy(Working, Idle, lambda self: self.Pause)
+    T1=Transition(Idle, Working, lambda self: self.var.request)
+    T2=Transition(Working, Idle, lambda self: self.Pause)
 
 
 class OutputSwitch(CHFSM):
@@ -272,7 +272,7 @@ class OutputSwitch(CHFSM):
         def _do(self):
             self.var.requestIn = self.Queue.subscribe()
             self.var.requestsOut = [next.subscribe(object()) for next in self.Next]
-    W2W = Transition.copy(Working,Working,lambda self: AllOf(self.env,[self.var.requestIn,AnyOf(self.env,self.var.requestsOut)]))
+    W2W = Transition(Working,Working,lambda self: AllOf(self.env,[self.var.requestIn,AnyOf(self.env,self.var.requestsOut)]))
     def action(self):
         entity = self.var.requestIn.read()
         for request in self.var.requestsOut:
@@ -334,8 +334,8 @@ class Router(CHFSM):
             self.sm.var.requestOut = [item for sublist in [[next.subscribe(item) for next in self.sm.Next if self.sm.condition_check(item,next)] for item in self.sm.Queue.items] for item in sublist]
             if self.sm.var.requestOut == []:
                 self.sm.var.requestOut.append(self.sm.var.requestIn)
-    S2S1 = Transition.copy(Sending,Sending,lambda self:AnyOf(self.env,[self.var.requestIn]))
-    S2S2 = Transition.copy(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
+    S2S1 = Transition(Sending,Sending,lambda self:AnyOf(self.env,[self.var.requestIn]))
+    S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
     def action(self):
         self.Queue.put_event.restart()
     S2S1._action = action
@@ -409,8 +409,8 @@ class StoreSelect(CHFSM):
                     self.var.requestOut.append(self.Next.subscribe(item))
             if self.var.requestOut == []:
                 self.var.requestOut = [self.var.requestIn]
-    S2S1 = Transition.copy(Sending,Sending,lambda self:self.var.requestIn)
-    S2S2 = Transition.copy(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
+    S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
+    S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
     def action(self):
         if hasattr(self.var.requestOut[0],'item'):
             for req in self.var.requestOut:
@@ -549,7 +549,7 @@ if __name__ == '__main__':
     if len(c) == 1 and len(d) == 3:
         print('OK router')
 
-if __name__ == '__main__' and 1:
+if __name__ == '__main__' and 1 and False:
     env = Environment()
     a = Server(env,serviceTime=1)
     b = StoreSelect(env)
@@ -562,7 +562,7 @@ if __name__ == '__main__' and 1:
     if len(c) == 5 and len(b.Queue) == 1:
         print('OK switch')
 
-if __name__ == '__main__' and 1:
+if __name__ == '__main__' and 1 and False:
     env = Environment()
     a = Queue(env)
     b = ServerDoubleBuffer(env,serviceTime=1,capacityOut=5)
@@ -624,10 +624,10 @@ class MachineMIP(Server):
         def _do(self):
             self.var.request = self.Store.subscribe()
     T1 = 'ciao'
-    S2F = Transition.copy(Starving, Fail, lambda self: self.var.request, condition=lambda self: np.random.uniform() < self.var.failure_rate)
-    S2W = Transition.copy(Starving, Server.Working, lambda self: self.var.request)
-    F2W = Transition.copy(Fail, Server.Working, lambda self: self.env.timeout(self.var.TTR))
-    T3=Transition.copy(Server.Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
+    S2F = Transition(Starving, Fail, lambda self: self.var.request, condition=lambda self: np.random.uniform() < self.var.failure_rate)
+    S2W = Transition(Starving, Server.Working, lambda self: self.var.request)
+    F2W = Transition(Fail, Server.Working, lambda self: self.env.timeout(self.var.TTR))
+    T3=Transition(Server.Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
 
 
 if __name__ == '__main__' and 1:
@@ -662,8 +662,8 @@ class SwitchQualityMIP(CHFSM):
                 self.var.putRequest = self.Rework.put(self.var.entity)
             else:
                 self.var.putRequest = self.Next.put(self.var.entity)
-    T1 = Transition.copy(Wait, Working, lambda self: self.var.request)
-    T2 = Transition.copy(Working,Wait,lambda self: self.var.putRequest,action = lambda self: self.var.request.confirm())
+    T1 = Transition(Wait, Working, lambda self: self.var.request)
+    T2 = Transition(Working,Wait,lambda self: self.var.putRequest,action = lambda self: self.var.request.confirm())
 
 
 class FinalAssemblyManualMIP(ManualStation):
@@ -671,12 +671,12 @@ class FinalAssemblyManualMIP(ManualStation):
         initial_state = True
         def _do(self):
             self.var.request = [self.Before1.subscribe(),self.Before2.get()]     
-    S2I = Transition.copy(Starving, ManualStation.Idle, lambda self: AllOf(self.env,self.var.request))
+    S2I = Transition(Starving, ManualStation.Idle, lambda self: AllOf(self.env,self.var.request))
     def action(self):
         self.var.request = self.var.request[0]
         self.NeedOperator.succeed()
     S2I._action = action
-    T3=Transition.copy(ManualStation.Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
+    T3=Transition(ManualStation.Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
 
     
 
@@ -689,8 +689,8 @@ class FinalAssemblyMIP(Server):
     class Working(State):
         def _do(self):
             self.var.entity = self.var.request._events[0].value
-    S2W = Transition.copy(Starving, Working, lambda self: AllOf(self.env,self.var.request))
-    T2=Transition.copy(Working, Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+    S2W = Transition(Starving, Working, lambda self: AllOf(self.env,self.var.request))
+    T2=Transition(Working, Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
 
   
 class AutomatedMIP(ManualStation):
@@ -701,19 +701,19 @@ class AutomatedMIP(ManualStation):
         # def _do(self,event):
         #     self.var.operator.var.Pause.succeed()
         #     self.var.operator = None
-    T1b=Transition.copy(ManualStation.Idle, Setup, lambda self: self.GotOperator,action=lambda self:self.NeedOperator.restart())
-    T1c=Transition.copy(Setup, ManualStation.Working, lambda self: self.env.timeout((0.1+np.random.uniform()/10) * self.sm.calculateServiceTime(self.var.request.read())))
-    T2 = Transition.copy(ManualStation.Working, ManualStation.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+    T1b=Transition(ManualStation.Idle, Setup, lambda self: self.GotOperator,action=lambda self:self.NeedOperator.restart())
+    T1c=Transition(Setup, ManualStation.Working, lambda self: self.env.timeout((0.1+np.random.uniform()/10) * self.sm.calculateServiceTime(self.var.request.read())))
+    T2 = Transition(ManualStation.Working, ManualStation.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
     def action(self):
         self.GotOperator.restart()
         for op in self.Operators.items:
             op.Pause.succeed()
             self.Operators.items.remove(op)
     T2._action = action
-    # T1=Transition.copy(Server.Starving, Idle, lambda self: self.var.request, action = lambda self: self.NeedOperator.succeed())
-    # T1b=Transition.copy(Idle, Server.Working, lambda self: self.GotOperator)
+    # T1=Transition(Server.Starving, Idle, lambda self: self.var.request, action = lambda self: self.NeedOperator.succeed())
+    # T1b=Transition(Idle, Server.Working, lambda self: self.GotOperator)
     
-    # T2 = Transition.copy(Server.Working, Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
+    # T2 = Transition(Server.Working, Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
 
 
     

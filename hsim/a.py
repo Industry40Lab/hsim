@@ -178,12 +178,19 @@ class Gate(CHFSM):
                 if self.method == 'present': #run BN
                     self.BN = BN
                 elif self.method == 'future':
-                    dt = deepcopy(self.lab)
-                    dt.g.Next = Store(dt.env)
-                    dt.gate.real=False
-                    dt.gate.initialWIP = 0
-                    dt.env.state_log = dt.env.state_log[-200:]
-                    log_file = dt.run(self.env.now+self.length)
+                    # venv = deepcopy(self.env)
+                    for key in self.env.__dict__.keys():
+                        print(key)
+                        if key == '_queue':
+                            print(1)
+                        deepcopy(self.env.__dict__[key])
+                    # dt = deepcopy(self.lab)
+                    # dt.g.Next = Store(dt.env)
+                    # dt.gate.real=False
+                    # dt.gate.initialWIP = 0
+                    # dt.env.state_log = dt.env.state_log[-200:]
+                    # log_file = dt.run(self.env.now+self.length)
+                    
                     print('dtsim ok %f'%self.env.now)
                     self.BN = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
     T0 = Transition.copy(Waiting,Loading,lambda self: self.initial_timeout)
@@ -362,6 +369,11 @@ def BN_detection(log_file,start,end):
 
 class Lab:
     def __init__(self,DR:str,OR:str,method:str,freq=120):
+        self.DR = DR
+        self.OR = OR
+        self.method = method
+        self.freq = freq
+        
         self.env = pym.Environment()
         self.env.BN = None
         self.g = Generator(self.env)

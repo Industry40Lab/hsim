@@ -120,11 +120,12 @@ class StateMachine():
         for state in self._states:
             state.set_parent_sm(self)
         for transition in zip(get_class_dict(self.__class__).values(),get_class_dict(self.__class__).keys()):
-            if hasattr(transition[0],'__base__') and transition[0].__base__ is Transition:
+            if type(transition[0]) is Transition:
+            # if hasattr(transition[0],'__base__') and transition[0].__base__ is Transition:
                 # x è Transition
                 for state in self._states: 
                     if type(state) is transition[0]._state:
-                        x = transition[0](state)
+                        x = transition[0].add(state)
                         setattr(self,transition[1],None)
                         for target in self._states: 
                             if type(target) is transition[0]._target:
@@ -307,9 +308,19 @@ class Transition():
                 _action = action
             _condition_eval = condition
         return Transition
+    def add(self,state):
+        new = copy.deepcopy(self)
+        state._transitions.append(new)
+        new._state = state
+        return new
     def __init__(self, state, target=None, trigger=None, condition=None, action=None):
         self._state = state
-        state._transitions.append(self)
+        self._target = target
+        if trigger is not None:
+            self._trigger = trigger
+        if action is not None:
+            self._action = action
+        self._condition_eval = condition
     def __getattr__(self,attr):
         if attr in self.__dict__.keys():
             return object.__getattribute__(self,attr)
@@ -461,8 +472,8 @@ if __name__ == "__main__" and 1:
                 class Work0(State):
                     initial_state=True
                     _do = lambda self:print('Inner SM start working at %d. Will finish in 5s' %env.now)
-                T1=Transition.copy(Work0, None, lambda self: self.env.timeout(5))
-        T1=Transition.copy(Work, None, lambda self: self.env.timeout(10))
+                T1=Transition(Work0, None, lambda self: self.env.timeout(5))
+        T1=Transition(Work, None, lambda self: self.env.timeout(10))
     
     class Boh6(CHFSM):
         class Work(State):
@@ -470,8 +481,8 @@ if __name__ == "__main__" and 1:
             _do = lambda self: print('Start working at %d. Will finish in 10s' %self.env.now)
         class Rest(State):
             _do = lambda self: print('Start resting at %d. Will finish in 10s' %self.env.now)
-        T1=Transition.copy(Work, Rest, lambda self: self.env.timeout(10))
-        T2=Transition.copy(Rest, Work, lambda self: self.env.timeout(10))
+        T1=Transition(Work, Rest, lambda self: self.env.timeout(10))
+        T2=Transition(Rest, Work, lambda self: self.env.timeout(10))
     
     class Boh7(CHFSM):
         class Work(State):
@@ -479,9 +490,9 @@ if __name__ == "__main__" and 1:
             _do = lambda self: print('Start working at %d. Will finish in 10s' %self.env.now)
         class Rest(State):
             _do = lambda self: print('Start resting at %d. Will finish in 10s' %self.env.now)
-        T1=Transition.copy(Work, Rest, lambda self: self.E,action=print(100))
-        T1a=Transition.copy(Work, Rest, lambda self: self.E,action=print(100))
-        T2=Transition.copy(Rest, Work, lambda self: self.env.timeout(10))
+        T1=Transition(Work, Rest, lambda self: self.E,action=print(100))
+        T1a=Transition(Work, Rest, lambda self: self.E,action=print(100))
+        T2=Transition(Rest, Work, lambda self: self.env.timeout(10))
     
     
     
