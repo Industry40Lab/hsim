@@ -346,7 +346,7 @@ class Transition():
         if self._condition_eval is None:
             return True
         else:
-            return self._condition_eval()
+            return self._condition_eval(self)
     def _action(self):
         return None
     def _otherwise(self):
