@@ -37,7 +37,6 @@ class Entity():
             self.ID = ID
             self.serviceTime = 1
             
-# %% path
     
 def main(filename,folder='',fullpath='',app=True,pa=False):
     if pa:
@@ -286,6 +285,8 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     T = Store(env)
     
     # %% connect
+    Q=Store(env)
+    
     g_case.Next = case0
     
     case0.Next = case1
@@ -328,7 +329,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
         case6queueIn.Next = case6
         case6.Next = final1case
     case6queueOut.Next = final1case
-    
+
     g_ele.Next = ele0
     ele0.Next = ele1queue
     ele1queue.Next = ele1
@@ -543,13 +544,17 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
         th.to_excel(writer, sheet_name = 'TH')
         writer.save()
     else:
-        result = {'TH':th,'U':states,'Uop':states_op}
+        result = {'TH':th,'U':states,'Uop':states_op,'T':T}
         return result
 
 
+# if __name__ == '__main__':
+#     main('',app=False,pa=True)
+    
 if __name__ == '__main__':
-    main('',app=False,pa=True)
+    debug=main('',app=True,pa=True)
 
+'''
 import signal
 
 class timeout:
@@ -571,3 +576,5 @@ class timeout:
 if __name__ == '__main__':
     with timeout(seconds=30):
         main('',app=False,pa=True)
+
+'''
