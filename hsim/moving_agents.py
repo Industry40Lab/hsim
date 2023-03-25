@@ -5,32 +5,37 @@ import time
 from math import pi
 from chfsm import CHFSM, State, Transition, Environment
 
-class Environment():
-    def __init__(self,size,log=None,initial_time=0):
-        super.__init__(self,log=None,initial_time=0)
+class Environment(Environment):
+    def __init__(self,size_x,size_y,log=None,initial_time=0):
+        super().__init__(log,initial_time)
         self.agents = []
-        self.size = size        
+        self.size_x = size_x
+        self.size_y = size_y
+    def add_agent(self, agent):
+        self.agents.append(agent)
+        agent.world = self
 
 class MovingAgent(CHFSM):
-    def __init__(self,env,position,max_speed,name=None):
+    def __init__(self,env,x,y,max_speed,name=None):
         super().__init__(env,name)
-        self.position = position
-        self.max_speed
+        self.x = x
+        self.y = y
+        self.max_speed = max_speed
         self.destintation = None
         self.env.agents.append(self)
     class Moving(State):
-        pass
+        initial_state=True
     class NotMoving(State):
         pass
     def _update(self):
+        dx, dy = self.destination[0] - self.x, self.destination[1] - self.y
+        dist = ((dx ** 2 + dy ** 2) ** 0.5)
+        if dist > self.speed:
+            dx, dy = dx * self.speed / dist, dy * self.speed / dist
         for agent in self.env.agents:
-            dx, dy = agent.destination[0] - agent.x, agent.destination[1] - agent.y
-            dist = ((dx ** 2 + dy ** 2) ** 0.5)
-            if dist > agent.speed:
-                dx, dy = dx * agent.speed / dist, dy * agent.speed / dist
             agent.x += dx
             agent.y += dy
-    TMN = Transition.copy(Moving)
+    TM = Transition.copy(Moving,action=lambda self: self._update())
 
 
 class World:
@@ -46,7 +51,6 @@ class Agent:
     def __init__(self, x, y, theta, width, height, max_speed, max_rotational_speed, destination, color=(0,0,0)):
         self.x = x
         self.y = y
-        self.theta = theta
         self.width = width
         self.height = height
         self.speed = max_speed
@@ -85,10 +89,11 @@ class Agent:
         # scan area
         pass
 
-                    
+env = Environment(800,600)
 world = World(800,600)  
 for _ in range(50):
-    world.add_agent(Agent(random.randint(0, 800), random.randint(0, 600), random.uniform(0,2*pi), random.randint(10, 20), random.randint(10, 20), 10*random.uniform(0.05,0.3), random.uniform(0,2*pi), (random.randint(0, 800), random.randint(0, 600), random.uniform(0,2*pi))))
+    # world.add_agent(Agent(random.randint(0, 800), random.randint(0, 600), random.uniform(0,2*pi), random.randint(10, 20), random.randint(10, 20), 10*random.uniform(0.05,0.3), random.uniform(0,2*pi), (random.randint(0, 800), random.randint(0, 600), random.uniform(0,2*pi))))
+    env.add_agent(MovingAgent(env,random.randint(0, 800), random.randint(0, 600), random.randint(10, 20)))
 
 pygame.init()
 screen = pygame.display.set_mode(world.size)
@@ -110,8 +115,6 @@ while True:
                 # Update the map offset based on the mouse movement
                 map_offset[0] += event.rel[0]
                 map_offset[1] += event.rel[1]
-    for agent in world.agents:
-        agent.update()
     screen.fill((255, 255, 255))
     for agent in world.agents:
         pygame.draw.rect(screen, agent.color, (int(agent.x) + map_offset[0], int(agent.y) + map_offset[1], agent.width, agent.height))
