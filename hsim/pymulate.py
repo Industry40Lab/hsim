@@ -242,7 +242,7 @@ class Operator(CHFSM):
     def build(self):
         self.Pause = self.env.event()
     def select(self):
-        for station in self.var.station:
+        for station in self.var.station[::-1]:
             if station.NeedOperator.triggered and not station.GotOperator.triggered:
                 return station
     class Idle(State):
@@ -256,7 +256,7 @@ class Operator(CHFSM):
                 self.var.target.GotOperator.succeed()
                 self.var.target.Operators.put(self.sm)
                 self.Pause.restart()
-            else:
+            elif not any([station.NeedOperator.triggered for station in self.var.station]):
                 if self.Pause.triggered:
                     self.Pause.restart()
                 self.Pause.succeed()
@@ -625,7 +625,7 @@ class MachineMIP(Server):
             self.var.request = self.Store.subscribe()
     T1 = 'ciao'
     S2F = Transition.copy(Starving, Fail, lambda self: self.var.request, condition=lambda self: np.random.uniform() < self.var.failure_rate)
-    S2W = Transition.copy(Starving, Server.Working, lambda self: self.var.request, condition=lambda self: self.var.param > self.var.failure_rate)
+    S2W = Transition.copy(Starving, Server.Working, lambda self: self.var.request)
     F2W = Transition.copy(Fail, Server.Working, lambda self: self.env.timeout(self.var.TTR))
     T3=Transition.copy(Server.Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
 
@@ -654,16 +654,16 @@ class SwitchQualityMIP(CHFSM):
     class Wait(State):
         initial_state=True
         def _do(self):
-            self.var.request = self.Queue.get()
+            self.var.request = self.Queue.subscribe()
     class Working(State):
         def _do(self):
-            self.var.entity = self.var.request.value
+            self.var.entity = self.var.request.read()
             if np.random.uniform() < self.var.quality_rate:
                 self.var.putRequest = self.Rework.put(self.var.entity)
             else:
                 self.var.putRequest = self.Next.put(self.var.entity)
     T1 = Transition.copy(Wait, Working, lambda self: self.var.request)
-    T2 = Transition.copy(Working,Wait,lambda self: self.var.putRequest)
+    T2 = Transition.copy(Working,Wait,lambda self: self.var.putRequest,action = lambda self: self.var.request.confirm())
 
 
 class FinalAssemblyManualMIP(ManualStation):
@@ -676,6 +676,9 @@ class FinalAssemblyManualMIP(ManualStation):
         self.var.request = self.var.request[0]
         self.NeedOperator.succeed()
     S2I._action = action
+    T3=Transition.copy(ManualStation.Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
+
+    
 
     
 class FinalAssemblyMIP(Server):
