@@ -445,8 +445,9 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
             else:
                 print(elapsed)
     print('Done!')
-    env.state_log2 = pd.DataFrame(env.state_log,columns = env.state_log2.columns)
-        
+    # env.state_log2 = pd.DataFrame(env.state_log,columns = env.state_log2.columns)
+    env.state_log2 = env.log
+    
     prod_parts=prod_parts[round(len(prod_parts)/10):]
     print(prod_parts)
     th2=pd.Series(prod_parts).diff().dropna()
