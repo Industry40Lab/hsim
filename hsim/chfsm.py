@@ -11,7 +11,7 @@ from simpy import Process, Interrupt, Event
 from simpy.events import PENDING, Initialize, Interruption
 from core import Environment, dotdict, Interruption, method_lambda
 import types
-from stores import Store
+from stores import Store, Subscription
 from collections import OrderedDict
 import warnings
 import pandas as pd
@@ -89,6 +89,8 @@ class StateMachine():
         self._build_states()
         self.start()
         self.env.add_object(self)
+
+
     # def __getattr__(self,attr):
     #     for state in object.__getattribute__(self,'_states'):
     #         if state._name == attr:
@@ -110,7 +112,7 @@ class StateMachine():
     def _build_states(self):
         self._states = []
         for x in get_class_dict(self.__class__).values():
-            if hasattr(x,'__base__') and x.__base__ is State:
+            if hasattr(x,'__base__') and x.__base__ is State and type(x) is type:
                 state = x()
                 self._states.append(state)
                 setattr(self,x.__name__,state)
@@ -179,14 +181,26 @@ class State(Process):
         self.callbacks = []
         self._value = None
         self._transitions = list()
+    def _do(self):
+        pass
     def __getattr__(self,attr):
-        if attr in self.__dict__.keys():
+        try:
             return object.__getattribute__(self,attr)
-        if 'sm' in self.__dict__.keys():
-            sm = object.__getattribute__(self,'sm')
-            if hasattr(sm,attr):
-                return object.__getattribute__(sm,attr)
-        raise AttributeError()
+        except:
+            pass
+        try:
+            return getattr(object.__getattribute__(self,'sm'),attr)
+        except:
+            raise AttributeError()
+            
+        # if attr in self.__dict__.keys():
+        #     return object.__getattribute__(self,attr)
+        # if 'sm' in self.__dict__.keys():
+        #     sm = object.__getattribute__(self,'sm')
+        #     if hasattr(sm,attr):
+        #         return object.__getattribute__(sm,attr)
+        # raise AttributeError()
+        
             # sm = self.__getattribute__('sm')
             # return getattr(sm,attr)
         # except:
@@ -321,16 +335,33 @@ class Transition():
         if action is not None:
             self._action = action
         self._condition_eval = condition
-    def __getattr__(self,attr):
-        if attr in self.__dict__.keys():
+    # def __getattr__(self,attr):
+    #     try:
+    #         return object.__getattribute__(self,attr)
+    #     except:
+    #         state = object.__getattribute__(self,'_state')
+    #         return object.__getattribute__(state,attr)
+    def __getattr__(self, attr):
+        try:
             return object.__getattribute__(self,attr)
-        state = object.__getattribute__(self,'_state')
-        if attr in state.__dict__.keys():
-            return object.__getattribute__(state,attr)
-        sm = object.__getattribute__(state,'sm')
-        if hasattr(sm,attr):
-            return object.__getattribute__(sm,attr)
-        raise AttributeError()
+        except:
+            pass
+        try:
+            return getattr(object.__getattribute__(self,'_state'),attr)
+        except:
+            raise AttributeError()
+
+        # if attr in self.__dict__.keys():
+        #     return object.__getattribute__(self,attr)
+        # state = object.__getattribute__(self,'_state')
+        # print(type(state))
+        # if attr in state.__dict__.keys():
+        #     return object.__getattribute__(state,attr)
+        # sm = object.__getattribute__(state,'sm')
+        # if hasattr(sm,attr):
+        #     return object.__getattribute__(sm,attr)
+        # raise AttributeError()
+        
         # try:
         #     state = self.__getattribute__('_state')
         #     try:
@@ -493,6 +524,17 @@ if __name__ == "__main__" and 1:
         T1=Transition(Work, Rest, lambda self: self.E,action=print(100))
         T1a=Transition(Work, Rest, lambda self: self.E,action=print(100))
         T2=Transition(Rest, Work, lambda self: self.env.timeout(10))
+    
+    # class Boh7(CHFSM):
+    #     class Work(State):
+    #         initial_state=True
+    #         _do = lambda self: print('Start working at %d. ' %self.env.now)
+    #     class Rest(State):
+    #         _do = lambda self: print('Start resting at %d. ' %self.env.now)
+    #     T1=Transition(Work, Rest, lambda self: self.E,action=print('I will rest'))
+    #     T1a=Transition(Rest, Work, lambda self: self.E,action=print('I will work'))
+
+    
     
     
     
