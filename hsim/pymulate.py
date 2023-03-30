@@ -69,7 +69,16 @@ class Server(CHFSM):
     T2=Transition(Working, Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
     T3=Transition(Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
 
+class MiniServer(Server):
+    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
+        super().__init__(env,name,serviceTime,serviceTimeFunction)
+        self._group = None
+    @property
+    def Next(self):
+        return self._group.Next
+    T2=Transition(Server.Working, Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)))
 
+    
 class ParallelServer():
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,capacity=1):
         self.env = env
@@ -80,11 +89,6 @@ class ParallelServer():
         self.servers = []
         self.switch.Next = self.servers
         for i in range(capacity):
-            class MiniServer(Server):
-                @property
-                def Next(self):
-                    return self._group.Next
-                
             self.servers.append(MiniServer(env,name,serviceTime,serviceTimeFunction))
             self.servers[i]._group = self
     def __len__(self):
@@ -139,10 +143,10 @@ class Conveyor(CHFSM):
     def __init__(self,env,name=None,length=1,speed=1):
         super().__init__(env,name)
         self.servers = list()
-        class MiniServer(Server):
-            @property
-            def Next(self):
-                return self._group.Next
+        # class MiniServer(Server):
+        #     @property
+        #     def Next(self):
+        #         return self._group.Next
         for i in range(length):
             self.servers.append(Server(env,serviceTime=speed))
         self.servers[-1] = MiniServer(env,serviceTime=speed)
