@@ -28,10 +28,10 @@ class Environment(Environment):
     def __init__(self,log=None,initial_time=0):
         super().__init__(initial_time)
         self._objects = list()
-        self.log = log
-        if log==None:
-            self.log = createLog()        
-        self.state_log2 = pd.DataFrame(columns=['Resource','ResourceName','State','StateName','timeIn','timeOut'])
+        # self.log = log
+        # if log==None:
+        #     self.log = createLog()        
+        # self.state_log2 = pd.DataFrame(columns=['Resource','ResourceName','State','StateName','timeIn','timeOut'])
         self.state_log = list()
     def logF(self,entity,resource,operator,activity,time=True):
         if time:
@@ -53,6 +53,9 @@ class Environment(Environment):
         th = ev(1)
         th.set_env(self)
         return th
+    @property
+    def log(self):
+        return pd.DataFrame(self.state_log,columns=['Resource','ResourceName','State','StateName','timeIn','timeOut'])
         
 
 class State_Log(pd.DataFrame):
