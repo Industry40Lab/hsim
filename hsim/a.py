@@ -24,9 +24,9 @@ class Generator(pym.Generator):
         e = Entity()
         # e.serviceTime = dict()
         e.serviceTime['front'] = 10.52
-        e.serviceTime['drill'] = choices([3, 8.45, 9.65, 11.94])[0]
+        e.serviceTime['drill'] = choices([3.5, 8.45, 9.65, 11.94])[0]
         e.serviceTime['robot'] = choices([0, 81, 105, 108 ,120],weights=[92,2,2,2,2],k=10000)[0]
-        e.serviceTime['camera'] = choices([3,6,9,12,15])[0]
+        e.serviceTime['camera'] = choices([6,12,18])[0]
         e.serviceTime['back'] = 10.57
         e.serviceTime['press'] = choices([3,9,15])[0]
         e.serviceTime['manual'] = max(np.random.normal(8,1),0)
@@ -45,7 +45,7 @@ class Entity:
         else:
             return False
                 
-class Server(pym.Server):
+class LabServer(pym.Server):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
         self.controller = None
         # serviceTime = 10
@@ -58,7 +58,7 @@ class Server(pym.Server):
     def completed(self):
         if self.var.entity.ok:
             self.controller.Messages.put(self.name)
-    T2=Transition.copy(pym.Server.Working, pym.Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)), action = lambda self: self.completed())
+    T2=Transition(pym.Server.Working, pym.Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)), action = lambda self: self.completed())
 
 class Terminator(pym.Terminator):
     def __init__(self, env, capacity=np.inf):
@@ -156,7 +156,6 @@ class Gate(CHFSM):
                     pt += e.serviceTime[machine]
         indices = sorted(range(len(lpt)), key=lambda i: lpt[i])
         self.Store.items = [self.Store.items[i] for i in indices]
-             
     def fw(self):        
         if self.request is None:
             self.request = self.Store.get()
@@ -178,26 +177,22 @@ class Gate(CHFSM):
                 if self.method == 'present': #run BN
                     self.BN = BN
                 elif self.method == 'future':
-                    # venv = deepcopy(self.env)
-                    for key in self.env.__dict__.keys():
-                        print(key)
-                        if key == '_queue':
-                            print(1)
-                        deepcopy(self.env.__dict__[key])
-                    # dt = deepcopy(self.lab)
-                    # dt.g.Next = Store(dt.env)
-                    # dt.gate.real=False
-                    # dt.gate.initialWIP = 0
-                    # dt.env.state_log = dt.env.state_log[-200:]
-                    # log_file = dt.run(self.env.now+self.length)
+                    print(self.env.now)
+                    dt = deepcopy(self.lab)
+                    dt.g.Next = Store(dt.env)
+                    dt.gate.real=False
+                    dt.gate.initialWIP = 0
+                    # venv.state_log = venv.state_log[-200:]
+                    # venv.run(self.env.now+self.length)
+                    log_file = dt.run(self.env.now+self.length)
                     
                     print('dtsim ok %f'%self.env.now)
                     self.BN = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
-    T0 = Transition.copy(Waiting,Loading,lambda self: self.initial_timeout)
-    T1 = Transition.copy(Waiting,Forwarding,lambda self: self.sm.message)
-    T2 = Transition.copy(Loading,Waiting,None)
-    T3 = Transition.copy(Forwarding,Waiting,None)
-    TC = Transition.copy(Controlling,Controlling,lambda self: self.env.timeout(self.freq))
+    T0 = Transition(Waiting,Loading,lambda self: self.initial_timeout)
+    T1 = Transition(Waiting,Forwarding,lambda self: self.sm.message)
+    T2 = Transition(Loading,Waiting,None)
+    T3 = Transition(Forwarding,Waiting,None)
+    TC = Transition(Controlling,Controlling,lambda self: self.env.timeout(self.freq))
 
 class RobotSwitch1(pym.Router):
     def condition_check(self, item, target):
@@ -233,7 +228,11 @@ class CloseOutSwitch(pym.Router):
 #         super().__init__(env,name,serviceTime,serviceTimeFunction,capacity)
 class Conveyor(pym.Conveyor):
     def __init__(self,env,name=None,capacity=3):
-        super().__init__(env,name,capacity,1)
+        super().__init__(env,name,capacity,0.75)
+        
+def newDT():
+    lab = globals()['lab']
+    deepcopy(lab)
 
 def BN_detection(log_file,start,end):
     ' Step 1: Preparation of Raw Data'
@@ -375,14 +374,14 @@ class Lab:
         self.freq = freq
         
         self.env = pym.Environment()
-        self.env.BN = None
+        self.BN = None
         self.g = Generator(self.env)
         self.gate = Gate(self.env,DR,OR,method,freq)
         
         self.conv1 = Conveyor(self.env,capacity=3)
-        self.front = Server(self.env,'front')
+        self.front = LabServer(self.env,'front')
         self.conv2 = Conveyor(self.env,capacity=3)
-        self.drill = Server(self.env,'drill')
+        self.drill = LabServer(self.env,'drill')
         self.conv3 = Conveyor(self.env,capacity=3)
         
         self.switch1 = RobotSwitch1(self.env)
@@ -392,16 +391,18 @@ class Lab:
         self.switch2 = RobotSwitch2(self.env)
         self.convRobot2 = Conveyor(self.env,capacity=3)
         self.convRobot3 = Conveyor(self.env,capacity=3)
-        self.robot = Server(self.env,'robot')
+        self.robot = LabServer(self.env,'robot')
         self.convRobotOut = Conveyor(self.env,capacity=3)
         self.conv5 = Conveyor(self.env,capacity=3)
-        self.camera = Server(self.env,'camera')
+        self.camera = LabServer(self.env,'camera')
         self.conv6 = Conveyor(self.env,capacity=3)
-        self.back = Server(self.env,'back')
+        self.back = LabServer(self.env,'back')
         self.conv7 = Conveyor(self.env,capacity=3)
-        self.press = Server(self.env,'press')
-        self.conv8 = Conveyor(self.env,capacity=10)
-        self.manual = Server(self.env,'manual')
+        self.press = LabServer(self.env,'press')
+        self.conv8 = Conveyor(self.env,capacity=3)
+        for s in self.conv8.servers:
+            s.var.serviceTime=1.75
+        self.manual = LabServer(self.env,'manual')
         self.outSwitch = CloseOutSwitch(self.env)
         self.terminator = Terminator(self.env)
         
@@ -443,9 +444,26 @@ class Lab:
         # return pd.DataFrame(self.env.state_log)
         return self.env.state_log
 
+# %% prove varie
 
-# lab=Lab('FIFO','DBR','future')
-# lab.run(7200)
+if False:
+    import dill
+    import time
+    lab=Lab('FIFO','DBR','present')
+    while lab.env.now < 1000:
+        print(lab.env.now)
+        lab.env.run(10)
+        u = list()
+        # for obj in lab.__dict__.values():
+        #     print(obj)
+        #     time.sleep(0.05)
+        #     u.append(deepcopy(obj))
+        deepcopy(lab)
+    # lab.run(360)
+    
+    print(lab.terminator.items)
+
+# %% results
 
 # import sys
 # sys.path.insert(0,'C:/Users/Lorenzo/Dropbox (DIG)/Tesisti/Giovanni Zanardo/Python')
@@ -471,7 +489,7 @@ class Result:
                 dt = time - prev_time
                 integral += value * dt
             prev_time = time
-        return integral
+        return integral/time
     @property
     def productivity(self):
         return (3600/pd.DataFrame(self.arrivals).diff()).describe()
@@ -482,38 +500,45 @@ class Result:
         return prod[0][1] - prod[0][2]*tinv/np.sqrt(prod[0][0]), prod[0][1] + prod[0][2]*tinv/np.sqrt(prod[0][0])
 
 
+# %% testing
 
-results = list()
+perf = list()
 for BN in ['future','present']:
     for OR in ['CONWIP','DBR']:
         for DR in ['FIFO','SPT','LPT']:
             if DR == 'FIFO' and OR == 'CONWIP' and BN == 'future':
                 break
-            #testing
-            # perf = list()
-            # if BN == 'future':
-            #     for lookback in [60,120]:
-            #         for freq in [60,180,300]:
-            #             for length in [180,300,420]:
-            #                 for seedValue in [1]:
-            #                     seed(seedValue)
-            #                     lab=Lab(DR,OR,BN)
-            #                     lab.gate.lookback, lab.gate.freq, lab.gate.length = lookback, freq, length
-            #                     lab.run(7200)
-            #                     perf.append([lab.terminator.items.__len__(),lookback,freq,length])
-            #     best = max(perf, key=lambda x: x[0])
-            # else:
-            #     lookback = 0
-            #     for freq in [60,180,300]:
-            #         for length in [180,300,420]:
-            #             for seedValue in [1]:
-            #                 seed(seedValue)
-            #                 lab=Lab(DR,OR,BN)
-            #                 lab.gate.lookback, lab.gate.freq, lab.gate.length = lookback, freq, length
-            #                 lab.run(7200)
-            #                 perf.append([lab.terminator.items.__len__(),lookback,freq,length])
-            #calcing
-            for seedValue in [1,2,4,5,6,7,8,9,13,14,15,16,17,18,19,20,21,22,23,24]:
+            if BN == 'future':
+                for lookback in [60,120]:
+                    for freq in [60,180,300]:
+                        for length in [180,300,420]:
+                            for seedValue in [1]:
+                                seed(seedValue)
+                                lab=Lab(DR,OR,BN)
+                                lab.gate.lookback, lab.gate.freq, lab.gate.length = lookback, freq, length
+                                lab.run(7200)
+                                perf.append(Result(lab.env.now,BN,OR,DR,len(lab.terminator.items),lab.terminator.register,lab.gate.WIPlist,lab.gate.BNlist,pd.DataFrame(lab.env.state_log)[[1,3,4,5]]))
+            else:
+                lookback = 0
+                for freq in [60,180,300]:
+                    for length in [180,300,420]:
+                        for seedValue in [1]:
+                            seed(seedValue)
+                            lab=Lab(DR,OR,BN)
+                            lab.gate.lookback, lab.gate.freq, lab.gate.length = lookback, freq, length
+                            lab.run(7200)
+                            perf.append(Result(lab.env.now,BN,OR,DR,len(lab.terminator.items),lab.terminator.register,lab.gate.WIPlist,lab.gate.BNlist,pd.DataFrame(lab.env.state_log)[[1,3,4,5]]))
+   
+            
+# %% experiments
+
+results=list()
+for BN in ['future','present']:
+    for OR in ['CONWIP','DBR']:
+        for DR in ['FIFO','SPT','LPT']:
+            if DR == 'FIFO' and OR == 'CONWIP' and BN == 'future':
+                break
+            for seedValue in [1,2,3,4,5,6,7,8,9]: #[1,2,4,5,6,7,8,9,13,14,15,16,17,18,19,20,21,22,23,24]:
                 print(seedValue,DR,OR,BN)
                 seed(seedValue)
                 lab=Lab(DR,OR,BN)
@@ -525,6 +550,76 @@ for BN in ['future','present']:
                 with open("resBN", "wb") as dill_file:
                     dill.dump(results, dill_file)
                     
-                    
-import os
-os.system("shutdown /s /t 10")
+# %%
+
+DR = 'FIFO'
+OR = 'CONWIP'
+method = 'present'
+freq = 120
+
+env = pym.Environment()
+BN = None
+g = Generator(env)
+gate = Gate(env,DR,OR,method,freq)
+
+conv1 = Conveyor(env,capacity=3)
+front = LabServer(env,'front')
+conv2 = Conveyor(env,capacity=3)
+drill = LabServer(env,'drill')
+conv3 = Conveyor(env,capacity=3)
+
+switch1 = RobotSwitch1(env)
+convRobot1 = Conveyor(env,'convRobot1',capacity=3)
+bridge = Conveyor(env,capacity=3)
+convRobot2 = Conveyor(env,'convRobot2',capacity=3)
+switch2 = RobotSwitch2(env)
+convRobot2 = Conveyor(env,capacity=3)
+convRobot3 = Conveyor(env,capacity=3)
+robot = LabServer(env,'robot')
+convRobotOut = Conveyor(env,capacity=3)
+conv5 = Conveyor(env,capacity=3)
+camera = LabServer(env,'camera')
+conv6 = Conveyor(env,capacity=3)
+back = LabServer(env,'back')
+conv7 = Conveyor(env,capacity=3)
+press = LabServer(env,'press')
+conv8 = Conveyor(env,capacity=3)
+manual = LabServer(env,'manual')
+outSwitch = CloseOutSwitch(env)
+terminator = Terminator(env)
+
+g.Next = gate
+gate.Next = conv1
+
+conv1.Next = front
+front.Next = conv2
+conv2.Next = drill
+drill.Next = conv3
+conv3.Next = switch1
+
+switch1.Next = [convRobot1,bridge]
+convRobot1.Next = switch2
+switch2.Next = [convRobot2,convRobot3]
+convRobot2.Next = robot
+convRobot3.Next = convRobotOut
+robot.Next = convRobotOut
+convRobotOut.Next = conv5
+bridge.Next = conv5
+
+conv5.Next = camera
+camera.Next = conv6
+conv6.Next = back
+back.Next = conv7
+conv7.Next = press
+press.Next = conv8
+conv8.Next = manual
+manual.Next = outSwitch
+outSwitch.Next = [conv1,terminator]
+
+for x in [front,drill,robot,camera,back,press,manual]:
+    x.controller = gate
+terminator.controller = gate
+
+while env.now<5000:
+    env.run(200)
+    deepcopy(env)
