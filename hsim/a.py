@@ -177,16 +177,11 @@ class Gate(CHFSM):
                 if self.method == 'present': #run BN
                     self.BN = BN
                 elif self.method == 'future':
-                    print(self.env.now)
                     dt = deepcopy(self.lab)
                     dt.g.Next = Store(dt.env)
                     dt.gate.real=False
                     dt.gate.initialWIP = 0
-                    # venv.state_log = venv.state_log[-200:]
-                    # venv.run(self.env.now+self.length)
                     log_file = dt.run(self.env.now+self.length)
-                    
-                    print('dtsim ok %f'%self.env.now)
                     self.BN = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
     T0 = Transition(Waiting,Loading,lambda self: self.initial_timeout)
     T1 = Transition(Waiting,Forwarding,lambda self: self.sm.message)
@@ -502,17 +497,18 @@ class Result:
 
 # %% testing
 
-perf = list()
-for BN in ['future','present']:
-    for OR in ['CONWIP','DBR']:
-        for DR in ['FIFO','SPT','LPT']:
+# perf = list()
+for BN in ['future']:#['future','present']:
+    for OR in ['CONWIP']:#['CONWIP','DBR']:
+        for DR in ['SPT','LPT']:#['FIFO','SPT','LPT']:
             if DR == 'FIFO' and OR == 'CONWIP' and BN == 'future':
                 break
             if BN == 'future':
-                for lookback in [60,120]:
+                for lookback in [0,60,120]:
                     for freq in [60,180,300]:
                         for length in [180,300,420]:
-                            for seedValue in [1]:
+                            for seedValue in [1,2,3,4,5]:
+                                print(BN,OR,DR,lookback,freq,length,seedValue)
                                 seed(seedValue)
                                 lab=Lab(DR,OR,BN)
                                 lab.gate.lookback, lab.gate.freq, lab.gate.length = lookback, freq, length
@@ -522,13 +518,15 @@ for BN in ['future','present']:
                 lookback = 0
                 for freq in [60,180,300]:
                     for length in [180,300,420]:
-                        for seedValue in [1]:
+                        for seedValue in [1,2,3,4,5]:
+                            print(BN,OR,DR,lookback,freq,length,seedValue)
                             seed(seedValue)
                             lab=Lab(DR,OR,BN)
                             lab.gate.lookback, lab.gate.freq, lab.gate.length = lookback, freq, length
                             lab.run(7200)
                             perf.append(Result(lab.env.now,BN,OR,DR,len(lab.terminator.items),lab.terminator.register,lab.gate.WIPlist,lab.gate.BNlist,pd.DataFrame(lab.env.state_log)[[1,3,4,5]]))
-   
+            with open("performance_analysisBN", "wb") as dill_file:
+                dill.dump(perf, dill_file)
             
 # %% experiments
 
