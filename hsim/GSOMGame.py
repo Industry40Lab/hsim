@@ -36,15 +36,15 @@ def scores(path,throughput):
     
     resFolder = folder+'/results'
     try:
-        old = pd.read_csv(resFolder+'/results.csv')
-        new = pd.concat([old,new])
+        old = pd.read_csv(resFolder+'/results.csv',index_col=0)
+        new = pd.concat([old,new]).reset_index(drop=True)
     except:
         pass
     finally:
         new.to_csv(resFolder+'/results.csv')
     
     html = generate_html(new)
-    open("index.html", "w").write(html)
+    open(folder+"/results/"+"results.html", "w").write(html)
         
     
 def generate_html(dataframe: pd.DataFrame):
