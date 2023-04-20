@@ -23,3 +23,17 @@ def stats(env):
         stats[res] = v
     return stats
 
+def stats2(log):
+    y = log
+    t = log['timeOut'].max()
+    y.loc[y.timeOut.values==None,'timeOut'] = t
+    y=y.fillna(t) #test
+    stats = dict()
+    for res in y.Resource.unique():
+        v = dict()
+        for state in y.loc[y.Resource==res,'State'].unique():
+            x=y.loc[(y.Resource==res) & (y.State==state),('timeIn','timeOut')]
+            x = sum(x.timeOut - x.timeIn)/t
+            v[state] = x
+        stats[res] = v
+    return stats
