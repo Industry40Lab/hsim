@@ -6,11 +6,11 @@ import pandas as pd
 import numpy as np
 from simpy import AnyOf
 from copy import deepcopy
-from random import choices,seed,normalvariate
+from random import choices,seed,normalvariate, expovariate
 from stores import Store        
 from scipy import stats
 import dill
-
+import utils
 
 
 
@@ -24,12 +24,17 @@ class Generator(pym.Generator):
         e = Entity()
         # e.serviceTime = dict()
         e.serviceTime['front'] = 10.52
-        e.serviceTime['drill'] = choices([3.5, 8.45, 9.65, 11.94])[0]
-        e.serviceTime['robot'] = choices([0, 81, 105, 108 ,120],weights=[92,2,2,2,2],k=10000)[0]
-        e.serviceTime['camera'] = choices([6,12,18])[0]
-        e.serviceTime['back'] = 10.57
-        e.serviceTime['press'] = choices([3,9,15])[0]
-        e.serviceTime['manual'] = max(np.random.normal(8,1),0)
+        e.serviceTime['drill'] = choices([3.5, 8.45, 9.65, 11.94],weights=[5,30,30,35])[0]
+        e.serviceTime['robot'] = choices([0, 81, 105, 108 ,120],weights=[91,3,2,2,2])[0]
+        # e.serviceTime['camera'] = choices([3,9,12,18,24],weights=[2,3,1,2,2])[0]
+        e.serviceTime['camera'] = 3.5+expovariate(1/7.1)
+        e.serviceTime['back'] = choices([3.5,10.57],weights=[0.1,0.9])[0]
+        # e.serviceTime['press'] = choices([3,9,15])[0]
+        if e.serviceTime['back']>0:
+            e.serviceTime['press'] = 3.5+expovariate(1/9.5)
+        else:
+            e.serviceTime['press'] = 3.5
+        e.serviceTime['manual'] = max(np.random.normal(9.2,1),0)
         return e
         
 class Entity:
@@ -82,16 +87,16 @@ class Gate(CHFSM):
         self.real = True
         self.method = method
         self.freq = 120
-        self.length = 300
-        self.lookback = 60
+        self.length = 600
+        self.lookback = 120
         self.capacity = 30
         self.lab = None
         self.DR = DR
         self.OR = OR
-        self.BN = 'manual'
+        self.BN = 'back'
         self.monitored_DBR = list()
         self.monitored_CONWIP = None
-        self.initialWIP = 12
+        self.initialWIP = 8
         self.request = None
         self.message = env.event()
         self.initial_timeout = env.event()
@@ -138,12 +143,17 @@ class Gate(CHFSM):
         if self.message.value == 'terminator':
             self.fw()
     def DBR(self):
-        if self.BN == self.message.value:
+        if self.WIP > 10:
+            return
+        elif self.BN == self.message.value:
+            self.fw()
+        elif self.WIP < 6:
             self.fw()
     def FIFO(self):
         pass
     def SPT(self):
         self.Store.items = sorted(self.Store.items, key=lambda obj: obj.__getattribute__('serviceTime')[self.BN])        
+        #self.Store.items = sorted(self.Store.items, key=lambda obj: obj.__getattribute__('serviceTime')[self.BN]/sum(obj.__getattribute__('serviceTime').values()))        
     def LPT(self):
         lpt = list()
         for e in self.Store.items:
@@ -174,15 +184,18 @@ class Gate(CHFSM):
                 log_file = self.env.state_log
                 BN = BN_detection(log_file,self.env.now-self.length,self.env.now)
                 self.BNlist.append([self.env.now,BN])
+                # print('BN at %f is %s'%(self.env.now,BN))
                 if self.method == 'present': #run BN
-                    self.BN = BN
+                    self.sm.BN = BN
                 elif self.method == 'future':
                     dt = deepcopy(self.lab)
                     dt.g.Next = Store(dt.env)
                     dt.gate.real=False
                     dt.gate.initialWIP = 0
                     log_file = dt.run(self.env.now+self.length)
-                    self.BN = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
+                    self.sm.BN = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
+                elif self.method == 'None':
+                    pass
     T0 = Transition(Waiting,Loading,lambda self: self.initial_timeout)
     T1 = Transition(Waiting,Forwarding,lambda self: self.sm.message)
     T2 = Transition(Loading,Waiting,None)
@@ -358,8 +371,16 @@ def BN_detection(log_file,start,end):
         if BN_percentages.values[i] == maxval:
             BN_string.append(BN_percentages.index[i])
         
-    # [BN_synthetic, data_interval, BN_string]    
-    return BN_string
+    # [BN_synthetic, data_interval, BN_string] 
+    # print(BN_string)
+    # return BN_string
+    
+
+    maxval = np.max(BN_percentages.values)
+    for i in range(len(BN_percentages.values)):
+        if BN_percentages.values[i] == maxval:
+            return BN_percentages.index[i]
+
 
 class Lab:
     def __init__(self,DR:str,OR:str,method:str,freq=120):
@@ -439,6 +460,49 @@ class Lab:
         # return pd.DataFrame(self.env.state_log)
         return self.env.state_log
 
+
+
+
+
+# import sys
+# sys.path.insert(0,'C:/Users/Lorenzo/Dropbox (DIG)/Tesisti/Giovanni Zanardo/Python')
+# from Foresighted_DT_function import BN_detection
+
+# BN_detection(lab.env.state_log,0,lab.env.now)
+
+class Result:
+    def __init__(self,time,BN,OR,DR,production,arrivals,WIPlist,BNlist,state_log):
+        self.time=time
+        self.BN=BN
+        self.OR=OR
+        self.DR=DR
+        self.production=production
+        self.arrivals=arrivals
+        self.WIPlist = WIPlist
+        self.state_log=state_log
+        self.BNlist = BNlist
+    @property
+    def avgWIP(self):
+        integral = 0.0
+        prev_time = None
+        prev_value = None
+        # Iterate over the data points and compute the integral
+        for time, value in self.WIPlist:
+            if prev_time is not None and prev_value is not None:
+                dt = time - prev_time
+                integral += prev_value * dt
+            prev_time = time
+            prev_value = value
+        return integral/time
+    @property
+    def productivity(self):
+        return (3600/pd.DataFrame(self.arrivals).diff()).describe()
+    @property
+    def CI(self):
+        prod = self.productivity
+        tinv = stats.t.ppf(1-0.05/2, prod[0][0])
+        return prod[0][1] - prod[0][2]*tinv/np.sqrt(prod[0][0]), prod[0][1] + prod[0][2]*tinv/np.sqrt(prod[0][0])
+
 # %% prove varie
 
 if False:
@@ -457,53 +521,37 @@ if False:
     # lab.run(360)
     
     print(lab.terminator.items)
-
-# %% results
-
-# import sys
-# sys.path.insert(0,'C:/Users/Lorenzo/Dropbox (DIG)/Tesisti/Giovanni Zanardo/Python')
-# from Foresighted_DT_function import BN_detection
-
-# BN_detection(lab.env.state_log,0,lab.env.now)
-
-class Result:
-    def __init__(self,time,BN,OR,DR,production,arrivals,WIPlist,BNlist,state_log):
-        self.time=time
-        self.production=production
-        self.arrivals=arrivals
-        self.WIPlist = WIPlist
-        self.state_log=state_log
-        self.BNlist = BNlist
-    @property
-    def avgWIP(self):
-        integral = 0.0
-        prev_time = None
-        # Iterate over the data points and compute the integral
-        for time, value in self.WIPlist:
-            if prev_time is not None:
-                dt = time - prev_time
-                integral += value * dt
-            prev_time = time
-        return integral/time
-    @property
-    def productivity(self):
-        return (3600/pd.DataFrame(self.arrivals).diff()).describe()
-    @property
-    def CI(self):
-        prod = self.productivity
-        tinv = stats.t.ppf(1-0.05/2, prod[0][0])
-        return prod[0][1] - prod[0][2]*tinv/np.sqrt(prod[0][0]), prod[0][1] + prod[0][2]*tinv/np.sqrt(prod[0][0])
+    
+if False:
+    explore = list()
+    OR = 'DBR'
+    DR = 'FIFO'
+    freq = 60
+    length =  180
+    for BN in ['present','future']:
+        if BN == 'present':
+            lookback = 0
+        else:
+            lookback = 60
+        for seedValue in range(1,11):
+            print(BN,OR,DR,lookback,freq,length,seedValue)
+            seed(seedValue)
+            lab=Lab(DR,OR,BN)
+            lab.gate.lookback, lab.gate.freq, lab.gate.length = lookback, freq, length
+            lab.run(7200)
+            explore.append(Result(lab.env.now,BN,OR,DR,len(lab.terminator.items),lab.terminator.register,lab.gate.WIPlist,lab.gate.BNlist,pd.DataFrame(lab.env.state_log)[[1,3,4,5]]))
 
 
 # %% testing
+'''
 
-# perf = list()
-for BN in ['future']:#['future','present']:
-    for OR in ['CONWIP']:#['CONWIP','DBR']:
-        for DR in ['SPT','LPT']:#['FIFO','SPT','LPT']:
-            if DR == 'FIFO' and OR == 'CONWIP' and BN == 'future':
-                break
-            if BN == 'future':
+perf = list()
+for BN in ['none','future','present']:
+    for OR in ['CONWIP','DBR']:
+        for DR in ['FIFO','SPT','LPT']:
+            if DR == 'FIFO' and OR == 'CONWIP' and BN != 'none':
+                pass
+            elif BN == 'future':
                 for lookback in [0,60,120]:
                     for freq in [60,180,300]:
                         for length in [180,300,420]:
@@ -525,29 +573,46 @@ for BN in ['future']:#['future','present']:
                             lab.gate.lookback, lab.gate.freq, lab.gate.length = lookback, freq, length
                             lab.run(7200)
                             perf.append(Result(lab.env.now,BN,OR,DR,len(lab.terminator.items),lab.terminator.register,lab.gate.WIPlist,lab.gate.BNlist,pd.DataFrame(lab.env.state_log)[[1,3,4,5]]))
-            with open("performance_analysisBN", "wb") as dill_file:
+            with open("performance_analysisBN2", "wb") as dill_file:
                 dill.dump(perf, dill_file)
-            
+    '''        
 # %% experiments
 
-results=list()
-for BN in ['future','present']:
+import os
+
+if "resBN" in os.listdir():
+    with open("resBN", "rb") as dill_file:
+        results = dill.load(dill_file)
+else:
+    results=list()
+
+for BN in ['present','future']:
     for OR in ['CONWIP','DBR']:
         for DR in ['FIFO','SPT','LPT']:
-            if DR == 'FIFO' and OR == 'CONWIP' and BN == 'future':
-                break
-            for seedValue in [1,2,3,4,5,6,7,8,9]: #[1,2,4,5,6,7,8,9,13,14,15,16,17,18,19,20,21,22,23,24]:
+            if DR == 'FIFO' and OR == 'CONWIP':
+                continue
+            for seedValue in range(11,31): #[1,2,4,5,6,7,8,9,13,14,15,16,17,18,19,20,21,22,23,24]:
                 print(seedValue,DR,OR,BN)
                 seed(seedValue)
                 lab=Lab(DR,OR,BN)
-                # lab.gate.lookback, lab.gate.freq, lab.gate.length = best[1], best[2], best[3]
-                lab.run(7200)
-                print('ok')
+                if BN == 'future':
+                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 120, 120, 300
+                elif BN=='none':
+                    lab.gate.freq, lab.gate.length, lab.gate.BN =3600,3600, 'front'
+                elif BN=='present':
+                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 0, 60, 180
+                lab.run(6*60*60)
+                
+                
+                x=pd.DataFrame(lab.env.state_log)
+                x=x.rename(columns={1:'Resource',3:'State',4:'timeIn',5:'timeOut'})
+                
+                
                 results.append(Result(lab.env.now,BN,OR,DR,len(lab.terminator.items),lab.terminator.register,lab.gate.WIPlist,lab.gate.BNlist,pd.DataFrame(lab.env.state_log)[[1,3,4,5]]))
-
                 with open("resBN", "wb") as dill_file:
                     dill.dump(results, dill_file)
-                    
+            
+raise(BaseException())            
 # %%
 
 DR = 'FIFO'
@@ -621,3 +686,49 @@ terminator.controller = gate
 while env.now<5000:
     env.run(200)
     deepcopy(env)
+    
+    # %% 
+
+import dill
+import pandas as pd
+
+
+with open('performance_analysisBN', 'rb') as file:
+    perf = dill.load(file)
+
+exps = pd.read_excel('C:/Users/Lorenzo/Desktop/bn experiments.xlsx')
+
+exps['WIP'] = [p.avgWIP for p in perf]
+# exps['prod'] = [p.production for p in perf]
+exps['prod'] = [p.productivity.values[1][0] for p in perf]
+exps['prodCI'] = [p.productivity.values[1][0] for p in perf]
+exps['std'] = [pd.DataFrame(p.arrivals).diff().dropna().std()[0] for p in perf]
+exps['BNmean'] = [(pd.DataFrame([bn[1][0] for bn in p.BNlist]).value_counts()/len(p.BNlist)).mean() for p in perf]
+exps['BNstd'] = [(pd.DataFrame([bn[1][0] for bn in p.BNlist]).value_counts()/len(p.BNlist)).std() for p in perf]
+exps['BNskew'] = [(pd.DataFrame([bn[1][0] for bn in p.BNlist]).value_counts()/len(p.BNlist)).skew() for p in perf]
+exps['BNkurtosis'] = [(pd.DataFrame([bn[1][0] for bn in p.BNlist]).value_counts()/len(p.BNlist)).kurtosis() for p in perf]
+exps['BNlist'] = [(pd.DataFrame([bn[1][0] for bn in p.BNlist]).value_counts()/len(p.BNlist)).to_dict() for p in perf]
+
+exps.to_excel('C:/Users/Lorenzo/Desktop/bn_results.xlsx')
+
+for BN in exps.BN.unique():
+    for OR in exps.OR.unique():
+        for DR in exps.DR.unique():
+            pass
+        
+# %%
+
+with open('resBN', 'rb') as file:
+    perf = dill.load(file)
+
+df = pd.DataFrame(columns=['BN','OR','DR','BNlist','WIPlist','production','productivity','CI','avgWIP'])
+
+for res in perf:
+    l = dict()
+    for el in df.columns:
+        l[el] = getattr(res,el)
+    df=df.append(l,ignore_index=True)
+        
+df.to_excel('C:/Users/Lorenzo/Desktop/test.xlsx')
+        
+x.state_log.rename(columns={1:'Resource',3:'State',4:'timeIn',5:'timeOut'},inplace=True)
