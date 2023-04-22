@@ -136,6 +136,7 @@ class thvar(float,object):
         return self.update(other) 
     def __ilshift__(self,other):
         self._threshold.update({'up':other})
+        self.threshold_fun(self._value)
         return self
     def __irshift__(self,other):
         self._threshold.update({'down':other})
@@ -167,3 +168,20 @@ class ev(thvar,Event):
         return self
     def triggered(self):
         return self._ok
+    
+# if __name__ == '__main__':
+#     a=thvar(2)
+#     a<<=1
+    
+if __name__ == '__main__':
+    env=Environment()
+
+    a=ev(1)
+    a.set_env(env)
+
+if __name__ == '__main__':
+    env=Environment()
+    b=env.threshold(1)
+    
+    # a<<=3
+    # a+=3

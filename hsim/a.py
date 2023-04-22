@@ -576,7 +576,7 @@ for BN in ['none','future','present']:
             with open("performance_analysisBN2", "wb") as dill_file:
                 dill.dump(perf, dill_file)
     '''        
-# %% experiments
+ # %% experiments
 
 import os
 
@@ -586,12 +586,12 @@ if "resBN" in os.listdir():
 else:
     results=list()
 
-for BN in ['present','future']:
-    for OR in ['CONWIP','DBR']:
-        for DR in ['FIFO','SPT','LPT']:
+for BN in ['future']:#['present','future']:
+    for OR in ['DBR']:#['CONWIP','DBR']:
+        for DR in ['LPT']:#['FIFO','SPT','LPT']:
             if DR == 'FIFO' and OR == 'CONWIP':
                 continue
-            for seedValue in range(11,31): #[1,2,4,5,6,7,8,9,13,14,15,16,17,18,19,20,21,22,23,24]:
+            for seedValue in range(23,31): #[1,2,4,5,6,7,8,9,13,14,15,16,17,18,19,20,21,22,23,24]:
                 print(seedValue,DR,OR,BN)
                 seed(seedValue)
                 lab=Lab(DR,OR,BN)
