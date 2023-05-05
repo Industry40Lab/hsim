@@ -89,14 +89,14 @@ class Gate(CHFSM):
         self.freq = 120
         self.length = 600
         self.lookback = 120
-        self.capacity = 30
+        self.capacity = 200 #was 200 #was30
         self.lab = None
         self.DR = DR
         self.OR = OR
         self.BN = 'back'
         self.monitored_DBR = list()
         self.monitored_CONWIP = None
-        self.initialWIP = 8
+        self.initialWIP = 12
         self.request = None
         self.message = env.event()
         self.initial_timeout = env.event()
@@ -143,11 +143,11 @@ class Gate(CHFSM):
         if self.message.value == 'terminator':
             self.fw()
     def DBR(self):
-        if self.WIP > 10:
+        if self.WIP > 14:
             return
         elif self.BN == self.message.value:
             self.fw()
-        elif self.WIP < 6:
+        elif self.WIP < 12:
             self.fw()
     def FIFO(self):
         pass
@@ -159,12 +159,14 @@ class Gate(CHFSM):
         for e in self.Store.items:
             pt = 0
             for machine in ['front','drill','robot','camera','back','press','manual']:
+                # pt += e.serviceTime[machine]
                 if machine is self.BN:
                     lpt.append(pt)
                     break
                 else:
                     pt += e.serviceTime[machine]
         indices = sorted(range(len(lpt)), key=lambda i: lpt[i])
+        indices.reverse()
         self.Store.items = [self.Store.items[i] for i in indices]
     def fw(self):        
         if self.request is None:
@@ -182,7 +184,13 @@ class Gate(CHFSM):
         def _do(self):
             if self.real:
                 log_file = self.env.state_log
-                BN = BN_detection(log_file,self.env.now-self.length,self.env.now)
+                try:
+                    BN, stats = BN_detection(log_file,self.env.now-self.length,self.env.now)
+                except:
+                    if len(self.BNlist)>0:
+                        BN = self.BNlist[-1]
+                    else:
+                        BN = self.BN
                 self.BNlist.append([self.env.now,BN])
                 # print('BN at %f is %s'%(self.env.now,BN))
                 if self.method == 'present': #run BN
@@ -193,7 +201,10 @@ class Gate(CHFSM):
                     dt.gate.real=False
                     dt.gate.initialWIP = 0
                     log_file = dt.run(self.env.now+self.length)
-                    self.sm.BN = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
+                    try:
+                        self.sm.BN, stats = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
+                    except:
+                        pass
                 elif self.method == 'None':
                     pass
     T0 = Transition(Waiting,Loading,lambda self: self.initial_timeout)
@@ -379,8 +390,56 @@ def BN_detection(log_file,start,end):
     maxval = np.max(BN_percentages.values)
     for i in range(len(BN_percentages.values)):
         if BN_percentages.values[i] == maxval:
-            return BN_percentages.index[i]
+            return BN_percentages.index[i],BN_percentages
+'''
+class Generator(Generator):
+    def createEntity(self):
+        self.count += 1
+        if len(self.jList)==1: #last
+            self.var.serviceTime = 10e100
+        return self.jList.pop(0)
+    def newEntity(self):
+        self.count += 1
+        # return Entity()
+        e = Entity()
+        # e.serviceTime = dict()
+        e.serviceTime['front'] = 10.52
+        e.serviceTime['drill'] = choices([3.5, 8.45, 9.65, 11.94],weights=[5,30,30,35])[0]
+        e.serviceTime['robot'] = choices([0, 81, 105, 108 ,120],weights=[91,3,2,2,2])[0]
+        # e.serviceTime['camera'] = choices([3,9,12,18,24],weights=[2,3,1,2,2])[0]
+        e.serviceTime['camera'] = 3.5+expovariate(1/7.1)
+        e.serviceTime['back'] = choices([3.5,10.57],weights=[0.1,0.9])[0]
+        # e.serviceTime['press'] = choices([3,9,15])[0]
+        if e.serviceTime['back']>0:
+            e.serviceTime['press'] = 3.5+expovariate(1/9.5)
+        else:
+            e.serviceTime['press'] = 3.5
+        e.serviceTime['manual'] = max(np.random.normal(9.2,1),0)
+        return e
+'''
+def newEntity():
+    e = Entity()
+    e.serviceTime['front'] = 10.52
+    e.serviceTime['drill'] = choices([3.5, 8.45, 9.65, 11.94],weights=[5,30,30,35])[0]
+    e.serviceTime['robot'] = choices([0, 81, 105, 108 ,120],weights=[91,3,2,2,2])[0]
+    e.serviceTime['camera'] = 3.5+expovariate(1/7.1)
+    e.serviceTime['back'] = choices([3.5,10.57],weights=[0.1,0.9])[0]
+    if e.serviceTime['back']>0:
+        e.serviceTime['press'] = 3.5+expovariate(1/9.5)
+    else:
+        e.serviceTime['press'] = 3.5
+    e.serviceTime['manual'] = max(np.random.normal(9.2,1),0)
+    return e
 
+def batchCreate(seed=1,numJobs=10):
+    np.random.seed(seed)
+    jList = []
+    while len(jList)<numJobs:
+        e=newEntity()
+        num = round(np.random.triangular(1,10,15))
+        for i in range(num):
+            jList.append(deepcopy(e))
+    return jList
 
 class Lab:
     def __init__(self,DR:str,OR:str,method:str,freq=120):
@@ -503,6 +562,8 @@ class Result:
         tinv = stats.t.ppf(1-0.05/2, prod[0][0])
         return prod[0][1] - prod[0][2]*tinv/np.sqrt(prod[0][0]), prod[0][1] + prod[0][2]*tinv/np.sqrt(prod[0][0])
 
+
+
 # %% prove varie
 
 if False:
@@ -579,124 +640,68 @@ for BN in ['none','future','present']:
  # %% experiments
 
 import os
+filename = 'resBN_batched12bisLPT'
 
-if "resBN" in os.listdir():
-    with open("resBN", "rb") as dill_file:
+if filename in os.listdir():
+    with open(filename, "rb") as dill_file:
         results = dill.load(dill_file)
 else:
     results=list()
 
-for BN in ['future']:#['present','future']:
-    for OR in ['DBR']:#['CONWIP','DBR']:
+for BN in ['none']:#['none','present','future']:
+    for OR in ['CONWIP','DBR']:
         for DR in ['LPT']:#['FIFO','SPT','LPT']:
-            if DR == 'FIFO' and OR == 'CONWIP':
+            if DR == 'FIFO' and OR == 'CONWIP' and BN != 'none':
                 continue
-            for seedValue in range(23,31): #[1,2,4,5,6,7,8,9,13,14,15,16,17,18,19,20,21,22,23,24]:
+            for seedValue in range(1,51):
                 print(seedValue,DR,OR,BN)
                 seed(seedValue)
                 lab=Lab(DR,OR,BN)
+                lab.gate.Store.items = batchCreate(seedValue,numJobs=400) #batchedExp
                 if BN == 'future':
-                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 120, 120, 300
+                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 0, 60, 120 #era 120,120,300
                 elif BN=='none':
-                    lab.gate.freq, lab.gate.length, lab.gate.BN =3600,3600, 'front'
+                    lab.gate.freq, lab.gate.length, lab.gate.BN =3600,3600, 'drill'
+                    if DR == 'LPT':
+                        lab.gate.BN == 'front'
                 elif BN=='present':
-                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 0, 60, 180
-                lab.run(6*60*60)
+                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 0, 60, 120
+                lab.run(1*60*60)
                 
                 
-                x=pd.DataFrame(lab.env.state_log)
-                x=x.rename(columns={1:'Resource',3:'State',4:'timeIn',5:'timeOut'})
+                state_log=pd.DataFrame(lab.env.state_log)
+                state_log=state_log.rename(columns={1:'Resource',3:'State',4:'timeIn',5:'timeOut'})
                 
                 
-                results.append(Result(lab.env.now,BN,OR,DR,len(lab.terminator.items),lab.terminator.register,lab.gate.WIPlist,lab.gate.BNlist,pd.DataFrame(lab.env.state_log)[[1,3,4,5]]))
-                with open("resBN", "wb") as dill_file:
-                    dill.dump(results, dill_file)
+                newR = Result(lab.env.now,BN,OR,DR,len(lab.terminator.items),lab.terminator.register,lab.gate.WIPlist,lab.gate.BNlist,pd.DataFrame(lab.env.state_log)[[1,3,4,5]])
+                newR.seed=seedValue
+                newR.Cmax = lab.env.log.loc[lab.env.log.ResourceName=='manual','timeIn'].max()
+                results.append(newR)
+    with open(filename, "wb") as dill_file:
+        dill.dump(results, dill_file)
             
 raise(BaseException())            
-# %%
 
-DR = 'FIFO'
-OR = 'CONWIP'
-method = 'present'
-freq = 120
-
-env = pym.Environment()
-BN = None
-g = Generator(env)
-gate = Gate(env,DR,OR,method,freq)
-
-conv1 = Conveyor(env,capacity=3)
-front = LabServer(env,'front')
-conv2 = Conveyor(env,capacity=3)
-drill = LabServer(env,'drill')
-conv3 = Conveyor(env,capacity=3)
-
-switch1 = RobotSwitch1(env)
-convRobot1 = Conveyor(env,'convRobot1',capacity=3)
-bridge = Conveyor(env,capacity=3)
-convRobot2 = Conveyor(env,'convRobot2',capacity=3)
-switch2 = RobotSwitch2(env)
-convRobot2 = Conveyor(env,capacity=3)
-convRobot3 = Conveyor(env,capacity=3)
-robot = LabServer(env,'robot')
-convRobotOut = Conveyor(env,capacity=3)
-conv5 = Conveyor(env,capacity=3)
-camera = LabServer(env,'camera')
-conv6 = Conveyor(env,capacity=3)
-back = LabServer(env,'back')
-conv7 = Conveyor(env,capacity=3)
-press = LabServer(env,'press')
-conv8 = Conveyor(env,capacity=3)
-manual = LabServer(env,'manual')
-outSwitch = CloseOutSwitch(env)
-terminator = Terminator(env)
-
-g.Next = gate
-gate.Next = conv1
-
-conv1.Next = front
-front.Next = conv2
-conv2.Next = drill
-drill.Next = conv3
-conv3.Next = switch1
-
-switch1.Next = [convRobot1,bridge]
-convRobot1.Next = switch2
-switch2.Next = [convRobot2,convRobot3]
-convRobot2.Next = robot
-convRobot3.Next = convRobotOut
-robot.Next = convRobotOut
-convRobotOut.Next = conv5
-bridge.Next = conv5
-
-conv5.Next = camera
-camera.Next = conv6
-conv6.Next = back
-back.Next = conv7
-conv7.Next = press
-press.Next = conv8
-conv8.Next = manual
-manual.Next = outSwitch
-outSwitch.Next = [conv1,terminator]
-
-for x in [front,drill,robot,camera,back,press,manual]:
-    x.controller = gate
-terminator.controller = gate
-
-while env.now<5000:
-    env.run(200)
-    deepcopy(env)
     
-    # %% 
+# %%  read data
 
 import dill
 import pandas as pd
 
+filename = 'resBN_batched12bispt5'
+# filename = 'resBN_batched_prove_newLPT'
 
-with open('performance_analysisBN', 'rb') as file:
+with open(filename, 'rb') as file:
     perf = dill.load(file)
 
-exps = pd.read_excel('C:/Users/Lorenzo/Desktop/bn experiments.xlsx')
+# exps = pd.read_excel('C:/Users/Lorenzo/Desktop/bn experiments.xlsx')
+exps = pd.DataFrame()
+
+exps['BN'] = [p.BN for p in perf]
+exps['OR'] = [p.OR for p in perf]
+exps['DR'] = [p.DR for p in perf]
+exps['seed'] = [p.seed for p in perf]
+
 
 exps['WIP'] = [p.avgWIP for p in perf]
 # exps['prod'] = [p.production for p in perf]
@@ -709,7 +714,7 @@ exps['BNskew'] = [(pd.DataFrame([bn[1][0] for bn in p.BNlist]).value_counts()/le
 exps['BNkurtosis'] = [(pd.DataFrame([bn[1][0] for bn in p.BNlist]).value_counts()/len(p.BNlist)).kurtosis() for p in perf]
 exps['BNlist'] = [(pd.DataFrame([bn[1][0] for bn in p.BNlist]).value_counts()/len(p.BNlist)).to_dict() for p in perf]
 
-exps.to_excel('C:/Users/Lorenzo/Desktop/bn_results.xlsx')
+# exps.to_excel('C:/Users/Lorenzo/Desktop/bn_results.xlsx')
 
 for BN in exps.BN.unique():
     for OR in exps.OR.unique():
@@ -718,8 +723,8 @@ for BN in exps.BN.unique():
         
 # %%
 
-with open('resBN', 'rb') as file:
-    perf = dill.load(file)
+with open('resBN_full', 'rb') as file:
+    perf3 = dill.load(file)
 
 df = pd.DataFrame(columns=['BN','OR','DR','BNlist','WIPlist','production','productivity','CI','avgWIP'])
 

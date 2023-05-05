@@ -198,6 +198,8 @@ class Queue(CHFSM):
         super().__init__(env,name)
     def put(self,item):
         return self.Store.put(item)
+    def subscribe(self,item):
+        return self.Store.subscribe(item)
     def build(self):
         self.Store = Store(self.env,self.capacity)
     @property
@@ -264,6 +266,12 @@ class Operator(CHFSM):
                 if self.Pause.triggered:
                     self.Pause.restart()
                 self.Pause.succeed()
+            # da qui in poi pericolo
+            elif self.var.target is None:
+                if self.Pause.triggered:
+                    self.Pause.restart()
+                self.Pause.succeed()
+            # fino a qui pericolo
     T1=Transition(Idle, Working, lambda self: self.var.request)
     T2=Transition(Working, Idle, lambda self: self.Pause)
 
@@ -357,50 +365,55 @@ class Router(CHFSM):
                     self.Queue.forward(request.item)
                     continue
     S2S2._action = action
-
-
-'''
-
-class Router0(CHFSM):
-    def __init__(self, env, name=None):
+    
+class RouterNew(CHFSM):
+    def __init__(self, env, name=None,capacity=np.inf):
+        self.capacity = capacity
         super().__init__(env, name)
         self.var.requestOut = []
-        self.var.flag = 0
+        self.var.sent = []
     def build(self):
-        self.Queue = Box(self.env)
-        self.Dummy = Store(self.env)
+        self.Queue = Store(self.env,self.capacity)
     def condition_check(self,item,target):
         return True
-Sending = State('Sending',True)
-@do(Sending)
-def f121(self):
-    self.sm.var.requestIn = self.sm.Queue.put_event
-    if self.var.flag:
-        self.var.flag = 0
-        self.sm.var.requestOut = [item for sublist in [[next.put(item) for next in self.sm.Next if self.sm.condition_check(item,next)] for item in self.sm.Queue.items] for item in sublist]
-    if self.sm.var.requestOut == []:
-        self.sm.var.requestOut.append(self.sm.var.requestIn)
-S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
-S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
-@action(S2S1)
-def f131(self):
-    self.Queue.put_event.restart()
-    self.var.flag=1
-@action(S2S2)
-def f141(self):
-    if not hasattr(self.var.requestOut[0],'item'):
+    def put(self,item):
+        return self.Queue.put(item)
+    class Sending(State):
+        initial_state = True
+        def _do(self):
+            self.sm.var.requestIn = self.sm.Queue.put_event
+            self.sm.var.requestOut = [item for sublist in [[next.subscribe(item) for next in self.sm.Next if self.sm.condition_check(item,next)] for item in self.sm.Queue.items] for item in sublist]
+            if self.sm.var.requestOut == []:
+                self.sm.var.requestOut.append(self.sm.var.requestIn)
+    S2S1 = Transition(Sending,Sending,lambda self:AnyOf(self.env,[self.var.requestIn]))
+    S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
+    def action(self):
         self.Queue.put_event.restart()
-        return
-    [self.Queue.forward(request.item) for request in self.var.requestOut if request.triggered]
-    self.var.requestOut = [req for req in self.var.requestOut if not req.triggered]
-Sending._transitions=[S2S1,S2S2]
-Router0._states = [Sending]
+    S2S1._action = action
+    def action(self):
+        if not hasattr(self.var.requestOut[0],'item'):
+            self.Queue.put_event.restart()
+            return
+        for request in self.var.requestOut:
+            if not request.item in self.Queue.items:
+                request.cancel()
+                continue
+            if request.triggered:
+                if request.check():
+                    request.confirm()
+                    self.Queue.items.remove(request.item)
+                    continue
+    S2S2._action = action
 
-'''
 
 class StoreSelect(CHFSM):
+    def __init__(self, env, name=None,capacity=np.inf):
+        self.capacity = capacity
+        super().__init__(env, name)
     def build(self):
-        self.Queue = Store(self.env)
+        self.Queue = Store(self.env,self.capacity)
+    def put(self,item):
+        return self.Queue.put(item)
     def condition_check(self,item,target):
         return True
     class Sending(State):
@@ -442,6 +455,52 @@ class Gate(CHFSM):
         pass
     class Open(State):
         pass
+    
+# class QueueSorted(Queue):
+#     def sort(self):
+#         pass
+#     def put(self,item):
+#         self.sort()
+#         return self.Store.put(item)
+
+'''
+
+class Router0(CHFSM):
+    def __init__(self, env, name=None):
+        super().__init__(env, name)
+        self.var.requestOut = []
+        self.var.flag = 0
+    def build(self):
+        self.Queue = Box(self.env)
+        self.Dummy = Store(self.env)
+    def condition_check(self,item,target):
+        return True
+Sending = State('Sending',True)
+@do(Sending)
+def f121(self):
+    self.sm.var.requestIn = self.sm.Queue.put_event
+    if self.var.flag:
+        self.var.flag = 0
+        self.sm.var.requestOut = [item for sublist in [[next.put(item) for next in self.sm.Next if self.sm.condition_check(item,next)] for item in self.sm.Queue.items] for item in sublist]
+    if self.sm.var.requestOut == []:
+        self.sm.var.requestOut.append(self.sm.var.requestIn)
+S2S1 = Transition(Sending,Sending,lambda self:self.var.requestIn)
+S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
+@action(S2S1)
+def f131(self):
+    self.Queue.put_event.restart()
+    self.var.flag=1
+@action(S2S2)
+def f141(self):
+    if not hasattr(self.var.requestOut[0],'item'):
+        self.Queue.put_event.restart()
+        return
+    [self.Queue.forward(request.item) for request in self.var.requestOut if request.triggered]
+    self.var.requestOut = [req for req in self.var.requestOut if not req.triggered]
+Sending._transitions=[S2S1,S2S2]
+Router0._states = [Sending]
+
+'''
 
 # %% TESTS
 
@@ -553,7 +612,7 @@ if __name__ == '__main__':
     if len(c) == 1 and len(d) == 3:
         print('OK router')
 
-if __name__ == '__main__' and 1 and False:
+if __name__ == '__main__' and 1 and True:
     env = Environment()
     a = Server(env,serviceTime=1)
     b = StoreSelect(env)
@@ -615,7 +674,6 @@ class SwitchOut(CHFSM):
 
 '''
 # %% MIP
-
 class MachineMIP(Server):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,failure_rate=0,TTR=60):
         super().__init__(env,name,serviceTime,serviceTimeFunction)
