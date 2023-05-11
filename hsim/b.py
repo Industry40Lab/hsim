@@ -91,7 +91,7 @@ class Generator(Generator):
         for i in listOfMachineNames:
             T[i] = erlang(1*60)
         dueDate=self.env.now+np.random.uniform(30,45)
-        entity = Entity(ID=self.count,serviceTime=T,createTime=self.env.now,)
+        entity = Entity(ID=self.count,serviceTime=T,createTime=self.env.now)
         x = rnd.sample(listOfMachineNames,rnd.randint(1,self.N))
         if self.flowshop:
             x.sort()
@@ -158,7 +158,7 @@ def CONWIP():
 
 env = Environment()
 
-N=6
+N=5
 capIn = 5
 capOut = 5
 
@@ -166,8 +166,7 @@ globals()['G']=Generator(env)
 globals()['G'].N = N
 globals()['G'].flowshop = False
 globals()['Preshop'] = Queue(env,capacity=10)
-# globals()['R0'] = Router(env)
-globals()['R0'] = Router(env,capacity=60)
+globals()['R0'] = Router(env,'R0',capacity=2)
 
 globals()['T'] = Terminator(env)
 globals()['T']._name = 'terminator'
@@ -175,7 +174,7 @@ globals()['T']._name = 'terminator'
 for i in range(1,N+1):
     globals()['Q'+str(i)] = Queue(env,'Q'+str(i),capacity=capIn)
     globals()['M'+str(i)] = Server(env,'M'+str(i))
-    globals()['R'+str(i)] = Router(env,capacity=capOut)
+    globals()['R'+str(i)] = Router(env,'R'+str(i),capacity=capOut)
     
 # g.Next = globals()['R0']
 globals()['G'].Next = globals()['Preshop']
@@ -194,7 +193,7 @@ for i in range(1,N+1):
         globals()['R'+str(i)].Next.append(globals()['Q'+str(j)])
 
 np.random.seed(1)    
-env.run(3600)
+env.run(33600)
 
 
 
