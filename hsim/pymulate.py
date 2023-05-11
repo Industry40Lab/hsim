@@ -388,9 +388,11 @@ class RouterNew(CHFSM):
     S2S1 = Transition(Sending,Sending,lambda self:AnyOf(self.env,[self.var.requestIn]))
     S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
     def action(self):
+        self.Queue._trigger_put(self.env.event())
         self.Queue.put_event.restart()
     S2S1._action = action
-    def action(self):
+    def action2(self):
+        self.Queue._trigger_put(self.env.event())
         if not hasattr(self.var.requestOut[0],'item'):
             self.Queue.put_event.restart()
             return
@@ -403,7 +405,7 @@ class RouterNew(CHFSM):
                     request.confirm()
                     self.Queue.items.remove(request.item)
                     continue
-    S2S2._action = action
+    S2S2._action = action2
 
 
 class StoreSelect(CHFSM):
