@@ -119,7 +119,7 @@ class Generator(Generator):
             T[i] = erlang(1*60)
         dueDate=self.env.now+np.random.uniform(30,45)
         entity = Entity(ID=self.count,serviceTime=T,createTime=self.env.now,dueDate=dueDate)
-        x = rnd.sample(listOfMachineNames,rnd.randint(1,self.N))
+        x = np.random.choice(listOfMachineNames,rnd.randint(1,self.N))
         if self.flowshop:
             x.sort()
         # x.sort()
@@ -353,8 +353,8 @@ def main(N=5,capIn=5,capOut=5):
     locals()['G']=Generator(env)
     locals()['G'].N = N
     locals()['G'].flowshop = False
-    locals()['Preshop'] = Queue(env,'preshop',capacity=3)
-    locals()['R0'] = Router0(env,'R0',capacity=2)
+    locals()['Preshop'] = Queue(env,'preshop',capacity=30)
+    locals()['R0'] = Router0(env,'R0',capacity=30)
 
     locals()['T'] = Terminator(env)
     locals()['T']._name = 'terminator'
@@ -404,7 +404,7 @@ class MixedVariableProblem(ElementwiseProblem):
         self.steps = steps
         vars = {}
         for s in range(steps):
-            for n in range(1,1+N):
+            for n in range(0,1+N):
                 vars['dr_Q'+str(n)+'_'+str(s)]=Choice(options=['FIFO','SPT','LPT','EDD','Slack','Slack/OPN'])
         for s in range(steps):
             vars['wl_'+str(s)] = Integer(bounds=(10, 20))
@@ -412,15 +412,18 @@ class MixedVariableProblem(ElementwiseProblem):
 
     def _evaluate(self, X, out, *args, **kwargs):
         # x, y = X["dr_1_1"], X["dr_1_0"]
+        
         env = deepcopy(self.env)
         for step in range(self.steps):
             for obj in env._objects:
                 if obj._name[0] == 'Q':
                     obj.DR = X['dr_'+obj._name+'_'+str(step)]
                 elif obj._name == 'R0':
+                    obj.DR = X['dr_'+'Q0'+'_'+str(step)]
                     obj.CONWIP = X['wl_'+str(step)]
             
-            env.run(self.time/self.steps)
+            np.random.RandomState().set_state(globals()['rndState'])
+            env.run(env.now+self.time/self.steps)
         T = getbyname(env._objects,'terminator')
         
         TH = pd.DataFrame(T.register).diff().mean()[0]
@@ -449,7 +452,7 @@ def optim(env,time=3600):
     algorithm = MixedVariableGA(pop=2)
     res = minimize(problem,
                    algorithm,
-                   termination=('n_evals', 10),
+                   termination=('n_gen', 10),
                    seed=1,
                    verbose=True)
     return res
@@ -461,9 +464,11 @@ def optim(env,time=3600):
 
 
 np.random.seed(1)
+rndState = np.random.RandomState().get_state()
 env = main()
 
 for i in range(12):
+
     res = optim(env,time=600)
     
     X = res.X
@@ -472,20 +477,33 @@ for i in range(12):
             obj.DR = X['dr_'+obj._name+'_'+str(0)]
         elif obj._name == 'R0':
             obj.CONWIP = X['wl_'+str(0)]
-            
-    env.run(300)
+            obj.DR = X['dr_'+'Q0'+'_'+str(0)]
+    
+    np.random.RandomState().set_state(rndState)
+    env.run(env.now+300)
+    rndState = np.random.RandomState().get_state()
 T=getbyname(env._objects, 'terminator')
 Tardiness = 0
 for item in T.items:
     Tardiness += max(0,item.completionTime - item.dueDate)
-    
+print(Tardiness)
+
 # %%
 
 np.random.seed(1)
 env = main()
+res = optim(env,time=3600)
+X = res.X
+for obj in env._objects:
+    if obj._name[0] == 'Q':
+        obj.DR = X['dr_'+obj._name+'_'+str(0)]
+    elif obj._name == 'R0':
+        obj.CONWIP = X['wl_'+str(0)]
+        obj.DR = X['dr_'+'Q0'+'_'+str(0)]
+np.random.seed(1)
 env.run(3600)
 T=getbyname(env._objects, 'terminator')
 Tardiness = 0
 for item in T.items:
     Tardiness += max(0,item.completionTime - item.dueDate)
-
+print(Tardiness)
