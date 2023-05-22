@@ -737,3 +737,51 @@ for res in perf:
 df.to_excel('C:/Users/Lorenzo/Desktop/test.xlsx')
         
 x.state_log.rename(columns={1:'Resource',3:'State',4:'timeIn',5:'timeOut'},inplace=True)
+
+# %%
+import pandas as pd
+import numpy as np
+
+df = pd.read_excel("C:\\Users\\Lorenzo\\Desktop\\BNfinalresults.xlsx")
+
+import itertools
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd
+from scipy.stats import ttest_rel
+
+# Subset the DataFrame for the desired factor levels
+sub_df = df[['BN', 'OR', 'DR', 'prod']]
+
+# Generate all possible combinations of the unique BN values
+bn_combinations = list(itertools.combinations(sub_df['BN'].unique(), 2))
+
+# Perform pairwise comparisons and statistical test
+pairwise_comparisons = []
+p_values = []
+for bn_comb in bn_combinations:
+    bn1, bn2 = bn_comb
+    mask = (sub_df['BN'].isin([bn1, bn2]))
+    sub_data = sub_df.loc[mask]
+    
+    # Perform the statistical test (t-test in this example)
+    stat, p_value = ttest_rel(sub_data.loc[sub_data['BN'] == bn1, 'prod'],
+                              sub_data.loc[sub_data['BN'] == bn2, 'prod'])
+    
+    pairwise_comparisons.append((bn1, bn2))
+    p_values.append(p_value)
+
+# Create a DataFrame to store the pairwise comparisons and p-values
+results_df = pd.DataFrame({'Pairwise Comparisons': pairwise_comparisons, 'p-value': p_values})
+
+# Plot the results
+sns.set(style="whitegrid")
+plt.figure(figsize=(8, 6))
+sns.barplot(data=results_df, x='Pairwise Comparisons', y='p-value')
+plt.xlabel('Pairwise Comparisons (BN)')
+plt.ylabel('p-value')
+plt.title('Pairwise Comparisons of BN with the same DR and OR')
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
