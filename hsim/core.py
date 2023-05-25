@@ -56,7 +56,14 @@ class Environment(Environment):
     @property
     def log(self):
         return pd.DataFrame(self.state_log,columns=['Resource','ResourceName','State','StateName','timeIn','timeOut'])
-        
+    #dangerous
+    from warnings import warn
+    warn('Bypassing "None" callbakcs')
+    def step(self):
+        if len(self._queue)>0:
+            if self._queue[0][-1].callbacks is None:
+                self._queue[0][-1].callbacks = []
+        super().step()
 
 class State_Log(pd.DataFrame):
     def __init__(self):

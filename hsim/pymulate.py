@@ -372,29 +372,45 @@ class RouterNew(CHFSM):
         super().__init__(env, name)
         self.var.requestOut = []
         self.var.sent = []
+        self.putEvent = env.event()
     def build(self):
         self.Queue = Store(self.env,self.capacity)
     def condition_check(self,item,target):
         return True
     def put(self,item):
+        if self.putEvent.triggered:
+            self.putEvent.restart()
+        self.putEvent.succeed()
         return self.Queue.put(item)
     class Sending(State):
         initial_state = True
         def _do(self):
-            self.sm.var.requestIn = self.sm.Queue.put_event
+            self.sm.putEvent.restart()
+            self.sm.var.requestIn = self.sm.putEvent
             self.sm.var.requestOut = [item for sublist in [[next.subscribe(item) for next in self.sm.Next if self.sm.condition_check(item,next)] for item in self.sm.Queue.items] for item in sublist]
             if self.sm.var.requestOut == []:
                 self.sm.var.requestOut.append(self.sm.var.requestIn)
-    S2S1 = Transition(Sending,Sending,lambda self:AnyOf(self.env,[self.var.requestIn]))
-    S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut))
-    def action(self):
-        self.Queue._trigger_put(self.env.event())
-        self.Queue.put_event.restart()
-    S2S1._action = action
+    # S2S1 = Transition(Sending,Sending,lambda self:AnyOf(self.env,[self.var.requestIn]))
+    S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut),condition=lambda self:self.var.requestOut != [])
+    #new
+    # class Waiting(State):
+    #     pass
+    # S2W = Transition(Sending,Waiting,lambda self:AllOf(self.env,self.var.requestOut))
+    # W2S = Transition(Waiting,Sending,lambda self:AnyOf(self.env,[self.var.requestIn]))
+    # def action0(self):
+    #     pass
+    #     # self.Queue._trigger_put(self.env.event())
+    #     # self.Queue.put_event.restart()
+    # W2S._action = action0
+    #new
+    # def action(self):
+    #     self.Queue._trigger_put(self.env.event())
+    #     self.Queue.put_event.restart()
+    # S2S1._action = action
     def action2(self):
-        self.Queue._trigger_put(self.env.event())
+        # self.Queue._trigger_put(self.env.event())
         if not hasattr(self.var.requestOut[0],'item'):
-            self.Queue.put_event.restart()
+            # self.Queue.put_event.restart()
             return
         for request in self.var.requestOut:
             if not request.item in self.Queue.items:
