@@ -37,3 +37,16 @@ def stats2(log):
             v[state] = x
         stats[res] = v
     return stats
+
+
+def createGantt(df):
+    import plotly.express as px
+    now=pd.Timestamp.today()
+    now._hour=8
+    now._minute=0
+    now._second=0
+    df.timeIn=pd.to_timedelta(df.timeIn,'s')+now
+    df.timeOut=pd.to_timedelta(df.timeOut,'s')+now
+    df.timeOut.fillna(df.timeOut.max(),inplace=True)
+    fig = px.timeline(df, x_start="timeIn", x_end="timeOut", y="ResourceName", color="StateName")
+    return fig
