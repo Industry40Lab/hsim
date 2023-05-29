@@ -7,7 +7,7 @@ import numpy as np
 from simpy import AnyOf
 from copy import deepcopy
 from random import choices,seed,normalvariate, expovariate
-from stores import Store        
+from stores import Store, Box       
 from scipy import stats
 import dill
 import utils
@@ -201,6 +201,9 @@ class Gate(CHFSM):
                     dt.gate.real=False
                     dt.gate.initialWIP = 0
                     log_file = dt.run(self.env.now+self.length)
+                    
+                    self.sm.BN, stats = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
+
                     try:
                         self.sm.BN, stats = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
                     except:
@@ -213,25 +216,70 @@ class Gate(CHFSM):
     T3 = Transition(Forwarding,Waiting,None)
     TC = Transition(Controlling,Controlling,lambda self: self.env.timeout(self.freq))
 
-class RobotSwitch1(pym.Router):
+class Router(pym.Router):
+    def __init__(self, env, name=None):
+        super().__init__(env, name)
+        self.var.requestOut = []
+        self.var.sent = []
+        self.putEvent = env.event()
+    def build(self):
+        self.Queue = Box(self.env)
+    def condition_check(self,item,target):
+        return True
+    def put(self,item):
+        if self.putEvent.triggered:
+            self.putEvent.restart()
+        self.putEvent.succeed()
+        return self.Queue.put(item)
+    class Sending(State):
+        initial_state = True
+        def _do(self):
+            self.sm.putEvent.restart()
+            self.sm.var.requestIn = self.sm.putEvent
+            self.sm.var.requestOut = [item for sublist in [[next.subscribe(item) for next in self.sm.Next if self.sm.condition_check(item,next)] for item in self.sm.Queue.items] for item in sublist]
+            if self.sm.var.requestOut == []:
+                self.sm.var.requestOut.append(self.sm.var.requestIn)
+    S2S2 = Transition(Sending,Sending,lambda self:AnyOf(self.env,self.var.requestOut),condition=lambda self:self.var.requestOut != [])
+    def action2(self):
+        self.Queue._trigger_put(self.env.event())
+        if not hasattr(self.var.requestOut[0],'item'):
+            return
+        for request in self.var.requestOut:
+            if not request.item in self.Queue.items:
+                request.cancel()
+                continue
+            if request.triggered:
+                if request.check():
+                    request.confirm()
+                    self.Queue.forward(request.item)
+                    continue
+    S2S2._action = action2
+'''  
+from pymulate import RouterNew
+class Router(RouterNew):
+    def __init__(self, env, name=None):
+        capacity=1
+        super().__init__(env, name,capacity)
+'''
+class RobotSwitch1(Router):
     def condition_check(self, item, target):
-        if item.require_robot and target.name == 'convRobot1':
+        if item.require_robot and target.name == 'convRobot1S':
             return True
-        elif not item.require_robot and target.name != 'convRobot1':
+        elif not item.require_robot and target.name != 'convRobot1S':
             return True
         else:
             return False
             
-class RobotSwitch2(pym.Router):
+class RobotSwitch2(Router):
     def condition_check(self, item, target):
-        if len(target)<2:
+        if len(target.Next)<2:
             item.rework = False
             return True
         else:
             item.rework = True
             return False    
 
-class CloseOutSwitch(pym.Router):
+class CloseOutSwitch(Router):
     def condition_check(self, item, target):
         if item.ok and type(target) == Terminator:
             return True
@@ -443,6 +491,7 @@ def batchCreate(seed=1,numJobs=10):
 
 class Lab:
     def __init__(self,DR:str,OR:str,method:str,freq=120):
+        conveyTime = 6
         self.DR = DR
         self.OR = OR
         self.method = method
@@ -453,61 +502,116 @@ class Lab:
         self.g = Generator(self.env)
         self.gate = Gate(self.env,DR,OR,method,freq)
         
-        self.conv1 = Conveyor(self.env,capacity=3)
+        # self.conv1 = Conveyor(self.env,capacity=3)
+        self.conv1S = pym.Server(self.env,serviceTime=conveyTime)
+        self.conv1Q = pym.Queue(self.env,capacity=2)
         self.front = LabServer(self.env,'front')
-        self.conv2 = Conveyor(self.env,capacity=3)
+        # self.conv2 = Conveyor(self.env,capacity=3)
+        self.conv2S = pym.Server(self.env,serviceTime=conveyTime)
+        self.conv2Q = pym.Queue(self.env,capacity=2)
         self.drill = LabServer(self.env,'drill')
-        self.conv3 = Conveyor(self.env,capacity=3)
+        # self.conv3 = Conveyor(self.env,capacity=3)
+        self.conv3S = pym.Server(self.env,serviceTime=conveyTime)
+        self.conv3Q = pym.Queue(self.env,capacity=2)
+
         
         self.switch1 = RobotSwitch1(self.env)
-        self.convRobot1 = Conveyor(self.env,'convRobot1',capacity=3)
-        self.bridge = Conveyor(self.env,capacity=3)
-        self.convRobot2 = Conveyor(self.env,'convRobot2',capacity=3)
+        # self.convRobot1 = Conveyor(self.env,'convRobot1',capacity=3)
+        self.convRobot1S = pym.Server(self.env,serviceTime=conveyTime,name='convRobot1S')
+        self.convRobot1Q = pym.Queue(self.env,capacity=2)
+
+        # self.bridge = Conveyor(self.env,capacity=3)
+        self.bridgeS = pym.Server(self.env,serviceTime=conveyTime)
+        self.bridgeQ = pym.Queue(self.env,capacity=2)
+
+        # self.convRobot2 = Conveyor(self.env,'convRobot2',capacity=3)
+        self.convRobot2S = pym.Server(self.env,serviceTime=conveyTime)
+        self.convRobot2Q = pym.Queue(self.env,capacity=2)
+
         self.switch2 = RobotSwitch2(self.env)
-        self.convRobot2 = Conveyor(self.env,capacity=3)
-        self.convRobot3 = Conveyor(self.env,capacity=3)
+        # self.convRobot3 = Conveyor(self.env,capacity=3)
+        self.convRobot3S = pym.Server(self.env,serviceTime=conveyTime)
+        self.convRobot3Q = pym.Queue(self.env,capacity=2)
+
         self.robot = LabServer(self.env,'robot')
-        self.convRobotOut = Conveyor(self.env,capacity=3)
-        self.conv5 = Conveyor(self.env,capacity=3)
+        # self.convRobotOut = Conveyor(self.env,capacity=3)
+        self.convRobotOutS = pym.Server(self.env,serviceTime=conveyTime)
+        self.convRobotOutQ = pym.Queue(self.env,capacity=2)
+        # self.conv5 = Conveyor(self.env,capacity=3)
+        self.conv5S = pym.Server(self.env,serviceTime=conveyTime)
+        self.conv5Q = pym.Queue(self.env,capacity=2)
+
         self.camera = LabServer(self.env,'camera')
-        self.conv6 = Conveyor(self.env,capacity=3)
+        # self.conv6 = Conveyor(self.env,capacity=3)
+        self.conv6S = pym.Server(self.env,serviceTime=conveyTime)
+        self.conv6Q = pym.Queue(self.env,capacity=2)
+
         self.back = LabServer(self.env,'back')
-        self.conv7 = Conveyor(self.env,capacity=3)
+        # self.conv7 = Conveyor(self.env,capacity=3)
+        self.conv7S = pym.Server(self.env,serviceTime=conveyTime)
+        self.conv7Q = pym.Queue(self.env,capacity=2)
+
         self.press = LabServer(self.env,'press')
-        self.conv8 = Conveyor(self.env,capacity=3)
-        for s in self.conv8.servers:
-            s.var.serviceTime=1.75
+        # self.conv8 = Conveyor(self.env,capacity=3)
+        self.conv8S = pym.Server(self.env,serviceTime=conveyTime)
+        self.conv8Q = pym.Queue(self.env,capacity=2)
+
         self.manual = LabServer(self.env,'manual')
         self.outSwitch = CloseOutSwitch(self.env)
         self.terminator = Terminator(self.env)
         
         self.g.Next = self.gate
-        self.gate.Next = self.conv1
+        self.gate.Next = self.conv1S
         
-        self.conv1.Next = self.front
-        self.front.Next = self.conv2
-        self.conv2.Next = self.drill
-        self.drill.Next = self.conv3
-        self.conv3.Next = self.switch1
+        # self.conv1.Next = self.front
+        self.conv1S.Next = self.conv1Q
+        self.conv1Q.Next = self.front
+
+        self.front.Next = self.conv2S
+        # self.conv2.Next = self.drill
+        self.conv2S.Next = self.conv2Q
+        self.conv2Q.Next = self.drill
+        self.drill.Next = self.conv3S
+        self.conv3S.Next = self.conv3Q
+        self.conv3Q.Next = self.switch1
+        # self.conv3.Next = self.switch1
         
-        self.switch1.Next = [self.convRobot1,self.bridge]
-        self.convRobot1.Next = self.switch2
-        self.switch2.Next = [self.convRobot2,self.convRobot3]
-        self.convRobot2.Next = self.robot
-        self.convRobot3.Next = self.convRobotOut
-        self.robot.Next = self.convRobotOut
-        self.convRobotOut.Next = self.conv5
-        self.bridge.Next = self.conv5
+        self.switch1.Next = [self.convRobot1S,self.bridgeS]
+        self.convRobot1S.Next = self.convRobot1Q
+        self.convRobot1Q.Next = self.switch2
+
+        self.switch2.Next = [self.convRobot2S,self.convRobot3S]
+        self.convRobot2S.Next = self.convRobot2Q
+        self.convRobot2Q.Next = self.robot
+
+        self.convRobot3S.Next = self.convRobot3Q
+        self.convRobot3Q.Next = self.convRobotOutS
+
+        self.robot.Next = self.convRobotOutS
+        self.convRobotOutS.Next = self.convRobotOutQ
+
+        self.convRobotOutQ.Next = self.conv5S
+        self.bridgeS.Next = self.bridgeQ
+        self.bridgeQ.Next = self.conv5S
+
         
-        self.conv5.Next = self.camera
-        self.camera.Next = self.conv6
-        self.conv6.Next = self.back
-        self.back.Next = self.conv7
-        self.conv7.Next = self.press
-        self.press.Next = self.conv8
-        self.conv8.Next = self.manual
+        self.conv5S.Next = self.conv5Q
+        self.conv5Q.Next = self.camera
+
+        self.camera.Next = self.conv6S
+        self.conv6S.Next = self.conv6Q
+        self.conv6Q.Next = self.back
+
+        self.back.Next = self.conv7S
+        self.conv7S.Next = self.conv7Q
+        self.conv7Q.Next = self.press
+
+        self.press.Next = self.conv8S
+        self.conv8S.Next = self.conv8Q
+        self.conv8Q.Next = self.manual
+
         self.manual.Next = self.outSwitch
-        self.outSwitch.Next = [self.conv1,self.terminator]
+        self.outSwitch.Next = [self.conv1S,self.terminator]
         
         for x in [self.front,self.drill,self.robot,self.camera,self.back,self.press,self.manual]:
             x.controller = self.gate
@@ -566,6 +670,20 @@ class Result:
 
 # %% prove varie
 
+    
+lab=Lab('none','CONWIP','FIFO')
+lab.run(600)
+print(len(lab.terminator.items))
+
+lab2=deepcopy(lab)
+for el in [lab2.switch1,lab2.switch2,lab2.outSwitch]:
+    el.start()
+lab2.run(600)
+print(len(lab2.terminator.items))
+import utils
+fig=utils.createGantt(lab2.env.log)
+fig.write_html('cancella.html')
+
 if False:
     import dill
     import time
@@ -604,6 +722,7 @@ if False:
 
 
 # %% testing
+
 '''
 
 perf = list()
@@ -642,13 +761,13 @@ for BN in ['none','future','present']:
 import os
 filename = 'resBN_batched12bisLPT'
 
-if filename in os.listdir():
+if False:#filename in os.listdir():
     with open(filename, "rb") as dill_file:
         results = dill.load(dill_file)
 else:
     results=list()
 
-for BN in ['none']:#['none','present','future']:
+for BN in ['future']:#['none','present','future']:
     for OR in ['CONWIP','DBR']:
         for DR in ['LPT']:#['FIFO','SPT','LPT']:
             if DR == 'FIFO' and OR == 'CONWIP' and BN != 'none':
