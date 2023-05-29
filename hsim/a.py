@@ -217,6 +217,8 @@ class Gate(CHFSM):
     TC = Transition(Controlling,Controlling,lambda self: self.env.timeout(self.freq))
 
 class Router(pym.Router):
+    def __deepcopy(self,memo):
+        super().deepcopy(self,memo)
     def __init__(self, env, name=None):
         super().__init__(env, name)
         self.var.requestOut = []
@@ -670,19 +672,19 @@ class Result:
 
 # %% prove varie
 
+if False:
+    lab=Lab('none','CONWIP','FIFO')
+    lab.run(600)
+    print(len(lab.terminator.items))
     
-lab=Lab('none','CONWIP','FIFO')
-lab.run(600)
-print(len(lab.terminator.items))
-
-lab2=deepcopy(lab)
-for el in [lab2.switch1,lab2.switch2,lab2.outSwitch]:
-    el.start()
-lab2.run(600)
-print(len(lab2.terminator.items))
-import utils
-fig=utils.createGantt(lab2.env.log)
-fig.write_html('cancella.html')
+    lab2=deepcopy(lab)
+    for el in [lab2.switch1,lab2.switch2,lab2.outSwitch]:
+        el.start()
+    lab2.run(600)
+    print(len(lab2.terminator.items))
+    import utils
+    fig=utils.createGantt(lab2.env.log)
+    fig.write_html('cancella.html')
 
 if False:
     import dill
@@ -767,12 +769,12 @@ if False:#filename in os.listdir():
 else:
     results=list()
 
-for BN in ['future']:#['none','present','future']:
+for BN in ['none','present','future']:
     for OR in ['CONWIP','DBR']:
-        for DR in ['LPT']:#['FIFO','SPT','LPT']:
+        for DR in ['FIFO','SPT','LPT']:
             if DR == 'FIFO' and OR == 'CONWIP' and BN != 'none':
                 continue
-            for seedValue in range(1,51):
+            for seedValue in range(1,21):
                 print(seedValue,DR,OR,BN)
                 seed(seedValue)
                 lab=Lab(DR,OR,BN)
