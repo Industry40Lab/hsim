@@ -213,7 +213,7 @@ plt.title('Pairwise Comparisons with Confidence Intervals')
 # Show the plot
 plt.show()
 
-# %%
+# %% seeds 1
 
 
 import matplotlib.pyplot as plt
@@ -276,4 +276,14 @@ ax.legend()
 # Show the plot
 # plt.tight_layout()
 plt.show()
+
+
+# %% seeds 2
+
+th=2
+means=mean_diffs.sum(axis=1)
+indexes=np.argsort(means)
+seeds=seeds[indexes]
+
+seeds[means>th]
 
