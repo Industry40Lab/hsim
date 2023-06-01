@@ -89,7 +89,8 @@ class Gate(CHFSM):
         self.freq = 120
         self.length = 600
         self.lookback = 120
-        self.capacity = 200 #was 200 #was30
+        self.capacity = 30
+        self.window = 300
         self.lab = None
         self.DR = DR
         self.OR = OR
@@ -185,7 +186,7 @@ class Gate(CHFSM):
             if self.real:
                 log_file = self.env.state_log
                 try:
-                    BN, stats = BN_detection(log_file,self.env.now-self.length,self.env.now)
+                    BN, stats = BN_detection(log_file,self.env.now-self.window,self.env.now)
                 except:
                     if len(self.BNlist)>0:
                         BN = self.BNlist[-1]
@@ -194,6 +195,7 @@ class Gate(CHFSM):
                 self.BNlist.append([self.env.now,BN])
                 # print('BN at %f is %s'%(self.env.now,BN))
                 if self.method == 'present': #run BN
+                    BN, stats = BN_detection(log_file,self.env.now-self.lookback,self.env.now)
                     self.sm.BN = BN
                 elif self.method == 'future':
                     dt = deepcopy(self.lab)
@@ -202,7 +204,7 @@ class Gate(CHFSM):
                     dt.gate.initialWIP = 0
                     log_file = dt.run(self.env.now+self.length)
                     
-                    self.sm.BN, stats = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
+                    # self.sm.BN, stats = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
 
                     try:
                         self.sm.BN, stats = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
@@ -217,6 +219,8 @@ class Gate(CHFSM):
     TC = Transition(Controlling,Controlling,lambda self: self.env.timeout(self.freq))
 
 class Router(pym.Router):
+    def __deepcopy(self,memo):
+        super().deepcopy(self,memo)
     def __init__(self, env, name=None):
         super().__init__(env, name)
         self.var.requestOut = []
@@ -670,19 +674,19 @@ class Result:
 
 # %% prove varie
 
+if False:
+    lab=Lab('none','CONWIP','FIFO')
+    lab.run(600)
+    print(len(lab.terminator.items))
     
-lab=Lab('none','CONWIP','FIFO')
-lab.run(600)
-print(len(lab.terminator.items))
-
-lab2=deepcopy(lab)
-for el in [lab2.switch1,lab2.switch2,lab2.outSwitch]:
-    el.start()
-lab2.run(600)
-print(len(lab2.terminator.items))
-import utils
-fig=utils.createGantt(lab2.env.log)
-fig.write_html('cancella.html')
+    lab2=deepcopy(lab)
+    for el in [lab2.switch1,lab2.switch2,lab2.outSwitch]:
+        el.start()
+    lab2.run(600)
+    print(len(lab2.terminator.items))
+    import utils
+    fig=utils.createGantt(lab2.env.log)
+    fig.write_html('cancella.html')
 
 if False:
     import dill
@@ -759,17 +763,17 @@ for BN in ['none','future','present']:
  # %% experiments
 
 import os
-filename = 'resBN_batched12bisLPT'
+filename = 'resBN_pers'
 
-if False:#filename in os.listdir():
+if filename in os.listdir():
     with open(filename, "rb") as dill_file:
         results = dill.load(dill_file)
 else:
     results=list()
 
-for BN in ['future']:#['none','present','future']:
+for BN in ['none','present','future']:
     for OR in ['CONWIP','DBR']:
-        for DR in ['LPT']:#['FIFO','SPT','LPT']:
+        for DR in ['FIFO','SPT','LPT']:
             if DR == 'FIFO' and OR == 'CONWIP' and BN != 'none':
                 continue
             for seedValue in range(1,51):
@@ -778,13 +782,13 @@ for BN in ['future']:#['none','present','future']:
                 lab=Lab(DR,OR,BN)
                 lab.gate.Store.items = batchCreate(seedValue,numJobs=400) #batchedExp
                 if BN == 'future':
-                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 0, 60, 120 #era 120,120,300
+                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 120, 60, 300 #era 120,120,300
                 elif BN=='none':
-                    lab.gate.freq, lab.gate.length, lab.gate.BN =3600,3600, 'drill'
+                    lab.gate.freq, lab.gate.length, lab.gate.BN =60,3600, 'drill'
                     if DR == 'LPT':
                         lab.gate.BN == 'front'
                 elif BN=='present':
-                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 0, 60, 120
+                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 180, 60, 0
                 lab.run(1*60*60)
                 
                 
@@ -807,7 +811,7 @@ raise(BaseException())
 import dill
 import pandas as pd
 
-filename = 'resBN_batched12bispt5'
+filename = 'resBN_batched12bisLPT'
 # filename = 'resBN_batched_prove_newLPT'
 
 with open(filename, 'rb') as file:

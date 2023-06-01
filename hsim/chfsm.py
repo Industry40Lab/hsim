@@ -76,6 +76,18 @@ def get_class_dict(par):
             break
         z = {**cls.__dict__, **z}
     return z
+
+def trackObj(sm):
+    entity = None
+    items = []
+    if hasattr(sm,'var'):
+        if hasattr(sm.var,'entity'):
+            entity = sm.var.entity
+    if hasattr(sm,'Store'):
+        pass
+    elif hasattr(sm,'Store'):
+        pass
+    return entity, items
     
 class StateMachine():
     def __init__(self, env, name=None):
@@ -224,6 +236,7 @@ class State(Process):
     def start(self):
         logging.debug(f"Entering {self._name}")
         self._last_state_record = [self.sm,self.sm._name,self,self._name,self.env.now,None]
+        # self._last_state_record = [self.sm,self.sm._name,self,self._name,self.env.now,None,*trackObj(self.sm)]
         self.env.state_log.append(self._last_state_record)
         for callback in self._entry_callbacks:
             callback()
