@@ -202,7 +202,7 @@ class Gate(CHFSM):
                     dt.gate.initialWIP = 0
                     log_file = dt.run(self.env.now+self.length)
                     
-                    self.sm.BN, stats = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
+                    # self.sm.BN, stats = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
 
                     try:
                         self.sm.BN, stats = BN_detection(log_file,self.env.now-self.lookback,self.env.now+self.length)
@@ -763,18 +763,18 @@ for BN in ['none','future','present']:
 import os
 filename = 'resBN_batched12bisLPT'
 
-if False:#filename in os.listdir():
+if filename in os.listdir():
     with open(filename, "rb") as dill_file:
         results = dill.load(dill_file)
 else:
     results=list()
 
-for BN in ['none','present','future']:
-    for OR in ['CONWIP','DBR']:
-        for DR in ['FIFO','SPT','LPT']:
+for BN in ['future']:#['none','present','future']:
+    for OR in ['DBR']:#['CONWIP','DBR']:
+        for DR in ['LPT']:#['FIFO','SPT','LPT']:
             if DR == 'FIFO' and OR == 'CONWIP' and BN != 'none':
                 continue
-            for seedValue in range(1,21):
+            for seedValue in range(47,51):
                 print(seedValue,DR,OR,BN)
                 seed(seedValue)
                 lab=Lab(DR,OR,BN)
@@ -809,7 +809,7 @@ raise(BaseException())
 import dill
 import pandas as pd
 
-filename = 'resBN_batched12bispt5'
+filename = 'resBN_batched12bisLPT'
 # filename = 'resBN_batched_prove_newLPT'
 
 with open(filename, 'rb') as file:
