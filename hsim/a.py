@@ -15,7 +15,7 @@ import utils
 
 
 class Generator(pym.Generator):
-    def __init__(self,env,name=None,serviceTime=1,serviceTimeFunction=None):
+    def __init__(self,env,name=None,serviceTime=20,serviceTimeFunction=None):
         super().__init__(env,name,serviceTime,serviceTimeFunction)
         self.count = 0
     def createEntity(self):
@@ -763,7 +763,7 @@ for BN in ['none','future','present']:
  # %% experiments
 
 import os
-filename = 'resBN_pers'
+filename = 'resBN_pers2'
 
 if filename in os.listdir():
     with open(filename, "rb") as dill_file:
@@ -774,21 +774,23 @@ else:
 for BN in ['none','present','future']:
     for OR in ['CONWIP','DBR']:
         for DR in ['FIFO','SPT','LPT']:
+            if DR != 'SPT':
+                continue
             if DR == 'FIFO' and OR == 'CONWIP' and BN != 'none':
                 continue
-            for seedValue in range(1,51):
+            for seedValue in range(1,151):
                 print(seedValue,DR,OR,BN)
                 seed(seedValue)
                 lab=Lab(DR,OR,BN)
                 lab.gate.Store.items = batchCreate(seedValue,numJobs=400) #batchedExp
                 if BN == 'future':
-                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 120, 60, 300 #era 120,120,300
+                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 60, 60, 180 #era 120,120,300
                 elif BN=='none':
-                    lab.gate.freq, lab.gate.length, lab.gate.BN =60,3600, 'drill'
+                    lab.gate.freq, lab.gate.length, lab.gate.BN = 60,3600, 'back'
                     if DR == 'LPT':
-                        lab.gate.BN == 'front'
+                        lab.gate.BN = 'back'
                 elif BN=='present':
-                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 180, 60, 0
+                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 60, 60, 0
                 lab.run(1*60*60)
                 
                 
@@ -908,3 +910,4 @@ plt.xticks(rotation=45)
 plt.tight_layout()
 plt.show()
 
+ 
