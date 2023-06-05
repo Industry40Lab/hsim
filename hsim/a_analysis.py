@@ -11,7 +11,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 
-filename = 'resBN_batched12bispt5'
+filename = 'resBN_pers2'
 # filename = 'resBN_batched_prove_newLPT'
 
 with open(filename, 'rb') as file:
@@ -215,7 +215,11 @@ plt.show()
 
 # %% seeds 1
 
-
+drop_LPT =True
+if drop_LPT:
+    data=data.loc[data.DR != 'LPT']
+    print('LPT dropped')
+    
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -280,7 +284,7 @@ plt.show()
 
 # %% seeds 2
 
-th=2
+th=5
 means=mean_diffs.sum(axis=1)
 indexes=np.argsort(means)
 seeds=seeds[indexes]
