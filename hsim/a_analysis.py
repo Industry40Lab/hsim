@@ -11,12 +11,14 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 
-filename = 'resBN_pers2'
+
+filename = 'resBN_pers5_100'
 # filename = 'resBN_batched_prove_newLPT'
 
 with open(filename, 'rb') as file:
     perf = dill.load(file)
 
+# %% data
 # exps = pd.read_excel('C:/Users/Lorenzo/Desktop/bn experiments.xlsx')
 data = pd.DataFrame()
 
@@ -37,9 +39,19 @@ data['BNskew'] = [(pd.DataFrame([bn[1][0] for bn in p.BNlist]).value_counts()/le
 data['BNkurtosis'] = [(pd.DataFrame([bn[1][0] for bn in p.BNlist]).value_counts()/len(p.BNlist)).kurtosis() for p in perf]
 data['BNlist'] = [(pd.DataFrame([bn[1][0] for bn in p.BNlist]).value_counts()/len(p.BNlist)).to_dict() for p in perf]
 
+data.DR.replace('LPT','LPT2BN',inplace=True)
+data.DR.replace('SPT','SPTBN',inplace=True)
 # exps.to_excel('C:/Users/Lorenzo/Desktop/bn_results.xlsx')
 
-
+# %% validate exp num
+data['Group'] = data['BN'].astype(str) + ' ' + data['OR'].astype(str) + ' ' + data['DR'].astype(str)
+df = data.pivot_table(values='Average throughput', index='Group',columns='seed').transpose()
+var_a = dict()
+for col in df.columns:
+    var_a[col] = []
+    for i in range(len(df[col])):
+        var_a[col].append(np.var(df[col][:i]))
+        
 
 # %% facet
 import seaborn as sns
@@ -65,13 +77,75 @@ import matplotlib.pyplot as plt
 # with columns for 'BN', 'OR', 'DR', and 'Average throughput'
 
 # Creating a boxplot to compare all three factors
-plt.figure(figsize=(12, 6))
-sns.catplot(data=data, x='DR', y='Average throughput', hue='OR', col='BN', kind='box', palette='Set1', height=4, aspect=0.8)
+plt.figure(figsize=(12, 8))
+ax = sns.catplot(data=data, x='DR', y='Average throughput', hue='OR', col='BN', kind='violin', palette='Set1', height=4, aspect=0.8)
+sns.move_legend(ax, "center right", bbox_to_anchor=(1, 0.925))
 plt.suptitle('Average Throughput by BN, OR, and DR', y=1.05)
 plt.xlabel('BN')
 plt.ylabel('Average Throughput')
 plt.tight_layout()
 plt.show()
+
+# %% descriptive table
+from scipy import stats
+
+data['Group'] = data['BN'].astype(str) + ' ' + data['OR'].astype(str) + ' ' + data['DR'].astype(str)
+df = data.pivot_table(values='Average throughput', index='Group', aggfunc=[np.mean,np.std])
+df['N'] = 100
+df['alpha']=0.95
+df['ci-']=None
+df['ci+']=None
+
+
+df2=data.pivot_table(values='Average throughput', index='Group',columns='seed').transpose()
+for col in df2.columns:
+    ci = stats.t.interval(alpha=0.95, df=len(df2[col])-1, loc=np.mean(df2[col]), scale=stats.sem(df2[col]))
+    df.loc[df.index==col,'ci-'],df.loc[df.index==col,'ci+'] = ci[0],ci[1]
+
+# %% ci plots
+from scipy import stats
+
+data['Group'] = data['BN'].astype(str) + ' ' + data['OR'].astype(str) + ' ' + data['DR'].astype(str)
+sns.set_style("whitegrid")
+ax = sns.pointplot(data=data, y="Group", x="Average throughput",errorbar=("ci", 95), capsize=.4, join=False, color="blue")
+
+
+# df = data.pivot_table(values='Average throughput', index='Group', columns='seed').transpose()
+# df = data.pivot_table(values='Average throughput', index='Group', aggfunc=[np.mean,np.std]).transpose()
+# ci=df.apply(lambda x: (x[0]-1.985*x[1]/(150)**0.5,x[0]+1.985*x[1]/(150)**0.5), axis=0)
+# import matplotlib.pyplot as plt
+# import numpy as np
+
+# Assuming you have multiple groups of data and their corresponding averages and confidence intervals
+
+# Group names
+# groups = df.columns
+
+# Average values
+
+# Confidence intervals (lower and upper bounds)
+
+# Generate the x-axis values
+# x = np.arange(len(groups))
+
+# Plot the average values with error bars representing the confidence intervals
+# plt.errorbar(x, df.iloc[0].values, yerr=ci.values, fmt='o')#, capsize=5)
+
+# Set the x-axis tick labels
+# plt.xticks(x, groups)
+
+# Add labels and title
+from matplotlib.ticker import MultipleLocator
+ax.tick_params(axis='x', which='minor')
+# ax.tick_params(axis='x', which='minor', bottom=False)
+ax.xaxis.set_major_formatter('{x:.0f}')
+ax.xaxis.set_minor_locator(MultipleLocator(5))
+ax.set(title='Average throughput with 95% Confidence Intervals')
+plt.show()
+# plt.xticks(x, groups, rotation=90)
+# plt.subplots_adjust(bottom=0.2)
+# Show the plot
+# plt.show()
 
 
 # %%  ANOVA
@@ -213,18 +287,137 @@ plt.title('Pairwise Comparisons with Confidence Intervals')
 # Show the plot
 plt.show()
 
+
+# %% confidence intervals
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+
+# Assuming you have a list of tuples called 'conf_ints'
+# and a list of values called 'line_values'
+
+# Extract the group names and confidence interval values
+groups = [pair[0] + ' vs ' + pair[1] for pair in conf_ints]
+ci_lower = [pair[2] for pair in conf_ints]
+ci_upper = [pair[3] for pair in conf_ints]
+
+line_values = [a+b for a,b in zip(ci_upper,ci_lower)]
+line_values = [max(abs(a),abs(b)) for a,b in zip(ci_upper,ci_lower)]
+
+
+
+
+# Generate the x-axis values
+x = np.arange(len(groups))
+
+# Set the color palette to Seaborn color palette set 1
+sns.set_palette("Set1")
+
+# Create a colormap for the line colors
+cmap = plt.cm.RdBu
+
+# Normalize the line values to range between 0 and 1
+line_norm = plt.Normalize(min(line_values), max(line_values))
+
+# Plot the confidence intervals using horizontal bars
+plt.figure(figsize=(10, len(groups)*1.5))
+
+# Plot the bars for the confidence intervals
+for i in range(len(groups)):
+    plt.barh(x[i], ci_upper[i] - ci_lower[i], left=ci_lower[i], height=0.4, color='lightblue')
+
+# Update the color of each bar based on line_values
+for i, val in enumerate(line_values):
+    color = cmap(line_norm(val))
+    plt.barh(x[i], ci_upper[i] - ci_lower[i], left=ci_lower[i], height=0.4, color=color)
+
+# Plot a line at x=0 to visualize if zero is included within the confidence intervals
+plt.axvline(x=0, color='black', linestyle='--')
+
+# Add labels and title
+plt.xlabel('Mean Difference')
+plt.ylabel('Pairwise Comparisons')
+plt.title('Pairwise Comparisons with Confidence Intervals')
+
+# Set the y-axis ticks and tick labels
+plt.yticks(x, groups)
+
+# Set the x-axis limits to accommodate the confidence intervals
+plt.xlim(min(ci_lower), max(ci_upper))
+
+# Add a grid
+plt.grid(axis='x', linestyle='--')
+plt.grid(axis='y', linestyle='--')
+
+# Remove the top and bottom spines
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['bottom'].set_visible(False)
+
+# Remove the y-axis ticks and labels
+plt.gca().yaxis.set_ticks_position('none')
+
+# plt.tight_layout()
+plt.ylim(x[0]-0.5, x[-1]+0.5)
+
+# Show the plot
+plt.show()
+
+# %% heatmap CLES
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import numpy as np
+
+# Assuming your DataFrame is called 'df' with columns 'x_index', 'y_index', and 'value'
+# Pivot the DataFrame to create a matrix-like structure for the heatmap
+heatmap_data = pairwise_comp.pivot(index='A', columns='B', values='CLES')
+
+# Define the custom colormap from blue to red to blue
+colors = [(0, 0, 1), (1, 0, 0), (0, 0, 1)]
+cmap = mcolors.LinearSegmentedColormap.from_list('CustomMap', colors)
+
+# Create the heatmap using seaborn
+ax = sns.heatmap(heatmap_data, cmap=cmap, vmin=0, vmax=1)
+
+# Set the colorbar limits and label
+cbar = ax.collections[0].colorbar
+cbar.set_ticks([0, 0.5, 1])
+cbar.set_ticklabels(['0', '0.5', '1'])
+cbar.set_label('Value')
+
+# Set the title and axis labels
+plt.title('Heatmap')
+plt.xlabel('X Index')
+plt.ylabel('Y Index')
+plt.tight_layout()
+
+# Show the heatmap
+plt.show()
+
+#%% heatmap avg
+
+df=pd.DataFrame(conf_ints, columns=['A','B','UP','DOWN'])
+df['avg']=df['UP']/2+df['DOWN']/2
+heatmap_data = df.pivot(index='A', columns='B', values='avg')
+ax = sns.heatmap(heatmap_data)
+
+
+
 # %% seeds 1
 
 drop_LPT =True
 if drop_LPT:
-    data=data.loc[data.DR != 'LPT']
+    data2=data.loc[data.DR != 'LPT']
     print('LPT dropped')
+else:
+    data2 = data
     
 import matplotlib.pyplot as plt
 import numpy as np
 
 # Group the data by seed values
-grouped_data = data.groupby('seed')
+grouped_data = data2.groupby('seed')
 
 # Initialize lists to store the mean differences and seed values
 mean_diffs = []
@@ -284,10 +477,13 @@ plt.show()
 
 # %% seeds 2
 
-th=5
+th=16
+
+mean_diffs=np.vstack([mean_diffs[:,0],mean_diffs[:,1]*4,mean_diffs[:,2]]).T
+
 means=mean_diffs.sum(axis=1)
 indexes=np.argsort(means)
 seeds=seeds[indexes]
 
 seeds[means>th]
-
+print(len(seeds[means>th]))
