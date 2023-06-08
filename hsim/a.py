@@ -15,7 +15,7 @@ import utils
 
 
 class Generator(pym.Generator):
-    def __init__(self,env,name=None,serviceTime=20,serviceTimeFunction=None):
+    def __init__(self,env,name=None,serviceTime=2,serviceTimeFunction=None):
         super().__init__(env,name,serviceTime,serviceTimeFunction)
         self.count = 0
     def createEntity(self):
@@ -748,7 +748,6 @@ for BN in ['none','future','present']:
                                 perf.append(Result(lab.env.now,BN,OR,DR,len(lab.terminator.items),lab.terminator.register,lab.gate.WIPlist,lab.gate.BNlist,pd.DataFrame(lab.env.state_log)[[1,3,4,5]]))
             else:
                 lookback = 0
-                for freq in [60,180,300]:
                     for length in [180,300,420]:
                         for seedValue in [1,2,3,4,5]:
                             print(BN,OR,DR,lookback,freq,length,seedValue)
@@ -763,18 +762,21 @@ for BN in ['none','future','present']:
  # %% experiments
 
 import os
-filename = 'resBN_pers2'
+filename = 'resBN_pers4'
+
 
 if filename in os.listdir():
     with open(filename, "rb") as dill_file:
         results = dill.load(dill_file)
 else:
     results=list()
+    
 
+    
 for BN in ['none','present','future']:
     for OR in ['CONWIP','DBR']:
         for DR in ['FIFO','SPT','LPT']:
-            if DR != 'SPT':
+            if BN != 'future':
                 continue
             if DR == 'FIFO' and OR == 'CONWIP' and BN != 'none':
                 continue
@@ -784,15 +786,14 @@ for BN in ['none','present','future']:
                 lab=Lab(DR,OR,BN)
                 lab.gate.Store.items = batchCreate(seedValue,numJobs=400) #batchedExp
                 if BN == 'future':
-                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 60, 60, 180 #era 120,120,300
+                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 60, 60, 180 #era 60,60,180 per pers3
                 elif BN=='none':
                     lab.gate.freq, lab.gate.length, lab.gate.BN = 60,3600, 'back'
                     if DR == 'LPT':
                         lab.gate.BN = 'back'
                 elif BN=='present':
-                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 60, 60, 0
+                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 120, 60, 0
                 lab.run(1*60*60)
-                
                 
                 state_log=pd.DataFrame(lab.env.state_log)
                 state_log=state_log.rename(columns={1:'Resource',3:'State',4:'timeIn',5:'timeOut'})
@@ -805,8 +806,27 @@ for BN in ['none','present','future']:
     with open(filename, "wb") as dill_file:
         dill.dump(results, dill_file)
             
-raise(BaseException())            
+raise(BaseException())       
 
+
+#pers2
+# pres 60 60 0 best
+# future 
+# none ko
+
+#pers3 
+# pres 120 60 0 
+# future 120 60 240
+# none ok
+
+#pers4
+# future 60 60 180 
+# none ok
+   
+
+#pers5
+# future 45 60 150 best
+# none ok
     
 # %%  read data
 
