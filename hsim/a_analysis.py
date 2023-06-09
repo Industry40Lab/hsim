@@ -17,6 +17,15 @@ filename = 'resBN_pers5_100'
 
 with open(filename, 'rb') as file:
     perf = dill.load(file)
+    
+def group_sort(arr):
+    # Define the keys for sorting
+    none_present_future = np.array([0 if 'none' in s else 1 if 'present' in s else 2 for s in arr])
+    conwip_dbr = np.array([0 if 'CONWIP' in s else 1 for s in arr])
+    fifo_sptbn_lpt2bn = np.array([0 if 'FIFO' in s else 1 if 'SPTBN' in s else 2 for s in arr])
+    # Sort the array based on the keys
+    sorted_indices = np.lexsort((fifo_sptbn_lpt2bn, conwip_dbr, none_present_future))
+    return sorted_indices
 
 # %% data
 # exps = pd.read_excel('C:/Users/Lorenzo/Desktop/bn experiments.xlsx')
@@ -46,12 +55,15 @@ data.DR.replace('SPT','SPTBN',inplace=True)
 # %% validate exp num
 data['Group'] = data['BN'].astype(str) + ' ' + data['OR'].astype(str) + ' ' + data['DR'].astype(str)
 df = data.pivot_table(values='Average throughput', index='Group',columns='seed').transpose()
+df=df.iloc[group_sort(df.index)]
 var_a = dict()
+mean_a = dict()
 for col in df.columns:
     var_a[col] = []
+    mean_a[col] = []
     for i in range(len(df[col])):
         var_a[col].append(np.var(df[col][:i]))
-        
+        mean_a[col].append(np.mean(df[col][:i]))
 
 # %% facet
 import seaborn as sns
@@ -91,6 +103,7 @@ from scipy import stats
 
 data['Group'] = data['BN'].astype(str) + ' ' + data['OR'].astype(str) + ' ' + data['DR'].astype(str)
 df = data.pivot_table(values='Average throughput', index='Group', aggfunc=[np.mean,np.std])
+df=df.iloc[group_sort(df.index)]
 df['N'] = 100
 df['alpha']=0.95
 df['ci-']=None
@@ -106,8 +119,10 @@ for col in df2.columns:
 from scipy import stats
 
 data['Group'] = data['BN'].astype(str) + ' ' + data['OR'].astype(str) + ' ' + data['DR'].astype(str)
+df = data.pivot_table(values='Average throughput', index='Group', aggfunc=[np.mean,np.std])
+df=df.iloc[group_sort(df.index)]
 sns.set_style("whitegrid")
-ax = sns.pointplot(data=data, y="Group", x="Average throughput",errorbar=("ci", 95), capsize=.4, join=False, color="blue")
+ax = sns.pointplot(data=data, y="Group", x="Average throughput",errorbar=("ci", 95), capsize=.4, join=False, color="blue",order=df.index)
 
 
 # df = data.pivot_table(values='Average throughput', index='Group', columns='seed').transpose()
@@ -182,7 +197,7 @@ import pingouin as pg
 # with columns for 'BN', 'OR', 'DR', 'Average throughput', and 'Seed'
 
 # Create a new column for unique group identifiers
-data['Group'] = data['BN'].astype(str) + '_' + data['OR'].astype(str) + '_' + data['DR'].astype(str)
+data['Group'] = data['BN'].astype(str) + ' ' + data['OR'].astype(str) + ' ' + data['DR'].astype(str)
 
 # Perform pairwise comparisons using t-tests with common random numbers
 pairwise_comp = pg.pairwise_tests(data=data, dv='Average throughput', within='Group', subject='seed',parametric=True,padjust='bonf')
@@ -201,7 +216,7 @@ from scipy.stats import ttest_rel, t
 # Assuming you have a DataFrame called 'data' with columns 'BN', 'OR', 'DR', and 'Value'
 
 # Perform pairwise t-tests and compute confidence intervals
-combinations = data[['BN', 'OR', 'DR']].apply(lambda x: '_'.join(x.astype(str)), axis=1).unique()
+combinations = data[['BN', 'OR', 'DR']].apply(lambda x: ' '.join(x.astype(str)), axis=1).unique()
 n_combinations = len(combinations)
 alpha = 0.05  # Significance level
 conf_ints = []
@@ -210,8 +225,8 @@ for i in range(n_combinations - 1):
     for j in range(i + 1, n_combinations):
         combination1 = combinations[i]
         combination2 = combinations[j]
-        group1 = data[data[['BN', 'OR', 'DR']].apply(lambda x: '_'.join(x.astype(str)), axis=1) == combination1]['Average throughput']
-        group2 = data[data[['BN', 'OR', 'DR']].apply(lambda x: '_'.join(x.astype(str)), axis=1) == combination2]['Average throughput']
+        group1 = data[data[['BN', 'OR', 'DR']].apply(lambda x: ' '.join(x.astype(str)), axis=1) == combination1]['Average throughput']
+        group2 = data[data[['BN', 'OR', 'DR']].apply(lambda x: ' '.join(x.astype(str)), axis=1) == combination2]['Average throughput']
         
         # Perform t-test
         t_stat, p_val = ttest_rel(group1, group2)
