@@ -54,8 +54,7 @@ data.DR.replace('SPT','SPTBN',inplace=True)
 
 # %% validate exp num
 data['Group'] = data['BN'].astype(str) + ' ' + data['OR'].astype(str) + ' ' + data['DR'].astype(str)
-df = data.pivot_table(values='Average throughput', index='Group',columns='seed').transpose()
-df=df.iloc[group_sort(df.index)]
+df = data.pivot_table(values='Average throughput', index='Group',columns='seed')
 var_a = dict()
 mean_a = dict()
 for col in df.columns:
@@ -90,7 +89,7 @@ import matplotlib.pyplot as plt
 
 # Creating a boxplot to compare all three factors
 plt.figure(figsize=(12, 8))
-ax = sns.catplot(data=data, x='DR', y='Average throughput', hue='OR', col='BN', kind='violin', palette='Set1', height=4, aspect=0.8)
+ax = sns.catplot(data=data, x='DR', y='Average throughput', hue='OR', col='BN', kind='box', palette='Set1', height=4, aspect=0.8)
 sns.move_legend(ax, "center right", bbox_to_anchor=(1, 0.925))
 plt.suptitle('Average Throughput by BN, OR, and DR', y=1.05)
 plt.xlabel('BN')
@@ -114,6 +113,14 @@ df2=data.pivot_table(values='Average throughput', index='Group',columns='seed').
 for col in df2.columns:
     ci = stats.t.interval(alpha=0.95, df=len(df2[col])-1, loc=np.mean(df2[col]), scale=stats.sem(df2[col]))
     df.loc[df.index==col,'ci-'],df.loc[df.index==col,'ci+'] = ci[0],ci[1]
+df=df.round(2)
+df['ci-']=df['ci-'].astype('float').round(2)
+df['ci+']=df['ci+'].astype('float').round(2)
+
+df['ci'] = '('+df['ci-'].astype('str')+', '+df['ci+'].astype('str')+')'
+df.drop(columns=['ci+','ci-'],inplace=True)
+
+df_toexp=df.values
 
 # %% ci plots
 from scipy import stats
@@ -122,7 +129,8 @@ data['Group'] = data['BN'].astype(str) + ' ' + data['OR'].astype(str) + ' ' + da
 df = data.pivot_table(values='Average throughput', index='Group', aggfunc=[np.mean,np.std])
 df=df.iloc[group_sort(df.index)]
 sns.set_style("whitegrid")
-ax = sns.pointplot(data=data, y="Group", x="Average throughput",errorbar=("ci", 95), capsize=.4, join=False, color="blue",order=df.index)
+
+ax = sns.pointplot(data=data, y="Group", x="Average throughput",errorbar=("ci", 95), errwidth=0.5,capsize=.5, join=False, color="blue",order=df.index,markers='.')
 
 
 # df = data.pivot_table(values='Average throughput', index='Group', columns='seed').transpose()
@@ -200,14 +208,26 @@ import pingouin as pg
 data['Group'] = data['BN'].astype(str) + ' ' + data['OR'].astype(str) + ' ' + data['DR'].astype(str)
 
 # Perform pairwise comparisons using t-tests with common random numbers
-pairwise_comp = pg.pairwise_tests(data=data, dv='Average throughput', within='Group', subject='seed',parametric=True,padjust='bonf')
+# pairwise_comp = pg.pairwise_tests(data=data, dv='Average throughput', within='Group', subject='seed',parametric=True,padjust='bonf',effsize='CLES')
 
 pairwise_comp = pg.pairwise_tests(data=data, dv='Average throughput', within='Group', subject='seed',parametric=False,padjust='bonf',effsize='CLES')
 
 # Print the pairwise comparison results
 print(pairwise_comp)
 
-# %%
+words_A = pairwise_comp['A'].str.split().str[1:3]
+words_B = pairwise_comp['B'].str.split().str[1:3]
+pairwise_reduced=pairwise_comp.loc[words_A.eq(words_B)]
+pairwise_reduced=pairwise_reduced.iloc[group_sort(pairwise_reduced.A)]
+
+pairwise_reduced['OR']=[i[1] for i in pairwise_reduced.A.str.split()]
+pairwise_reduced['DR']=[i[2] for i in pairwise_reduced.A.str.split()]
+pairwise_reduced['Group 1']=[i[0] for i in pairwise_reduced.A.str.split()]
+pairwise_reduced['Group 2']=[i[0] for i in pairwise_reduced.B.str.split()]
+pairwise_reduced.round(3)
+
+
+# %% calc confidence intervals
 
 import pandas as pd
 import numpy as np
@@ -217,6 +237,7 @@ from scipy.stats import ttest_rel, t
 
 # Perform pairwise t-tests and compute confidence intervals
 combinations = data[['BN', 'OR', 'DR']].apply(lambda x: ' '.join(x.astype(str)), axis=1).unique()
+combinations=list(reversed(combinations))
 n_combinations = len(combinations)
 alpha = 0.05  # Significance level
 conf_ints = []
@@ -232,29 +253,64 @@ for i in range(n_combinations - 1):
         t_stat, p_val = ttest_rel(group1, group2)
         
         # Compute standard error of the mean difference
-        n1, n2 = len(group1), len(group2)
-        std1, std2 = group1.std(), group2.std()
-        se = np.sqrt((std1**2/n1) + (std2**2/n2))
+        # n1, n2 = len(group1), len(group2)
+        # std1, std2 = group1.std(), group2.std()
+        # se = np.sqrt((std1**2/n1) + (std2**2/n2))
+        differences = group1.values - group2.values
+        n = len(differences)
+        std_diff = differences.std()
+        se = std_diff / np.sqrt(n)
         
         # Compute confidence interval
-        dof = n1 + n2 - 2  # Degrees of freedom
+        dof = n - 1  # Degrees of freedom
+        # dof = n1 + n2 - 2  # Degrees of freedom
         crit_val = t.ppf(1 - alpha/2, dof)  # Critical value
-        mean_diff = group2.mean() - group1.mean()  # Mean difference
+        # mean_diff = group2.mean() - group1.mean()  # Mean difference
+        mean_diff = differences.mean()
         lower_bound = mean_diff - crit_val * se
         upper_bound = mean_diff + crit_val * se
         
         # Append confidence interval to the list
-        conf_ints.append((combination1, combination2, lower_bound, upper_bound))
+        conf_ints.append((combination1, combination2, mean_diff, dof, alpha, se, t_stat, crit_val, p_val, lower_bound, upper_bound))
 
 # Print the confidence intervals
 for conf_int in conf_ints:
-    combination1, combination2, lower_bound, upper_bound = conf_int
+    combination1, combination2, lower_bound, upper_bound = conf_int[:4]
     print(f"Comparison: {combination1} vs {combination2}")
     print(f"Confidence Interval: [{lower_bound}, {upper_bound}]")
     print()
 
+reduced_pairs=[pair for pair in conf_ints if pair[0].split()[1]==pair[1].split()[1] and pair[0].split()[2]==pair[1].split()[2]]
 
-# %%
+pairs_df=pd.DataFrame(reduced_pairs,columns=['A','B','mean_diff','dof', 'alpha', 'SE', 't_stat', 't_ref', 'p_val', 'lower_bound', 'upper_bound'])
+pairs_df_unrounded=pairs_df.copy(deep=True)
+pairs_df=pairs_df.round(3)
+
+
+pairs_df['ci']=[(i,j) for i,j in pairs_df[['lower_bound','upper_bound']].values]
+
+pairs_df['OR']=[i[1] for i in pairs_df.A.str.split()]
+pairs_df['DR']=[i[2] for i in pairs_df.A.str.split()]
+pairs_df['Group 1']=[i[0] for i in pairs_df.A.str.split()]
+pairs_df['Group 2']=[i[0] for i in pairs_df.B.str.split()]
+
+# %% inutile
+pairs_df=pd.DataFrame(reduced_pairs,columns=['A','B','d','u'])
+
+merged_df = pd.merge(pairwise_reduced, pairs_df, on=['A', 'B'], how='left')
+
+pairs_df.rename(columns={'A':'B','B':'A'},inplace=True)
+# merged_df.dropna(inplace=True)
+merged_df = pd.merge(merged_df, pairs_df, on=['A', 'B'], how='left')
+merged_df['d_x'].fillna(merged_df['d_y'],inplace=True)
+merged_df['u_x'].fillna(merged_df['u_y'],inplace=True)
+merged_df.rename(columns={'d_x':'d','u_x':'u'},inplace=True)
+merged_df.drop(columns=['d_y','u_y'],inplace=True)
+merged_df['mean']=merged_df[['d','u']].mean(axis=1).round(3).astype(str)
+merged_df['ci']=[(round(i,3),round(j,3)) for i,j in merged_df[['d','u']].values]
+merged_df=merged_df.iloc[group_sort(merged_df.A)]
+
+# %% inutile
 
 import pandas as pd
 import seaborn as sns
@@ -274,7 +330,7 @@ plt.ylabel('Group')
 plt.show()
 
 
-# %% confidence intervals
+# %% plot confidence intervals
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -282,8 +338,8 @@ import numpy as np
 
 # Extract the group names and confidence interval values
 groups = [pair[0] + ' vs ' + pair[1] for pair in conf_ints]
-ci_lower = [pair[2] for pair in conf_ints]
-ci_upper = [pair[3] for pair in conf_ints]
+ci_lower = [pair[-2] for pair in conf_ints]
+ci_upper = [pair[-1] for pair in conf_ints]
 
 # Generate the x-axis values
 x = np.arange(len(groups))
@@ -303,7 +359,7 @@ plt.title('Pairwise Comparisons with Confidence Intervals')
 plt.show()
 
 
-# %% confidence intervals
+# %% plot paired confidence intervals
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -312,15 +368,17 @@ import seaborn as sns
 # and a list of values called 'line_values'
 
 # Extract the group names and confidence interval values
-groups = [pair[0] + ' vs ' + pair[1] for pair in conf_ints]
-ci_lower = [pair[2] for pair in conf_ints]
-ci_upper = [pair[3] for pair in conf_ints]
+# groups = [pair[0] + ' vs ' + pair[1] for pair in reduced_pairs]
+groups = [el1+' vs '+el2 for el1,el2 in zip(pairs_df['A'],pairs_df['B'])]
+groups =list(reversed(groups))
+# ci_lower = [pair[-2] for pair in reduced_pairs]
+ci_lower = pairs_df['lower_bound'].values
+# ci_upper = [pair[-1] for pair in reduced_pairs]
+ci_upper = pairs_df['upper_bound'].values
 
-line_values = [a+b for a,b in zip(ci_upper,ci_lower)]
-line_values = [max(abs(a),abs(b)) for a,b in zip(ci_upper,ci_lower)]
 
-
-
+# line_values = [pair[2] for pair in reduced_pairs]
+line_values = pairs_df['mean_diff'].values
 
 # Generate the x-axis values
 x = np.arange(len(groups))
@@ -329,13 +387,13 @@ x = np.arange(len(groups))
 sns.set_palette("Set1")
 
 # Create a colormap for the line colors
-cmap = plt.cm.RdBu
+cmap = plt.cm.RdYlBu
 
 # Normalize the line values to range between 0 and 1
 line_norm = plt.Normalize(min(line_values), max(line_values))
 
 # Plot the confidence intervals using horizontal bars
-plt.figure(figsize=(10, len(groups)*1.5))
+plt.figure(figsize=(10, len(groups)*0.8))
 
 # Plot the bars for the confidence intervals
 for i in range(len(groups)):
@@ -350,7 +408,7 @@ for i, val in enumerate(line_values):
 plt.axvline(x=0, color='black', linestyle='--')
 
 # Add labels and title
-plt.xlabel('Mean Difference')
+plt.xlabel('Mean Difference for TH')
 plt.ylabel('Pairwise Comparisons')
 plt.title('Pairwise Comparisons with Confidence Intervals')
 
@@ -372,8 +430,7 @@ plt.gca().spines['bottom'].set_visible(False)
 plt.gca().yaxis.set_ticks_position('none')
 
 # plt.tight_layout()
-plt.ylim(x[0]-0.5, x[-1]+0.5)
-
+# plt.ylim(x[0]-0.5, x[-1]+0.5)
 # Show the plot
 plt.show()
 
@@ -411,11 +468,35 @@ plt.tight_layout()
 plt.show()
 
 #%% heatmap avg
+pairs_df_all=pd.DataFrame(conf_ints,columns=['A','B','mean_diff','dof', 'alpha', 'SE', 't_ref','t_stat', 'p_val', 'lower_bound', 'upper_bound'])
+pairs_df_all.loc[pairs_df_all.mean_diff<0,['mean_diff','A','B']] = pairs_df_all.loc[pairs_df_all.mean_diff<0,['mean_diff','B','A']]
+pairs_df_all.loc[pairs_df_all.mean_diff<0,'mean_diff'] = -pairs_df_all.loc[pairs_df_all.mean_diff<0,'mean_diff']
 
-df=pd.DataFrame(conf_ints, columns=['A','B','UP','DOWN'])
-df['avg']=df['UP']/2+df['DOWN']/2
-heatmap_data = df.pivot(index='A', columns='B', values='avg')
-ax = sns.heatmap(heatmap_data)
+
+df = pairs_df_all[['A','B','mean_diff']]
+new = []
+for i in range(len(df)):
+    A,B,diff=df.iloc[i][['A','B','mean_diff']].values
+    if len(df.loc[(df.A==B) & (df.B==A)])==0:
+        data = {'A': B, 'B': A, 'mean_diff': -diff}
+        df = pd.concat([df,pd.DataFrame(data,columns=['A','B','mean_diff'],index=[0])])
+    if len(df.loc[(df.A==A) & (df.B==A)])==0:
+        data = {'A': A, 'B': A, 'mean_diff': 0}
+        df = pd.concat([df,pd.DataFrame(data,columns=['A','B','mean_diff'],index=[0])])
+
+
+zero = 'none CONWIP FIFO'
+data = {'A': zero, 'B': zero, 'mean_diff': 0}
+df = pd.concat([df,pd.DataFrame(data,columns=['A','B','mean_diff'],index=[0])])
+
+heatmap_data = df.pivot(index='A', columns='B', values='mean_diff')
+heatmap_data=heatmap_data.iloc[group_sort(heatmap_data.index)]
+heatmap_data=heatmap_data[heatmap_data.columns[group_sort(heatmap_data.columns)]]
+
+
+ax = sns.heatmap(heatmap_data,center=0,cmap='RdYlBu')
+plt.title('Heatmap for TH differences')
+
 
 
 
