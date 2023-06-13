@@ -383,7 +383,10 @@ def BN_detection(log_file,start,end):
     
     # Shifting BN 
     s=(data_interval[data_interval==-1].fillna(0).sum(axis=1)<-1)
-    data_interval.loc[s[s].index].replace(-1,-2,inplace=True)
+    
+    # LR edit:
+    data_interval.loc[s[s].index] = data_interval.loc[s[s].index] * 2
+    # data_interval.loc[s[s].index].replace(-1,-2,inplace=True)
 
     ' Step 5: Bottleneck percentages computation'
     
@@ -409,6 +412,9 @@ def BN_detection(log_file,start,end):
     col = []
     for i in range(1, BN_sole.shape[1]+1):
         col.append('M%s' %i)
+    
+    if BN_shifting.values.sum()>1:
+        print('shift')
 
     # BN_synthetic = pd.DataFrame(columns = col, index = ['Sole BN', 'Shifting BN', 'Tot BN'])
     BN_synthetic=pd.concat([BN_sole.sum(),BN_shifting.sum(),BN_sole.sum()+BN_shifting.sum()],axis=1).transpose()
@@ -417,7 +423,7 @@ def BN_detection(log_file,start,end):
     # Create bar chart
     BN_synthetic1 = BN_synthetic.copy(deep=True)
     BN_synthetic1 = BN_synthetic1.drop('Tot BN',axis=0)
-    # BN_synthetic1.transpose().plot(kind='bar', stacked=True)
+    BN_synthetic1.transpose().plot(kind='bar', stacked=True)
     BN_synthetic1.reset_index(inplace=True)
     BN_synthetic1 = BN_synthetic1.melt(id_vars='index', var_name='Resource', value_name='Time percentage')
     BN_synthetic1.rename(columns ={ 'index' : 'BN type'}, inplace = True)
@@ -759,54 +765,56 @@ for BN in ['none','future','present']:
             with open("performance_analysisBN2", "wb") as dill_file:
                 dill.dump(perf, dill_file)
     '''        
- # %% experiments
+# %% experiments
+ 
+if __name__ == 'main':
 
-import os
-filename = 'resBN_pers4'
-
-
-if filename in os.listdir():
-    with open(filename, "rb") as dill_file:
-        results = dill.load(dill_file)
-else:
-    results=list()
+    import os
+    filename = 'resBN_pers6'
     
-
     
-for BN in ['none','present','future']:
-    for OR in ['CONWIP','DBR']:
-        for DR in ['FIFO','SPT','LPT']:
-            if BN != 'future':
-                continue
-            if DR == 'FIFO' and OR == 'CONWIP' and BN != 'none':
-                continue
-            for seedValue in range(1,151):
-                print(seedValue,DR,OR,BN)
-                seed(seedValue)
-                lab=Lab(DR,OR,BN)
-                lab.gate.Store.items = batchCreate(seedValue,numJobs=400) #batchedExp
-                if BN == 'future':
-                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 60, 60, 180 #era 60,60,180 per pers3
-                elif BN=='none':
-                    lab.gate.freq, lab.gate.length, lab.gate.BN = 60,3600, 'back'
-                    if DR == 'LPT':
-                        lab.gate.BN = 'back'
-                elif BN=='present':
-                    lab.gate.lookback, lab.gate.freq, lab.gate.length = 120, 60, 0
-                lab.run(1*60*60)
+    if filename in os.listdir():
+        with open(filename, "rb") as dill_file:
+            results = dill.load(dill_file)
+    else:
+        results=list()
+        
+    
+        
+    for BN in ['none','present','future']:
+        for OR in ['CONWIP','DBR']:
+            for DR in ['FIFO','SPT','LPT']:
+                if BN != 'future':
+                    continue
+                if DR == 'FIFO' and OR == 'CONWIP' and BN != 'none':
+                    continue
+                for seedValue in range(1,151):
+                    print(seedValue,DR,OR,BN)
+                    seed(seedValue)
+                    lab=Lab(DR,OR,BN)
+                    lab.gate.Store.items = batchCreate(seedValue,numJobs=400) #batchedExp
+                    if BN == 'future':
+                        lab.gate.lookback, lab.gate.freq, lab.gate.length = 60, 60, 180 #era 60,60,180 per pers3
+                    elif BN=='none':
+                        lab.gate.freq, lab.gate.length, lab.gate.BN = 60,3600, 'back'
+                        if DR == 'LPT':
+                            lab.gate.BN = 'back'
+                    elif BN=='present':
+                        lab.gate.lookback, lab.gate.freq, lab.gate.length = 120, 60, 0
+                    lab.run(1*60*60)
+                    
+                    state_log=pd.DataFrame(lab.env.state_log)
+                    state_log=state_log.rename(columns={1:'Resource',3:'State',4:'timeIn',5:'timeOut'})
+                    
+                    
+                    newR = Result(lab.env.now,BN,OR,DR,len(lab.terminator.items),lab.terminator.register,lab.gate.WIPlist,lab.gate.BNlist,pd.DataFrame(lab.env.state_log)[[1,3,4,5]])
+                    newR.seed=seedValue
+                    newR.Cmax = lab.env.log.loc[lab.env.log.ResourceName=='manual','timeIn'].max()
+                    results.append(newR)
+        with open(filename, "wb") as dill_file:
+            dill.dump(results, dill_file)
                 
-                state_log=pd.DataFrame(lab.env.state_log)
-                state_log=state_log.rename(columns={1:'Resource',3:'State',4:'timeIn',5:'timeOut'})
-                
-                
-                newR = Result(lab.env.now,BN,OR,DR,len(lab.terminator.items),lab.terminator.register,lab.gate.WIPlist,lab.gate.BNlist,pd.DataFrame(lab.env.state_log)[[1,3,4,5]])
-                newR.seed=seedValue
-                newR.Cmax = lab.env.log.loc[lab.env.log.ResourceName=='manual','timeIn'].max()
-                results.append(newR)
-    with open(filename, "wb") as dill_file:
-        dill.dump(results, dill_file)
-            
-raise(BaseException())       
+    raise(BaseException())       
 
 
 #pers2
@@ -829,7 +837,7 @@ raise(BaseException())
 # none ok
     
 # %%  read data
-
+'''
 import dill
 import pandas as pd
 
@@ -930,4 +938,4 @@ plt.xticks(rotation=45)
 plt.tight_layout()
 plt.show()
 
- 
+'''
