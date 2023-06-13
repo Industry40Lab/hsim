@@ -5,6 +5,9 @@ Created on Thu Jun  1 10:16:31 2023
 @author: Lorenzo
 """
 
+from sys import path
+path.append('../')
+
 import dill
 import pandas as pd
 import seaborn as sns

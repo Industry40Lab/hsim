@@ -4,6 +4,8 @@ Created on Sun Apr 30 18:08:34 2023
 
 @author: Lorenzo
 """
+from sys import path
+path.append('../')
 
 from pymulate import Environment, Server, Generator, Terminator, StoreSelect, RouterNew
 import numpy as np

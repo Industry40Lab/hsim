@@ -4,6 +4,10 @@ Created on Thu Jan 26 11:49:46 2023
 
 @author: Lorenzo
 """
+
+from sys import path
+path.append('../')
+
 from pymulate import Environment
 from pymulate import Generator, Queue, Server, Terminator
 

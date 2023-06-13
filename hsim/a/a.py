@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from sys import path
+path.append('../')
 
 import pymulate as pym
 from chfsm import CHFSM, Transition, State
