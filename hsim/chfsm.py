@@ -235,8 +235,8 @@ class State(Process):
         self.sm = parent_sm
     def start(self):
         logging.debug(f"Entering {self._name}")
-        self._last_state_record = [self.sm,self.sm._name,self,self._name,self.env.now,None]
-        # self._last_state_record = [self.sm,self.sm._name,self,self._name,self.env.now,None,*trackObj(self.sm)]
+        # self._last_state_record = [self.sm,self.sm._name,self,self._name,self.env.now,None]
+        self._last_state_record = [self.sm,self.sm._name,self,self._name,*trackObj(self.sm),self.env.now,None]
         self.env.state_log.append(self._last_state_record)
         for callback in self._entry_callbacks:
             callback()
