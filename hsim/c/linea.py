@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 
 from sys import path
-path.append('../')
+path.append('C://Users//Lorenzo//GitHub//hsim')
 
-import pymulate as pym
-from chfsm import CHFSM, Transition, State
+import hsim.pymulate as pym
+from hsim.chfsm import CHFSM, Transition, State
 import pandas as pd
 import numpy as np
 from simpy import AnyOf
 from copy import deepcopy
 from random import choices,seed,normalvariate, expovariate
-from stores import Store, Box       
+from hsim.stores import Store, Box       
 from scipy import stats
 import dill
-import utils
+import hsim.utils as utils
 
 class Generator(pym.Generator):
     def __init__(self,env,name=None,serviceTime=2,serviceTimeFunction=None):
@@ -182,118 +182,118 @@ class Conveyor(pym.Server):
 
 
 # %%
-
-env = pym.Environment()
-g = Generator(env)
-
-# self.conv1 = Conveyor(self.env,capacity=3)
-conv1S = Conveyor(env)
-conv1Q = pym.Queue(env,capacity=2)
-front = LabServer(env,'front')
-# conv2 = Conveyor(env,capacity=3)
-conv2S = Conveyor(env)
-conv2Q = pym.Queue(env,capacity=2)
-drill = LabServer(env,'drill')
-# conv3 = Conveyor(env,capacity=3)
-conv3S = Conveyor(env)
-conv3Q = pym.Queue(env,capacity=2)
-
-switch1 = RobotSwitch1(env)
-# convRobot1 = Conveyor(env,'convRobot1',capacity=3)
-convRobot1S = Conveyor(env,name='convRobot1S')
-convRobot1Q = pym.Queue(env,capacity=2)
-
-# bridge = Conveyor(env,capacity=3)
-bridgeS = Conveyor(env)
-bridgeQ = pym.Queue(env,capacity=2)
-
-# convRobot2 = Conveyor(env,'convRobot2',capacity=3)
-convRobot2S = Conveyor(env)
-convRobot2Q = pym.Queue(env,capacity=2)
-
-switch2 = RobotSwitch2(env)
-# convRobot3 = Conveyor(env,capacity=3)
-convRobot3S = Conveyor(env)
-convRobot3Q = pym.Queue(env,capacity=2)
-
-robot = LabServer(env,'robot')
-# convRobotOut = Conveyor(env,capacity=3)
-convRobotOutS = Conveyor(env)
-convRobotOutQ = pym.Queue(env,capacity=2)
-# conv5 = Conveyor(env,capacity=3)
-conv5S = Conveyor(env)
-conv5Q = pym.Queue(env,capacity=2)
-
-camera = LabServer(env,'camera')
-# conv6 = Conveyor(env,capacity=3)
-conv6S = Conveyor(env)
-conv6Q = pym.Queue(env,capacity=2)
-
-back = LabServer(env,'back')
-# conv7 = Conveyor(env,capacity=3)
-conv7S = Conveyor(env)
-conv7Q = pym.Queue(env,capacity=2)
-
-press = LabServer(env,'press')
-# conv8 = Conveyor(env,capacity=3)
-conv8S = Conveyor(env)
-conv8Q = pym.Queue(env,capacity=2)
-
-manual = LabServer(env,'manual')
-outSwitch = CloseOutSwitch(env)
-terminator = Terminator(env)
-
-g.Next = conv1S
-
-# conv1.Next = front
-conv1S.Next = conv1Q
-conv1Q.Next = front
-
-front.Next = conv2S
-# conv2.Next = drill
-conv2S.Next = conv2Q
-conv2Q.Next = drill
-drill.Next = conv3S
-conv3S.Next = conv3Q
-conv3Q.Next = switch1
-# conv3.Next = switch1
-
-switch1.Next = [convRobot1S,bridgeS]
-convRobot1S.Next = convRobot1Q
-convRobot1Q.Next = switch2
-
-switch2.Next = [convRobot2S,convRobot3S]
-convRobot2S.Next = convRobot2Q
-convRobot2Q.Next = robot
-
-convRobot3S.Next = convRobot3Q
-convRobot3Q.Next = convRobotOutS
-
-robot.Next = convRobotOutS
-convRobotOutS.Next = convRobotOutQ
-
-convRobotOutQ.Next = conv5S
-bridgeS.Next = bridgeQ
-bridgeQ.Next = conv5S
-
-conv5S.Next = conv5Q
-conv5Q.Next = camera
-
-camera.Next = conv6S
-conv6S.Next = conv6Q
-conv6Q.Next = back
-
-back.Next = conv7S
-conv7S.Next = conv7Q
-conv7Q.Next = press
-
-press.Next = conv8S
-conv8S.Next = conv8Q
-conv8Q.Next = manual
-
-manual.Next = outSwitch
-outSwitch.Next = [conv1S,terminator]
-
-terminator.generator = g
-
-env.run(1800)
+if __name__ == '__main__':
+    env = pym.Environment()
+    g = Generator(env)
+    
+    # self.conv1 = Conveyor(self.env,capacity=3)
+    conv1S = Conveyor(env)
+    conv1Q = pym.Queue(env,capacity=2)
+    front = LabServer(env,'front')
+    # conv2 = Conveyor(env,capacity=3)
+    conv2S = Conveyor(env)
+    conv2Q = pym.Queue(env,capacity=2)
+    drill = LabServer(env,'drill')
+    # conv3 = Conveyor(env,capacity=3)
+    conv3S = Conveyor(env)
+    conv3Q = pym.Queue(env,capacity=2)
+    
+    switch1 = RobotSwitch1(env)
+    # convRobot1 = Conveyor(env,'convRobot1',capacity=3)
+    convRobot1S = Conveyor(env,name='convRobot1S')
+    convRobot1Q = pym.Queue(env,capacity=2)
+    
+    # bridge = Conveyor(env,capacity=3)
+    bridgeS = Conveyor(env)
+    bridgeQ = pym.Queue(env,capacity=2)
+    
+    # convRobot2 = Conveyor(env,'convRobot2',capacity=3)
+    convRobot2S = Conveyor(env)
+    convRobot2Q = pym.Queue(env,capacity=2)
+    
+    switch2 = RobotSwitch2(env)
+    # convRobot3 = Conveyor(env,capacity=3)
+    convRobot3S = Conveyor(env)
+    convRobot3Q = pym.Queue(env,capacity=2)
+    
+    robot = LabServer(env,'robot')
+    # convRobotOut = Conveyor(env,capacity=3)
+    convRobotOutS = Conveyor(env)
+    convRobotOutQ = pym.Queue(env,capacity=2)
+    # conv5 = Conveyor(env,capacity=3)
+    conv5S = Conveyor(env)
+    conv5Q = pym.Queue(env,capacity=2)
+    
+    camera = LabServer(env,'camera')
+    # conv6 = Conveyor(env,capacity=3)
+    conv6S = Conveyor(env)
+    conv6Q = pym.Queue(env,capacity=2)
+    
+    back = LabServer(env,'back')
+    # conv7 = Conveyor(env,capacity=3)
+    conv7S = Conveyor(env)
+    conv7Q = pym.Queue(env,capacity=2)
+    
+    press = LabServer(env,'press')
+    # conv8 = Conveyor(env,capacity=3)
+    conv8S = Conveyor(env)
+    conv8Q = pym.Queue(env,capacity=2)
+    
+    manual = LabServer(env,'manual')
+    outSwitch = CloseOutSwitch(env)
+    terminator = Terminator(env)
+    
+    g.Next = conv1S
+    
+    # conv1.Next = front
+    conv1S.Next = conv1Q
+    conv1Q.Next = front
+    
+    front.Next = conv2S
+    # conv2.Next = drill
+    conv2S.Next = conv2Q
+    conv2Q.Next = drill
+    drill.Next = conv3S
+    conv3S.Next = conv3Q
+    conv3Q.Next = switch1
+    # conv3.Next = switch1
+    
+    switch1.Next = [convRobot1S,bridgeS]
+    convRobot1S.Next = convRobot1Q
+    convRobot1Q.Next = switch2
+    
+    switch2.Next = [convRobot2S,convRobot3S]
+    convRobot2S.Next = convRobot2Q
+    convRobot2Q.Next = robot
+    
+    convRobot3S.Next = convRobot3Q
+    convRobot3Q.Next = convRobotOutS
+    
+    robot.Next = convRobotOutS
+    convRobotOutS.Next = convRobotOutQ
+    
+    convRobotOutQ.Next = conv5S
+    bridgeS.Next = bridgeQ
+    bridgeQ.Next = conv5S
+    
+    conv5S.Next = conv5Q
+    conv5Q.Next = camera
+    
+    camera.Next = conv6S
+    conv6S.Next = conv6Q
+    conv6Q.Next = back
+    
+    back.Next = conv7S
+    conv7S.Next = conv7Q
+    conv7Q.Next = press
+    
+    press.Next = conv8S
+    conv8S.Next = conv8Q
+    conv8Q.Next = manual
+    
+    manual.Next = outSwitch
+    outSwitch.Next = [conv1S,terminator]
+    
+    terminator.generator = g
+    
+    env.run(1800)

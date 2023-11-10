@@ -9,9 +9,9 @@ from typing import List, Any, Optional, Callable
 import logging 
 from simpy import Process, Interrupt, Event
 from simpy.events import PENDING, Initialize, Interruption
-from core import Environment, dotdict, Interruption, method_lambda
+from .core import Environment, dotdict, Interruption, method_lambda
 import types
-from stores import Store, Subscription
+from .stores import Store, Subscription
 from collections import OrderedDict
 import warnings
 import pandas as pd

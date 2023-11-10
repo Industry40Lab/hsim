@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from chfsm import CHFSM, State, Transition, Pseudostate
-from stores import Store, Box
-from core import Environment, Event
+from .chfsm import CHFSM, State, Transition, Pseudostate
+from .stores import Store, Box
+from .core import Environment, Event
 from simpy import AllOf, AnyOf
 import types
 import numpy as np
