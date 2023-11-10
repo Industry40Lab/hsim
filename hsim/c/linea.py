@@ -3,29 +3,17 @@
 from sys import path
 path.append('C://Users//Lorenzo//GitHub//hsim')
 
-<<<<<<< Updated upstream
 import hsim.pymulate as pym
 from hsim.chfsm import CHFSM, Transition, State
-=======
-import hsim.lib.pymulate as pym
-from hsim.lib.chfsm import CHFSM, Transition, State
->>>>>>> Stashed changes
 import pandas as pd
 import numpy as np
 from simpy import AnyOf
 from copy import deepcopy
 from random import choices,seed,normalvariate, expovariate
-<<<<<<< Updated upstream
 from hsim.stores import Store, Box       
 from scipy import stats
 import dill
 import hsim.utils as utils
-=======
-from hsim.lib.stores import Store, Box       
-from scipy import stats
-import dill
-import hsim.lib.utils as utils
->>>>>>> Stashed changes
 
 class Generator(pym.Generator):
     def __init__(self,env,name=None,serviceTime=2,serviceTimeFunction=None):
