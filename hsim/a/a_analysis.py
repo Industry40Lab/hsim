@@ -15,8 +15,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-filename = 'resBN_pers5_100'
+filename = 'resBN_pers6'
 # filename = 'resBN_batched_prove_newLPT'
+
+filename = 'C:\\Users\\Lorenzo\\Dropbox (DIG)\\Tesisti\\Giovanni Zanardo\\Risultati computazionali\\resBN_pers5_100'
 
 with open(filename, 'rb') as file:
     perf = dill.load(file)
@@ -40,7 +42,7 @@ data['DR'] = [p.DR for p in perf]
 data['seed'] = [p.seed for p in perf]
 
 
-data['WIP'] = [p.avgWIP for p in perf]
+# data['WIP'] = [p.avgWIP for p in perf]
 # exps['prod'] = [p.production for p in perf]
 data['Average throughput'] = [p.productivity.values[1][0] for p in perf]
 data['prodCI'] = [p.productivity.values[1][0] for p in perf]
@@ -75,11 +77,17 @@ import matplotlib.pyplot as plt
 # with columns for 'BN', 'OR', 'DR', and 'Average throughput'
 
 # Creating separate pairplots for each combination of DR and OR
+# g = sns.FacetGrid(data=data, col='DR', row='OR', hue='BN', palette='Set1')
+# g.map(sns.kdeplot, 'Average throughput', shade=True, alpha=0.5)
+data=data.rename(columns={'Average throughput':'Average throughput [parts/hour]'})
 g = sns.FacetGrid(data=data, col='DR', row='OR', hue='BN', palette='Set1')
-g.map(sns.kdeplot, 'Average throughput', shade=True, alpha=0.5)
+g.map(sns.kdeplot, 'Average throughput [parts/hour]', shade=True, alpha=0.5)
+data=data.rename(columns={'Average throughput [parts/hour]':'Average throughput'})
+
 # g.map(sns.scatterplot, 'Average throughput', 'Average throughput')
 g.add_legend(title='BN')
-plt.show()
+g.fig.savefig('Facetplot.pdf', format="pdf", bbox_inches="tight",dpi=900)
+
 
 
 # %% cat
@@ -92,13 +100,20 @@ import matplotlib.pyplot as plt
 
 # Creating a boxplot to compare all three factors
 plt.figure(figsize=(12, 8))
-ax = sns.catplot(data=data, x='DR', y='Average throughput', hue='OR', col='BN', kind='box', palette='Set1', height=4, aspect=0.8)
+# ax = sns.catplot(data=data, x='DR', y='Average throughput', hue='OR', col='BN', kind='box', palette='Set1', height=4, aspect=0.8)
+data=data.rename(columns={'Average throughput':'Average throughput [parts/hour]'})
+ax = sns.catplot(data=data, x='DR', y='Average throughput [parts/hour]', hue='OR', col='BN', kind='box', palette='Set1', height=4, aspect=0.8)
+data=data.rename(columns={'Average throughput [parts/hour]':'Average throughput'})
+
+
 sns.move_legend(ax, "center right", bbox_to_anchor=(1, 0.925))
 plt.suptitle('Average Throughput by BN, OR, and DR', y=1.05)
 plt.xlabel('BN')
 plt.ylabel('Average Throughput')
 plt.tight_layout()
 plt.show()
+ax.fig.savefig('Catplot.pdf', format="pdf", bbox_inches="tight",dpi=900)
+
 
 # %% descriptive table
 from scipy import stats
@@ -298,6 +313,7 @@ pairs_df['Group 1']=[i[0] for i in pairs_df.A.str.split()]
 pairs_df['Group 2']=[i[0] for i in pairs_df.B.str.split()]
 
 # %% inutile
+'''
 pairs_df=pd.DataFrame(reduced_pairs,columns=['A','B','d','u'])
 
 merged_df = pd.merge(pairwise_reduced, pairs_df, on=['A', 'B'], how='left')
@@ -332,12 +348,12 @@ plt.xlabel('Seed')
 plt.ylabel('Group')
 plt.show()
 
-
-# %% plot confidence intervals
+'''
+# %% plot confidence intervals - inutile
+'''
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Assuming you have a list of tuples called 'conf_ints'
 
 # Extract the group names and confidence interval values
 groups = [pair[0] + ' vs ' + pair[1] for pair in conf_ints]
@@ -361,7 +377,7 @@ plt.title('Pairwise Comparisons with Confidence Intervals')
 # Show the plot
 plt.show()
 
-
+'''
 # %% plot paired confidence intervals
 import matplotlib.pyplot as plt
 import numpy as np
@@ -372,7 +388,7 @@ import seaborn as sns
 
 # Extract the group names and confidence interval values
 # groups = [pair[0] + ' vs ' + pair[1] for pair in reduced_pairs]
-groups = [el1+' vs '+el2 for el1,el2 in zip(pairs_df['A'],pairs_df['B'])]
+groups = [el1+' - '+el2 for el1,el2 in zip(pairs_df['A'],pairs_df['B'])]
 groups =list(reversed(groups))
 # ci_lower = [pair[-2] for pair in reduced_pairs]
 ci_lower = pairs_df['lower_bound'].values
@@ -396,7 +412,7 @@ cmap = plt.cm.RdYlBu
 line_norm = plt.Normalize(min(line_values), max(line_values))
 
 # Plot the confidence intervals using horizontal bars
-plt.figure(figsize=(10, len(groups)*0.8))
+plt.figure(figsize=(5, len(groups)*0.4))
 
 # Plot the bars for the confidence intervals
 for i in range(len(groups)):
@@ -411,9 +427,10 @@ for i, val in enumerate(line_values):
 plt.axvline(x=0, color='black', linestyle='--')
 
 # Add labels and title
-plt.xlabel('Mean Difference for TH')
+plt.xlabel('Mean Difference for TH [parts/hour]')
 plt.ylabel('Pairwise Comparisons')
 plt.title('Pairwise Comparisons with Confidence Intervals')
+
 
 # Set the y-axis ticks and tick labels
 plt.yticks(x, groups)
@@ -431,13 +448,17 @@ plt.gca().spines['bottom'].set_visible(False)
 
 # Remove the y-axis ticks and labels
 plt.gca().yaxis.set_ticks_position('none')
+ax=plt.gca().figure.savefig('Mean Difference for TH.pdf', format="pdf", bbox_inches="tight",dpi=900)
 
 # plt.tight_layout()
 # plt.ylim(x[0]-0.5, x[-1]+0.5)
 # Show the plot
 plt.show()
 
-# %% heatmap CLES
+
+# %% heatmap CLES - no
+
+'''
 
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -469,6 +490,7 @@ plt.tight_layout()
 
 # Show the heatmap
 plt.show()
+'''
 
 #%% heatmap avg
 pairs_df_all=pd.DataFrame(conf_ints,columns=['A','B','mean_diff','dof', 'alpha', 'SE', 't_ref','t_stat', 'p_val', 'lower_bound', 'upper_bound'])
@@ -498,7 +520,8 @@ heatmap_data=heatmap_data[heatmap_data.columns[group_sort(heatmap_data.columns)]
 
 
 ax = sns.heatmap(heatmap_data,center=0,cmap='RdYlBu')
-plt.title('Heatmap for TH differences')
+plt.title('Heatmap for TH differences [parts/hour]')
+ax.figure.savefig('Heatmap for TH differences.pdf', format="pdf", bbox_inches="tight",dpi=900)
 
 
 

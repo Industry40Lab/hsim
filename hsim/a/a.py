@@ -100,6 +100,7 @@ class Gate(CHFSM):
         self.monitored_DBR = list()
         self.monitored_CONWIP = None
         self.initialWIP = 12
+        self.targetWIP = 12
         self.request = None
         self.message = env.event()
         self.initial_timeout = env.event()
@@ -146,11 +147,11 @@ class Gate(CHFSM):
         if self.message.value == 'terminator':
             self.fw()
     def DBR(self):
-        if self.WIP > 14:
+        if self.WIP > self.targetWIP + 2:
             return
         elif self.BN == self.message.value:
             self.fw()
-        elif self.WIP < 12:
+        elif self.WIP < self.targetWIP - 2:
             self.fw()
     def FIFO(self):
         pass
@@ -197,8 +198,11 @@ class Gate(CHFSM):
                 self.BNlist.append([self.env.now,BN])
                 # print('BN at %f is %s'%(self.env.now,BN))
                 if self.method == 'present': #run BN
-                    BN, stats = BN_detection(log_file,self.env.now-self.lookback,self.env.now)
-                    self.sm.BN = BN
+                    try:
+                        BN, stats = BN_detection(log_file,self.env.now-self.lookback,self.env.now)
+                        self.sm.BN = BN
+                    except:
+                        print('err')
                 elif self.method == 'future':
                     dt = deepcopy(self.lab)
                     dt.g.Next = Store(dt.env)
@@ -307,16 +311,21 @@ def newDT():
     lab = globals()['lab']
     deepcopy(lab)
 
-def BN_detection(log_file,start,end):
+def BN_detection(log,start,end):
     ' Step 1: Preparation of Raw Data'
       
     #LR
-    log_file=pd.DataFrame(log_file)
-    log_file = log_file.loc[(log_file[4]>=start) & (log_file[4]<=end)]
+    log_file=pd.DataFrame(log)
+    # log_file = log_file.loc[(log_file[4]>=start) & (log_file[4]<=end)]
+    log_file = log_file.loc[(log_file[6]>=start) & (log_file[6]<=end)]
+    # log_file[[4,5]].drop(inplace=True)
+    log_file.drop(columns=[4,5],inplace=True)
     
-    log_file=log_file[[1,3,4,5]]
+    # log_file=log_file[[1,3,4,5]]
+    log_file=log_file[[1,3,6,7]]
     log_file=log_file.loc[log_file[1].isin(['front','drill','robot','camera','back','press','manual'])]
-    log_file=log_file.rename(columns={1:'resource',3:'activity',4:'timeIn',5:'timeOut'})
+    # log_file=log_file.rename(columns={1:'resource',3:'activity',4:'timeIn',5:'timeOut'})
+    log_file=log_file.rename(columns={1:'resource',3:'activity',6:'timeIn',7:'timeOut'})
     log_file.loc[log_file.activity=='Working','activity']='Work'
     log_file.loc[log_file.activity=='Blocking','activity']='Block'
     log_file.loc[log_file.activity=='Starving','activity']='Starve'
@@ -416,8 +425,27 @@ def BN_detection(log_file,start,end):
         col.append('M%s' %i)
     
     if BN_shifting.values.sum()>1:
-        print('shift')
-
+        if BN_shifting.values.sum()/BN_sole.values.sum()>0.1:
+            BNs=(BN_sole>0).astype(int)
+            BNshift=(BN_shifting>0).astype(int).apply(lambda x: -x)
+            BNn=BNs+BNshift
+            BNn['start']=BNn.index.values
+            BNn['end']=BNn.index.values[1:].tolist()+[0]
+            BNn = BNn.drop(BNn.index[-1])
+            melted_df = BNn.melt(id_vars=['start', 'end'], value_vars=['back', 'camera', 'drill', 'front', 'manual', 'press'],  var_name='resource', value_name='value')
+            melted_df.value=melted_df.value.replace({-1:'Shifting BN',1:'Sole BN',0:None})
+            import plotly.express as px
+            try:
+                fig=px.timeline(melted_df,x_start='start',x_end='end',y='resource',color='value')
+                for i in range(100):
+                    try:
+                        with open('fig'+str(i)+'.pdf') as f:
+                            pass
+                    except:
+                        fig.write_image('fig'+str(i)+'.pdf')
+                        break
+            except Exception as inst:
+                print(inst)
     # BN_synthetic = pd.DataFrame(columns = col, index = ['Sole BN', 'Shifting BN', 'Tot BN'])
     BN_synthetic=pd.concat([BN_sole.sum(),BN_shifting.sum(),BN_sole.sum()+BN_shifting.sum()],axis=1).transpose()
     BN_synthetic.index=['Sole BN', 'Shifting BN', 'Tot BN']
@@ -425,7 +453,17 @@ def BN_detection(log_file,start,end):
     # Create bar chart
     BN_synthetic1 = BN_synthetic.copy(deep=True)
     BN_synthetic1 = BN_synthetic1.drop('Tot BN',axis=0)
-    BN_synthetic1.transpose().plot(kind='bar', stacked=True)
+    if BN_shifting.values.sum()>1:
+        if BN_shifting.values.sum()/BN_sole.values.sum()>0.1:
+            import matplotlib.pyplot as plt
+            plt.figure(figsize=(10, 6))
+            BN_synthetic1.transpose().plot(kind='bar', stacked=True)
+            plt.xlabel('Resource')
+            plt.ylabel('Time [seconds]')
+            plt.title('BN analysis results')
+            plt.legend(title='BN type')
+            plt.grid(True)
+            plt.savefig('figg'+str(i)+'.pdf', format="pdf", bbox_inches="tight",dpi=900)
     BN_synthetic1.reset_index(inplace=True)
     BN_synthetic1 = BN_synthetic1.melt(id_vars='index', var_name='Resource', value_name='Time percentage')
     BN_synthetic1.rename(columns ={ 'index' : 'BN type'}, inplace = True)
@@ -766,10 +804,62 @@ for BN in ['none','future','present']:
                             perf.append(Result(lab.env.now,BN,OR,DR,len(lab.terminator.items),lab.terminator.register,lab.gate.WIPlist,lab.gate.BNlist,pd.DataFrame(lab.env.state_log)[[1,3,4,5]]))
             with open("performance_analysisBN2", "wb") as dill_file:
                 dill.dump(perf, dill_file)
-    '''        
+    '''     
+    
+# %%  exp WIP
+
+if True:
+    
+    res_list = list()
+    res = list()
+    
+    policy = 'DBR'
+    
+    for WIP in range(3,24):
+        for seedValue in range(1,21):
+            print(WIP,seedValue)
+            seed(seedValue)
+            lab=Lab('FIFO',policy,'none')
+            lab.gate.initialWIP = WIP
+            lab.gate.targetWIP = WIP
+            lab.gate.Store.items = batchCreate(seedValue,numJobs=400) #batchedExp
+            lab.run(1*60*60)
+            newR = Result(lab.env.now,'none',policy,'FIFO',len(lab.terminator.items),lab.terminator.register,lab.gate.WIPlist,lab.gate.BNlist,pd.DataFrame(lab.env.state_log)[[1,3,4,5]])
+            newR.seed=seedValue
+            newR.Cmax = lab.env.log.loc[lab.env.log.ResourceName=='manual','timeIn'].max()
+    
+            TH = newR.productivity.values[1][0]
+            res = [WIP,seedValue,TH]
+            res_list.append(res)
+    result=pd.DataFrame(res_list,columns=["WIP","seed","TH"])
+
+if False:
+    result=pd.read_excel('setWIP_DBR.xlsx')
+    
+    import seaborn as sns
+    sns.set_style("whitegrid")
+    plot = sns.lineplot(x="WIP [parts]",y="TH [parts/hour]",data=result)
+    fig = plot.get_figure()
+    fig.savefig("WIP.pdf") 
+
+if False:
+    result=pd.read_excel('DBR_optimalWIP.xlsx')
+    import seaborn as sns
+    sns.set_style("whitegrid")
+    plot = sns.lineplot(x="WIP [parts]",y="TH [parts/hour]",data=result)
+    fig = plot.get_figure()
+    fig.savefig("WIP2.pdf") 
+
+# %% get view
+
+lab=Lab('FIFO','CONWIP','present')
+lab.run(3600)
+
 # %% experiments
+
+0/0
  
-if __name__ == 'main':
+if __name__ == '__main__':
 
     import os
     filename = 'resBN_pers6'
@@ -786,7 +876,7 @@ if __name__ == 'main':
     for BN in ['none','present','future']:
         for OR in ['CONWIP','DBR']:
             for DR in ['FIFO','SPT','LPT']:
-                if BN != 'future':
+                if BN == 'future':
                     continue
                 if DR == 'FIFO' and OR == 'CONWIP' and BN != 'none':
                     continue
