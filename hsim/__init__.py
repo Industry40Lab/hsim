@@ -4,4 +4,4 @@
 # # from .chfsm import hfsm
 # from .chfsm import *
 # from .pymulate import *
-# from .c import *
+import lib
