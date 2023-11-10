@@ -615,6 +615,7 @@ class MixedVariableProblemMulti(ElementwiseProblem):
             Tardiness += max(0,item.completionTime - item.dueDate)
         Tardiness = Tardiness/1000
         out["F"] = [Tardiness, TH]
+        print(out['F'])
 
 class Problem(ElementwiseProblem):
     def __init__(self,env,time=3600,steps=1,N=5,**kwargs):
@@ -711,7 +712,6 @@ def optim12(env,time,steps,N):
 # s2.R0.Queue._trigger_put(s2.env.event())
 
 
-#deepcopy run non va prova a usare una classe
 Tardiness1 = list()
 TH1 = list()
 for exp in range(10):
