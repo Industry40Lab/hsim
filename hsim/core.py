@@ -55,7 +55,7 @@ class Environment(Environment):
         return th
     @property
     def log(self):
-        return pd.DataFrame(self.state_log,columns=['Resource','ResourceName','State','StateName','timeIn','timeOut'])
+        return pd.DataFrame(self.state_log,columns=['Resource','ResourceName','State','StateName','entity','store','timeIn','timeOut'])
     #dangerous
     from warnings import warn
     warn('Bypassing "None" callbakcs')
