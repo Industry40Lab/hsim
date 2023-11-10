@@ -11,7 +11,7 @@ setuptools.setup(
     description="hsim",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/lorenzo-ragazzini/hsim",
+    url="https://github.com/lorenzo-ragazzini/hsim@full",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",

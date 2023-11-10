@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from sys import path
+path.append('../')
 
 from pymulate import Transition, State, Environment, ServerWithBuffer, Server, Queue, Terminator, Store
 import pandas as pd

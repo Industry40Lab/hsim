@@ -24,6 +24,58 @@ def normal_dist_bounded(val):
             return y
     return mean
     # return y
+    
+def scores(path,throughput):
+    from datetime import datetime
+    folder,filename=path.rsplit('/',1)
+    player = pd.read_csv(folder+'/currentSimulation.csv',header=None)[0][0]
+    new = pd.read_excel(path,sheet_name='Main',header=None,index_col=0)[1:].transpose().reset_index(drop=True)
+    new['Productivity'] = throughput
+    new.insert(0,'Time',datetime.now())
+    new.insert(0,'Name',player)
+    
+    resFolder = folder+'/results'
+    try:
+        old = pd.read_csv(resFolder+'/results.csv',index_col=0)
+        new = pd.concat([old,new]).reset_index(drop=True)
+    except:
+        pass
+    finally:
+        new.to_csv(resFolder+'/results.csv')
+    
+    html = generate_html(new)
+    open(folder+"/results/"+"results.html", "w").write(html)
+        
+    
+def generate_html(dataframe: pd.DataFrame):
+    # get the table HTML from the dataframe
+    table_html = dataframe.to_html(table_id="table")
+    # construct the complete HTML with jQuery Data tables
+    # You can disable paging or enable y scrolling on lines 20 and 21 respectively
+    html = f"""
+    <html>
+    <header>
+        <link href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css" rel="stylesheet">
+    </header>
+    <body>
+    {table_html}
+    <script src="https://code.jquery.com/jquery-3.6.0.slim.min.js" integrity="sha256-u7e5khyithlIdTpu22PHhENmPcRdFiHRjhAuHcs05RI=" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script>
+        $(document).ready( function () {{
+            $('#table').DataTable({{
+                // paging: false,    
+                // scrollY: 400,
+            }});
+        }});
+    </script>
+    </body>
+    </html>
+    """
+    # return the html
+    return html
+
+    
         
 class gen_motor():
     def __init__(self):
@@ -445,8 +497,9 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
             else:
                 print(elapsed)
     print('Done!')
-    env.state_log2 = pd.DataFrame(env.state_log,columns = env.state_log2.columns)
-        
+    # env.state_log2 = pd.DataFrame(env.state_log,columns = env.state_log2.columns)
+    env.state_log2 = env.log
+    
     prod_parts=prod_parts[round(len(prod_parts)/10):]
     print(prod_parts)
     th2=pd.Series(prod_parts).diff().dropna()
@@ -531,6 +584,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     states['index']=list_labels
     states.set_index('index',inplace=True)
     
+    scores(path,th[0])
     
     if folder == '':
         string = 'result.xlsx'
@@ -548,33 +602,15 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
         return result
 
 
-# if __name__ == '__main__':
-#     main('',app=False,pa=True)
+if __name__ == '__main__':
+    main('',app=False,pa=True)
     
-if __name__ == '__main__':
-    debug=main('',app=True,pa=True)
-
-'''
-import signal
-
-class timeout:
-    def __init__(self, seconds=1, error_message='Timeout'):
-        self.seconds = seconds
-        self.error_message = error_message
-
-    def handle_timeout(self, signum, frame):
-        raise TimeoutError(self.error_message)
-
-    def __enter__(self):
-        signal.signal(signal.SIGALRM, self.handle_timeout)
-        signal.alarm(self.seconds)
-
-    def __exit__(self, type, value, traceback):
-        signal.alarm(0)
+# if __name__ == '__main__':
+#     main('',app=True,pa=True)
 
 
-if __name__ == '__main__':
-    with timeout(seconds=30):
-        main('',app=False,pa=True)
 
-'''
+    
+    
+
+
