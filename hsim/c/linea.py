@@ -20,7 +20,7 @@ class Generator(pym.Generator):
         super().__init__(env,name,serviceTime,serviceTimeFunction)
         self.count = 0
         self.WIPcount = 0
-        self.WIP = 5
+        self.WIP = 4
         self.Go = env.event()
         self.Go.succeed()
     def addUp(self):
