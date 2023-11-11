@@ -34,7 +34,6 @@ class Generator(pym.Generator):
         self.count += 1
         # return Entity()
         e = Entity()
-        # e.serviceTime = dict()
         e.serviceTime['front'] = 10.52
         e.serviceTime['drill'] = choices([3.5, 8.45, 9.65, 11.94],weights=[5,30,30,35])[0]
         e.serviceTime['robot'] = choices([0, 81, 105, 108 ,120],weights=[91,3,2,2,2])[0]
@@ -88,7 +87,7 @@ class LabServer(pym.Server):
     F2W = Transition(Fail, pym.Server.Working, lambda self: self.env.timeout(self.var.TTR))
     T3=Transition(pym.Server.Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
 
-
+   
 class Terminator(pym.Terminator):
     def __init__(self, env, capacity=np.inf):
         super().__init__(env, capacity)
