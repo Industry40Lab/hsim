@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from .linea import LabServer
 import pandas as pd
+import os
 
 class LabServer(LabServer):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,failure_rate=0,TTR=60,source=None):
@@ -18,7 +19,7 @@ class LabServer(LabServer):
 
 class Stream:
     def __init__(self):
-        self.source = pd.read_csv('dataset.csv')
+        self.source = pd.read_csv(os.getcwd()+'\\dataset.csv')
     
 class DataAcquisition:
     def __init__(self):
