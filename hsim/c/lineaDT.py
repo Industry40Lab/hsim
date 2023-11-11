@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from linea import LabServer
+from .linea import LabServer
 import pandas as pd
 
 class LabServer(LabServer):
