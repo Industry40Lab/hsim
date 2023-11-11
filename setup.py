@@ -13,6 +13,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/lorenzo-ragazzini/hsim@full",
     packages=setuptools.find_namespace_packages()+setuptools.find_packages(),
+    package_data={'hsim': ['path/to/your/file.csv']},
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
