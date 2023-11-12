@@ -9,7 +9,7 @@ Created on Mon Jun  6 16:48:02 2022
 import pandas as pd
 
 def stats(env):
-    y = pd.DataFrame(env.state_log,columns=['Resource', 'ResourceID', 'State', 'StateID', 'timeIn', 'timeOut'])
+    y = pd.DataFrame(env.state_log,columns=['Resource', 'ResourceID', 'State', 'StateID', 'entity', 'store','timeIn', 'timeOut'])
     t = env.now
     y.loc[y.timeOut.values==None,'timeOut'] = t
     y=y.fillna(t) #test
@@ -38,6 +38,20 @@ def stats2(log):
         stats[res] = v
     return stats
 
+def stats3(log):
+    y = log
+    t = log['timeOut'].max()
+    y.loc[y.timeOut.values==None,'timeOut'] = t
+    y=y.fillna(t) #test
+    stats = dict()
+    for res in y.ResourceName.unique():
+        v = dict()
+        for state in y.loc[y.ResourceName==res,'StateName'].unique():
+            x=y.loc[(y.Resource==res) & (y.State==state),('timeIn','timeOut')]
+            x = sum(x.timeOut - x.timeIn)/t
+            v[state] = x
+        stats[res] = v
+    return stats
 
 def createGantt(df):
     import plotly.express as px
