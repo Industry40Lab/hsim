@@ -55,7 +55,7 @@ class Generator(pym.Generator):
 class Entity:
     def __init__(self,ID=None):
         self.ID = ID
-        self.ok = True
+        self.rework = True
         self.serviceTime = dict()
         self.systemTime = 0
     @property
@@ -64,6 +64,11 @@ class Entity:
             return True
         else:
             return False
+    @property
+    def ok(self):
+        return not (self.rework and self.require_robot)
+    def done(self):
+        self.rework = False
                 
 class LabServer(pym.Server):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None,failure_rate=0,TTR=60):
@@ -81,11 +86,12 @@ class LabServer(pym.Server):
         initial_state = True
         def _do(self):
             self.var.request = self.Store.subscribe()
+      
     T1 = None
     S2F = Transition(Starving, Fail, lambda self: self.var.request, condition=lambda self: np.random.uniform() < self.var.failure_rate)
     S2W = Transition(Starving, pym.Server.Working, lambda self: self.var.request)
     F2W = Transition(Fail, pym.Server.Working, lambda self: self.env.timeout(self.var.TTR))
-    T3=Transition(pym.Server.Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
+    T3=Transition(pym.Server.Blocking, Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: [self.var.request.confirm(), self.sm.var.entity.done() if self.sm._name=='robot' else None])
 
    
 class Terminator(pym.Terminator):
@@ -105,6 +111,7 @@ class Terminator(pym.Terminator):
         item.systemTime += self._env.now
         if not self.generator.Go.triggered:
             self.generator.Go.succeed()
+        self.generator.WIPcount -= 1
         return super().subscribe(item)
           
 class Router(pym.Router):
@@ -160,10 +167,10 @@ class RobotSwitch1(Router):
 class RobotSwitch2(Router):
     def condition_check(self, item, target):
         if len(target.Next)<2:
-            item.rework = False
+            # item.rework = False
             return True
         else:
-            item.rework = True
+            # item.rework = True
             return False    
 
 class CloseOutSwitch(Router):
@@ -176,7 +183,7 @@ class CloseOutSwitch(Router):
             return False
         
 class Conveyor(pym.Server):
-    def __init__(self,env,name=None,serviceTime=6):
+    def __init__(self,env,name=None,serviceTime=5):
         super().__init__(env,name,serviceTime)
 
 
