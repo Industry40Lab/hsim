@@ -42,7 +42,7 @@ class Generator(pym.Generator):
 class Entity:
     def __init__(self,ID=None):
         self.ID = ID
-        self.ok = True
+        self.rework = False
         self.serviceTime = dict()
         # self.pt['M3'] = 1
     @property
@@ -51,6 +51,11 @@ class Entity:
             return True
         else:
             return False
+    @property
+    def ok(self):
+        return not (self.rework and self.require_robot)
+    def done(self):
+        self.rework = False
                 
 class LabServer(pym.Server):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
@@ -66,6 +71,7 @@ class LabServer(pym.Server):
         if self.var.entity.ok:
             self.controller.Messages.put(self.name)
     T2=Transition(pym.Server.Working, pym.Server.Blocking, lambda self: self.env.timeout(self.calculateServiceTime(self.var.entity)), action = lambda self: self.completed())
+    T3=Transition(pym.Server.Blocking, pym.Server.Starving, lambda self: self.Next.put(self.var.entity),action=lambda self: [self.var.request.confirm(), self.sm.var.entity.done() if self.sm._name=='robot' else None])
 
 class Terminator(pym.Terminator):
     def __init__(self, env, capacity=np.inf):
@@ -273,6 +279,8 @@ class Router(RouterNew):
 '''
 class RobotSwitch1(Router):
     def condition_check(self, item, target):
+        if item.require_robot:
+            item.rework = True
         if item.require_robot and target.name == 'convRobot1S':
             return True
         elif not item.require_robot and target.name != 'convRobot1S':
