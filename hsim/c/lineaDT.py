@@ -20,7 +20,7 @@ class LabServer(LabServer):
 class Stream:
     def __init__(self):
         path = os.path.dirname(os.path.realpath(__file__))
-        self.source = pd.read_csv(path+'\\dataset.csv')
+        self.source = pd.read_csv(path+'/dataset.csv')
     
 class DataAcquisition:
     def __init__(self):
