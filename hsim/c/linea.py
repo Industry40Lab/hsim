@@ -55,7 +55,7 @@ class Generator(pym.Generator):
 class Entity:
     def __init__(self,ID=None):
         self.ID = ID
-        self.rework = True
+        self.rework = False
         self.serviceTime = dict()
         self.systemTime = 0
     @property
@@ -157,6 +157,8 @@ class Router(pym.Router):
 
 class RobotSwitch1(Router):
     def condition_check(self, item, target):
+        if item.require_robot:
+            item.rework = True
         if item.require_robot and target.name == 'convRobot1S':
             return True
         elif not item.require_robot and target.name != 'convRobot1S':
