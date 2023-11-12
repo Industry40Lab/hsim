@@ -300,6 +300,12 @@ class OutputSwitch(CHFSM):
         self.Queue.forward(entity)
     W2W._action = action
     
+class OutputSwitch2(OutputSwitch):
+    def put(self,item):
+        return self.Queue.put(item)
+    def subscribe(self,item):
+        return self.Queue.subscribe(item)
+    
 '''
 class OutputSwitchC(CHFSM):
     def build(self):
