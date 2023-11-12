@@ -31,7 +31,7 @@ def stats2(log):
     stats = dict()
     for res in y.Resource.unique():
         v = dict()
-        for state in y.loc[y.Resource==res,'State'].unique():
+        for state in y.loc[y.Resource==res,'StateName'].unique():
             x=y.loc[(y.Resource==res) & (y.State==state),('timeIn','timeOut')]
             x = sum(x.timeOut - x.timeIn)/t
             v[state] = x
