@@ -217,6 +217,8 @@ class Queue(CHFSM):
     T1=Transition(Retrieving,Forwarding,lambda self: self.var.request)
     T2=Transition(Forwarding,Retrieving,lambda self: self.Next.put(self.var.entity),action=lambda self: self.var.request.confirm())
 
+class Queue2(Queue):
+    T2=Transition(Queue.Forwarding,Queue.Retrieving,lambda self: self.Next.subscribe(self.var.entity),action=lambda self: self.var.request.confirm())
 
 class ManualStation(Server):
     def build(self):
