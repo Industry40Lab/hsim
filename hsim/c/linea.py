@@ -104,7 +104,10 @@ class Terminator(pym.Terminator):
             self.trigger.succeed()
     def put(self,item):
         self.register.append(self._env.now)
-        self.controller.Messages.put('terminator')
+        item.systemTime += self._env.now
+        if not self.generator.Go.triggered:
+            self.generator.Go.succeed()
+        self.generator.WIPcount -= 1
         return super().put(item)
     def subscribe(self,item):
         self.register.append(self._env.now)
