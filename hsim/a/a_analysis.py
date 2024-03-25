@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# %%
 """
 Created on Thu Jun  1 10:16:31 2023
 
@@ -18,7 +19,7 @@ import numpy as np
 filename = 'resBN_pers6'
 # filename = 'resBN_batched_prove_newLPT'
 
-filename = 'C:\\Users\\Lorenzo\\Dropbox (DIG)\\Tesisti\\Giovanni Zanardo\\Risultati computazionali\\resBN_pers5_100'
+filename = 'C:/Users/Lorenzo/Dropbox (DIG)/Tesisti/Giovanni Zanardo/Risultati computazionali/resBN_pers5_100'
 
 with open(filename, 'rb') as file:
     perf = dill.load(file)
@@ -32,6 +33,17 @@ def group_sort(arr):
     sorted_indices = np.lexsort((fifo_sptbn_lpt2bn, conwip_dbr, none_present_future))
     return sorted_indices
 
+# need this part for compatibility
+# @property
+def productivity(self):
+    return (3600/pd.DataFrame(self.arrivals).diff()).describe()
+# [setattr(p, 'productivity2', property(productivity)) for p in perf]
+import types
+# perf[0].productivity = types.MethodType(productivity, perf[0])
+[setattr(p, 'productivity2', types.MethodType(productivity, p)) for p in perf]
+
+
+
 # %% data
 # exps = pd.read_excel('C:/Users/Lorenzo/Desktop/bn experiments.xlsx')
 data = pd.DataFrame()
@@ -44,8 +56,8 @@ data['seed'] = [p.seed for p in perf]
 
 # data['WIP'] = [p.avgWIP for p in perf]
 # exps['prod'] = [p.production for p in perf]
-data['Average throughput'] = [p.productivity.values[1][0] for p in perf]
-data['prodCI'] = [p.productivity.values[1][0] for p in perf]
+data['Average throughput'] = [p.productivity2().values[1][0] for p in perf]
+data['prodCI'] = [p.productivity2().values[1][0] for p in perf]
 data['std'] = [pd.DataFrame(p.arrivals).diff().dropna().std()[0] for p in perf]
 data['BNmean'] = [(pd.DataFrame([bn[1][0] for bn in p.BNlist]).value_counts()/len(p.BNlist)).mean() for p in perf]
 data['BNstd'] = [(pd.DataFrame([bn[1][0] for bn in p.BNlist]).value_counts()/len(p.BNlist)).std() for p in perf]
@@ -147,9 +159,8 @@ data['Group'] = data['BN'].astype(str) + ' ' + data['OR'].astype(str) + ' ' + da
 df = data.pivot_table(values='Average throughput', index='Group', aggfunc=[np.mean,np.std])
 df=df.iloc[group_sort(df.index)]
 sns.set_style("whitegrid")
-
-ax = sns.pointplot(data=data, y="Group", x="Average throughput",errorbar=("ci", 95), errwidth=0.5,capsize=.5, join=False, color="blue",order=df.index,markers='.')
-
+data["BN"] = data["Group"].str.split().apply(lambda x: x[0])
+ax = sns.pointplot(data=data, y="Group", x="Average throughput",errorbar=("ci", 95), errwidth=0.5,capsize=.5, join=False, color="blue",order=df.index,markers='.',hue="BN",legend=False,palette='Set1')
 
 # df = data.pivot_table(values='Average throughput', index='Group', columns='seed').transpose()
 # df = data.pivot_table(values='Average throughput', index='Group', aggfunc=[np.mean,np.std]).transpose()
@@ -182,7 +193,8 @@ ax.tick_params(axis='x', which='minor')
 ax.xaxis.set_major_formatter('{x:.0f}')
 ax.xaxis.set_minor_locator(MultipleLocator(5))
 ax.set(title='Average throughput with 95% Confidence Intervals')
-plt.show()
+# plt.show()
+plt.savefig('ConfidenceIntervals.pdf', format="pdf", bbox_inches="tight",dpi=900)
 # plt.xticks(x, groups, rotation=90)
 # plt.subplots_adjust(bottom=0.2)
 # Show the plot
@@ -427,7 +439,7 @@ for i, val in enumerate(line_values):
 plt.axvline(x=0, color='black', linestyle='--')
 
 # Add labels and title
-plt.xlabel('Mean Difference for TH [parts/hour]')
+plt.xlabel('Average Difference for TH [parts/hour]')
 plt.ylabel('Pairwise Comparisons')
 plt.title('Pairwise Comparisons with Confidence Intervals')
 
