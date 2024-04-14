@@ -172,19 +172,3 @@ class ev(thvar,Event):
     def triggered(self):
         return self._ok
     
-# if __name__ == '__main__':
-#     a=thvar(2)
-#     a<<=1
-    
-if __name__ == '__main__':
-    env=Environment()
-
-    a=ev(1)
-    a.set_env(env)
-
-if __name__ == '__main__':
-    env=Environment()
-    b=env.threshold(1)
-    
-    # a<<=3
-    # a+=3
