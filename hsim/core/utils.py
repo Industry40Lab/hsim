@@ -1,11 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jun  6 16:48:02 2022
-
-@author: Lorenzo
-"""
-
-   
 import pandas as pd
 
 def stats(env):
