@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 
-from typing import Iterable, List, Any, Optional, Callable
+from typing import List, Any, Optional, Callable, Union
+from collections.abc import Iterable
 import logging 
 # from simpy import Process, Interrupt, Event
 # from simpy.events import PENDING, Initialize, Interruption
@@ -179,7 +180,7 @@ class State(sim.Component):
         self._interrupt_callbacks = []
         self.sm = None
         if not hasattr(self,'_do'):
-            self._do = lambda self: None
+            self._do:Callable = lambda self: None 
         if not hasattr(self,'initial_state'):
             self.initial_state = False
         self.callbacks = []
@@ -275,21 +276,21 @@ class Transition(sim.State):
     def __init__(self, state, target=None, trigger=None, condition=None, action=None):
         self._state = state
         self._target = target
-        self._trigger = trigger if trigger in [sim.State,Iterable[sim.State]] else sim.State(value=True)
-        self._action = action if callable(action) else lambda self: None
-        self._condition = condition if type(condition) is sim.State else sim.State(value=True)
+        self._trigger: Union[sim.State, Iterable[sim.State]] = trigger if isinstance(trigger, (sim.State,Iterable)) else sim.State(value=True)
+        self._action: Callable = action if callable(action) else lambda self: None
+        self._condition = condition if isinstance(condition, sim.State) else sim.State(value=True)
     def __getattr__(self, attr):
         try:
-            return object.__getattribute__(self,attr)
+            return object.__getattribute__(self, attr)
         except:
             try:
-                return getattr(object.__getattribute__(self,'_state'),attr)
+                return getattr(object.__getattribute__(self, '_state'), attr)
             except:
                 raise AttributeError()
-    def _trigger(self):
-        pass
-    def _action(self):
-        return None
+    @property
+    def trigger(self):
+        if self._condition.get():
+            pass
     def _otherwise(self):
         return self()
  
