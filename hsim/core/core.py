@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from simpy import Event
-from salabim import Environment
+
+from simpy import Environment, Event
 from simpy.core import BoundClass
 from simpy.events import PENDING, Interruption
 import pandas as pd
