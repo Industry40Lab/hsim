@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 
 
-from typing import List, Any, Optional, Callable
+from typing import Iterable, List, Any, Optional, Callable
 import logging 
-from simpy import Process, Interrupt, Event
-from simpy.events import PENDING, Initialize, Interruption
-from .core import Environment, dotdict, Interruption, method_lambda
+# from simpy import Process, Interrupt, Event
+# from simpy.events import PENDING, Initialize, Interruption
+# from .core import Environment, dotdict, Interruption, method_lambda
+from salabim import Environment
+import salabim as sim
+from .core import dotdict, method_lambda
 import types
 from .stores import Store, Subscription
 from collections import OrderedDict
@@ -56,15 +59,6 @@ def action(instance):
         return f
     return decorator
 
-@staticmethod
-def set_state(name,initial_state=False):
-    state=State(name)
-    setattr(StateMachine,name,state)
-    StateMachine.add_state(state,initial_state)
-
-def add_states(sm,states):
-    sm._states = states # [copy.deepcopy(state) for state in states] 
-    
 def get_class_dict(par):
     z=dict()
     for cls in par.__mro__:
@@ -84,8 +78,18 @@ def trackObj(sm):
     elif hasattr(sm,'Store'):
         pass
     return entity, items
+
+class Timeout(sim.Component):
+    def __init__(self, name="", timeout=0):
+        self.timeout = timeout
+        self.value = sim.State()
+        super().__init__()
+        self.process()
+    def process(self):
+        self.hold(self.timeout)
+        self.value.trigger(True)
     
-class StateMachine():
+class StateMachine(sim.Component):
     def __init__(self, env, name=None):
         self.env = env
         self.var = dotdict()
@@ -95,15 +99,12 @@ class StateMachine():
             self._name = name
         self._current_state = None
         self._build_states()
-        self.start()
-        self.env.add_object(self)
-
-
-    # def __getattr__(self,attr):
-    #     for state in object.__getattribute__(self,'_states'):
-    #         if state._name == attr:
-    #             return state
-    #     raise AttributeError()
+        self.activate()
+        # self.env.add_object(self)
+    def _get_transitions(self):
+        return (transition for transition in zip(get_class_dict(self.__class__).values(),get_class_dict(self.__class__).keys()) if type(transition[0]) is Transition)
+    def _get_state_types(self):
+        return (state_type for state_type in get_class_dict(self.__class__).values() if hasattr(state_type,'__base__') and state_type.__base__ is State and type(state_type) is type)
     def __repr__(self):
         return '<%s (%s object) at 0x%x>' % (self._name, type(self).__name__, id(self))
     def start(self):
@@ -115,32 +116,28 @@ class StateMachine():
     def interrupt(self):
         for state in self._states:
             state.interrupt()
+        super().interrupt()
     def stop(self):
         return self.interrupt()
     def _build_states(self):
         self._states = []
-        for x in get_class_dict(self.__class__).values():
-            if hasattr(x,'__base__') and x.__base__ is State and type(x) is type:
-                state = x()
-                self._states.append(state)
-                setattr(self,x.__name__,state)
-                for y in x.__dict__.values():
-                    if hasattr(y,'__base__') and y.__base__.__name__ == 'CompositeState':
-                        state._child_state_machine = y(self)    
+        for State in self._get_state_types():
+            state = State()
+            self._states.append(state)
+            setattr(self,State.__name__,state)
+            for y in State.__dict__.values():
+                if hasattr(y,'__base__') and y.__base__.__name__ == 'CompositeState':
+                    state._child_state_machine = y(self)    
         for state in self._states:
             state.set_parent_sm(self)
-        for transition in zip(get_class_dict(self.__class__).values(),get_class_dict(self.__class__).keys()):
-            if type(transition[0]) is Transition:
-            # if hasattr(transition[0],'__base__') and transition[0].__base__ is Transition:
-                # x è Transition
-                for state in self._states: 
-                    if type(state) is transition[0]._state:
-                        x = transition[0].add(state)
-                        setattr(self,transition[1],None)
-                        for target in self._states: 
-                            if type(target) is transition[0]._target:
-                                x._target = target
-
+        for transition in self._get_transitions():
+            for state in self._states: 
+                if type(state) is transition[0]._state:
+                    x = transition[0].add(state)
+                    setattr(self,transition[1],None)
+                    for target in self._states: 
+                        if type(target) is transition[0]._target:
+                            x._target = target
     @property
     def name(self):
         return self._name
@@ -154,12 +151,11 @@ class StateMachine():
         else:
             return True
     @classmethod
-    def _states_dict(self,state):
+    def _states_dict(cls,state):
         list_by_name = [s for s in self._states if s.name == state]
         if list_by_name is not []:
-            return list_by_name[0]
+            return list_by_name[0]        
     
-
 class CompositeState(StateMachine):
     def __init__(self, parent_state, name=None):
         if name==None:
@@ -173,15 +169,15 @@ class CompositeState(StateMachine):
         self._build_states()
         super().start()
 
-class State(Process):
+class State(sim.Component):
     def __init__(self):
         self._name = self.__class__.__name__
         self._time = None
         self._entry_callbacks = []
         self._exit_callbacks = []
         self._child_state_machine = None
-        self.sm = None
         self._interrupt_callbacks = []
+        self.sm = None
         if not hasattr(self,'_do'):
             self._do = lambda self: None
         if not hasattr(self,'initial_state'):
@@ -200,19 +196,6 @@ class State(Process):
             return getattr(object.__getattribute__(self,'sm'),attr)
         except:
             raise AttributeError()
-            
-        # if attr in self.__dict__.keys():
-        #     return object.__getattribute__(self,attr)
-        # if 'sm' in self.__dict__.keys():
-        #     sm = object.__getattribute__(self,'sm')
-        #     if hasattr(sm,attr):
-        #         return object.__getattribute__(sm,attr)
-        # raise AttributeError()
-        
-            # sm = self.__getattribute__('sm')
-            # return getattr(sm,attr)
-        # except:
-        #     return 
     def __repr__(self):
         return '<%s (State) object at 0x%x>' % (self._name, id(self))
     def __call__(self):
@@ -224,85 +207,38 @@ class State(Process):
         compositeState.parent_state = self
         self._child_state_machine = compositeState
     def set_parent_sm(self, parent_sm):
-        # if not isinstance(parent_sm, StateMachine):
-        #     raise TypeError("parent_sm must be the type of StateMachine")
         if self._child_state_machine and self._child_state_machine == parent_sm:
             raise ValueError("child_sm and parent_sm must be different")
         self.sm = parent_sm
-    def start(self):
-        logging.debug(f"Entering {self._name}")
-        # self._last_state_record = [self.sm,self.sm._name,self,self._name,self.env.now,None]
-        self._last_state_record = [self.sm,self.sm._name,self,self._name,*trackObj(self.sm),self.env.now,None]
-        self.env.state_log.append(self._last_state_record)
+    def _on_entry(self):
         for callback in self._entry_callbacks:
             callback()
-        if self._child_state_machine is not None:
-            self._child_state_machine.start()
-        self._do_start()
-    def stop(self):
-        logging.debug(f"Exiting {self._name}")
-        self._last_state_record[-1] = self.env.now
+    def _on_exit(self):
         for callback in self._exit_callbacks:
             callback()
-        if self._child_state_machine is not None:
-            self._child_state_machine.stop()
-        self._do_stop()
-    def _do_start(self):
-        self.callbacks = []
-        self._value = PENDING
-        self._target = Initialize(self.env, self)
-    def _do_stop(self):
-        self._value = None
+    def _on_interrupt(self):
+        for callback in self._interrupt_callbacks:
+            callback()
     def interrupt(self):
-        if self.is_alive:
-            Interruption(self, None)
-            for callback in self._interrupt_callbacks:
-                callback()
-            if self._child_state_machine is not None:
-                self._child_state_machine.stop()
-        else:
-            print('Warning - interrupted state was not active')
-    def _resume(self, event):
-        self.env._active_proc = self
-        if isinstance(event,Initialize):
-            method_lambda(self,self._do)
-            events = list()
-            for transition in self._transitions:
-                # transition._state = self
-                event = transition()
-                events.append(event)
-        else:
-            for transition in self._transitions:
-                transition.cancel()
-            if event is None:
-                event = self
-                self._do_start()
-                return
-            elif isinstance(event,State):
-                self.stop()
-                event()
-            elif isinstance(event,Interruption):
-                event = None
-                self._ok = True
-                self._value = None
-                self.callbacks = []
-                self.env.schedule(self)
-        self._target = event
-        self.env._active_proc = None
-
+        super().interrupt()
+        raise InterruptedError
+    def process(self):
+        self._on_entry()
+        self._do()
+        triggers = [transition._trigger() for transition in self._transitions]
+        try:
+            self.wait(triggers)
+            # action transition
+            # trigger transitions
+            self._on_exit()
+        except InterruptedError:
+            self._on_interrupt()
 
 class CHFSM(StateMachine):
     def __init__(self,env,name=None):
         super().__init__(env,name)
         self._list_messages()
         self.connections = dict()
-    # def __getattr__(self,attr):
-    #     for state in object.__getattribute__(self,'_states'):
-    #         if state._name == attr:
-    #             return state
-    #     if object.__getattribute__(self,'_messages').__contains__(attr):
-    #         return object.__getattribute__(self,'_messages')[attr]
-    #     raise AttributeError()
     def build(self):
         pass
     def _associate(self):
@@ -319,7 +255,7 @@ class CHFSM(StateMachine):
             if i not in temp:
                 self._messages[i] = getattr(self,i)
 
-class Transition():
+class Transition(sim.State):
     @classmethod
     def copy(cls, state, target=None, trigger=None, condition=None, action=None):
         class Transition(cls):
@@ -339,83 +275,23 @@ class Transition():
     def __init__(self, state, target=None, trigger=None, condition=None, action=None):
         self._state = state
         self._target = target
-        if trigger is not None:
-            self._trigger = trigger
-        if action is not None:
-            self._action = action
-        self._condition_eval = condition
-    # def __getattr__(self,attr):
-    #     try:
-    #         return object.__getattribute__(self,attr)
-    #     except:
-    #         state = object.__getattribute__(self,'_state')
-    #         return object.__getattribute__(state,attr)
+        self._trigger = trigger if trigger in [sim.State,Iterable[sim.State]] else sim.State(value=True)
+        self._action = action if callable(action) else lambda self: None
+        self._condition = condition if type(condition) is sim.State else sim.State(value=True)
     def __getattr__(self, attr):
         try:
             return object.__getattribute__(self,attr)
         except:
-            pass
-        try:
-            return getattr(object.__getattribute__(self,'_state'),attr)
-        except:
-            raise AttributeError()
-
-        # if attr in self.__dict__.keys():
-        #     return object.__getattribute__(self,attr)
-        # state = object.__getattribute__(self,'_state')
-        # print(type(state))
-        # if attr in state.__dict__.keys():
-        #     return object.__getattribute__(state,attr)
-        # sm = object.__getattribute__(state,'sm')
-        # if hasattr(sm,attr):
-        #     return object.__getattribute__(sm,attr)
-        # raise AttributeError()
-        
-        # try:
-        #     state = self.__getattribute__('_state')
-        #     try:
-        #         return getattr(state,attr)
-        #     except:
-        #         sm = state.__getattribute__('sm')
-        #         return getattr(sm,attr)
-        # except:
-        #     return object.__getattribute__(self,attr)
+            try:
+                return getattr(object.__getattribute__(self,'_state'),attr)
+            except:
+                raise AttributeError()
     def _trigger(self):
         pass
-    def _condition(self):
-        if self._condition_eval is None:
-            return True
-        else:
-            return self._condition_eval(self)
     def _action(self):
         return None
     def _otherwise(self):
         return self()
-    def cancel(self):
-        self._event._value = False
-    def _evaluate(self,event):
-        if self._event._value == False:
-            return
-        if method_lambda(self,self._condition):
-            method_lambda(self,self._action)
-            self._state._resume(self._target)
-        else:
-            event._value = PENDING
-            self._otherwise()
-    def __call__(self):
-        if self._trigger is None:
-            return self._evaluate(None)
-            self._target._state = self._state
-        self._event = method_lambda(self,self._trigger)
-        if self._event == None:
-            self._event = self.env.event()
-            self._event.succeed()
-            # print('Missing trigger')
-        try:
-            self._event.callbacks.append(self._evaluate)
-        except:
-            self._event.callbacks = [self._evaluate]
-        return self._event
  
 class Pseudostate(State):
     def __init__(self):
