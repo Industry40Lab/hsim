@@ -20,7 +20,7 @@ class Interruption(Interruption):
         # self.process._target.callbacks.remove(self.process._resume)
         self.process._resume(self)
 
-class Environment(Environment):
+class Environment2(Environment):
     def __init__(self,log=None,initial_time=0):
         super().__init__(initial_time)
         self._objects = list()

@@ -89,9 +89,11 @@ class Timeout(sim.Component):
     def process(self):
         self.hold(self.timeout)
         self.value.trigger(True)
-    
+
+
 class StateMachine(sim.Component):
     def __init__(self, env, name=None):
+        super().__init__(name=name)
         self.env = env
         self.var = dotdict()
         if name==None:
@@ -101,7 +103,9 @@ class StateMachine(sim.Component):
         self._current_state = None
         self._build_states()
         self.activate()
+        self.start()
         # self.env.add_object(self)
+        
     def _get_transitions(self):
         return (transition for transition in zip(get_class_dict(self.__class__).values(),get_class_dict(self.__class__).keys()) if type(transition[0]) is Transition)
     def _get_state_types(self):
@@ -139,8 +143,9 @@ class StateMachine(sim.Component):
                     for target in self._states: 
                         if type(target) is transition[0]._target:
                             x._target = target
-    @property
-    def name(self):
+    def process(self):
+        pass
+    def name(self)->str:
         return self._name
     @property
     def current_state(self):
@@ -172,6 +177,7 @@ class CompositeState(StateMachine):
 
 class State(sim.Component):
     def __init__(self):
+        super().__init__(name=self.__class__.__name__)
         self._name = self.__class__.__name__
         self._time = None
         self._entry_callbacks = []
@@ -185,7 +191,7 @@ class State(sim.Component):
             self.initial_state = False
         self.callbacks = []
         self._value = None
-        self._transitions = list()
+        self._transitions = list()  
     def _do(self):
         pass
     def __getattr__(self,attr):
@@ -201,7 +207,6 @@ class State(sim.Component):
         return '<%s (State) object at 0x%x>' % (self._name, id(self))
     def __call__(self):
         return self.start()
-    @property
     def name(self):
         return self._name
     def set_composite_state(self, compositeState):
@@ -223,6 +228,8 @@ class State(sim.Component):
     def interrupt(self):
         super().interrupt()
         raise InterruptedError
+    def start(self):
+        self.activate()
     def process(self):
         self._on_entry()
         self._do()

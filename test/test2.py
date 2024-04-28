@@ -1,5 +1,5 @@
 
-from hsim.core.chfsm import CHFSM, CompositeState, State, Transition
+from hsim.core.chfsm import CHFSM, CompositeState, State, Transition, Timeout
 from hsim.core.core import Environment
 
 '''
@@ -61,7 +61,7 @@ Work = State('Work',True)
 def printt(self):
     print('Start working. Will finish in 10s')
     return self.env.timeout(10)
-@do(Work)
+
 def d(self,Event):
     print("Finished!")
     return self.Work
@@ -102,9 +102,9 @@ class Boh7(CHFSM):
         _do = lambda self: print('Start working at %d. Will finish in 10s' %self.env.now)
     class Rest(State):
         _do = lambda self: print('Start resting at %d. Will finish in 10s' %self.env.now)
-    T1=Transition(Work, Rest, lambda self: self.E,action=print(100))
-    T1a=Transition(Work, Rest, lambda self: self.E,action=print(100))
-    T2=Transition(Rest, Work, lambda self: self.env.timeout(10))
+    # T1=Transition(Work, Rest, lambda self: self.E,action=print(100))
+    # T1a=Transition(Work, Rest, lambda self: self.E,action=print(100))
+    T1=Transition(Work, Rest, Timeout(10).process)
 
 # class Boh7(CHFSM):
 #     class Work(State):
