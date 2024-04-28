@@ -39,14 +39,14 @@ class StateMachine(Component):
                     state._child_state_machine = y(self)    
         for state in self._states:
             state.set_parent_sm(self)
-        # for transition in self.transitions_types:
-        #     for state in self._states: 
-        #         if type(state) is transition[0]._state:
-        #             x = transition[0].add(state)
-        #             setattr(self,transition[1],None)
-        #             for target in self._states: 
-        #                 if type(target) is transition[0]._target:
-        #                     x._target = target
+        for transition, transition_name in self.transitions_types:
+            for state in self._states: 
+                if type(state) is transition._state:
+                    x = transition.add(state)
+                    setattr(self,transition_name,None)
+                    for target in self._states: 
+                        if type(target) is transition._target:
+                            x._target = target
     def process(self):
         self.start()
     # def __repr__(self):

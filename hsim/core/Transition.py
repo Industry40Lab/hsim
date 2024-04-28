@@ -24,9 +24,9 @@ class Transition(State):
     def __init__(self, state:"MachineState", target:"MachineState"|None=None, trigger:Union[State, Iterable[State]]=None, condition=None, action=None): # type: ignore
         self._state = state
         self._target = target
-        self._trigger: Union[State, Iterable[State]] = trigger if isinstance(trigger, (State,Iterable)) else State(value=True)
+        self._trigger: Union[State, Iterable[State]] = trigger if isinstance(trigger, (State,Iterable)) else None #State(value=True)
         self._action: Callable = action if callable(action) else lambda self: None
-        self._condition = condition if isinstance(condition, State) else State(value=True)
+        self._condition = condition if isinstance(condition, State) else None #State(value=True)
 
 def action(instance):
     def decorator(f):

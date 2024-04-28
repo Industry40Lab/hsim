@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Iterable
 from salabim import State, Component
 
 class MachineState(Component,State):
@@ -6,6 +7,7 @@ class MachineState(Component,State):
     def __init__(self, name: str = "", trigger: bool = False, **kwargs):
         State.__init__(self, name, trigger, **kwargs)
         Component.__init__(self, name)
+        self._transitions:Iterable["Transitions"] = list() # type: ignore
     def _do(self):
         pass
     def process(self):
