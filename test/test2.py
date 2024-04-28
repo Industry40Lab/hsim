@@ -115,23 +115,23 @@ class Boh7(CHFSM):
 #     T1=Transition(Work, Rest, lambda self: self.E,action=print('I will rest'))
 #     T1a=Transition(Rest, Work, lambda self: self.E,action=print('I will work'))
 
+    
+    
+    
+    
+    # env = Environment()
+    # foo = Boh6(env,1)
+    # env.run(50)
+    # foo.interrupt()
+    # env.run(200)
 
-
-
-
-# env = Environment()
-# foo = Boh6(env,1)
-# env.run(50)
-# foo.interrupt()
-# env.run(200)
-
-env = Environment()
-foo2 = Boh7(env,1)
-foo2.E = env.event()
-env.run(50)
-print('go')
-foo2.E.succeed()
-env.run(10)
-
+    env = Environment()
+    foo2 = Boh7(env,1)
+    foo2.E = env.event()
+    env.run(50)
+    print('go')
+    foo2.E.succeed()
+    env.run(10)
+    
 
 
