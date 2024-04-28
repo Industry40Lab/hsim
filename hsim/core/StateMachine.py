@@ -3,6 +3,7 @@ from typing import List
 from salabim import Component
 from .supportFunctions import dotdict, get_class_dict
 from .MachineState import MachineState
+from .Transition import Transition
 
 def do(instance):
     def decorator(f):
@@ -21,9 +22,9 @@ class StateMachine(Component):
     @property
     def state_types(self):
         return (state_type for state_type in get_class_dict(self.__class__).values() if hasattr(state_type,'__base__') and state_type.__base__ is MachineState and type(state_type) is type)
-    # @property
-    # def transitions_types(self):
-    #     return (transition for transition in zip(get_class_dict(self.__class__).values(),get_class_dict(self.__class__).keys()) if type(transition[0]) is Transition)
+    @property
+    def transitions_types(self):
+        return (transition for transition in zip(get_class_dict(self.__class__).values(),get_class_dict(self.__class__).keys()) if type(transition[0]) is Transition)
     def start(self):
         [state.passivate() for state in self._states if state.initial_state == False]
         print('Warning: no initial state set in %s' %self) if not any([state.initial_state for state in self._states]) else None
@@ -38,7 +39,7 @@ class StateMachine(Component):
                     state._child_state_machine = y(self)    
         for state in self._states:
             state.set_parent_sm(self)
-        # for transition in self._get_transitions():
+        # for transition in self.transitions_types:
         #     for state in self._states: 
         #         if type(state) is transition[0]._state:
         #             x = transition[0].add(state)
