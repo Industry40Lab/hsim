@@ -5,14 +5,13 @@ from FSM import FSM, get_class_dict
 from msg import Message
 
           
-class Agent(ABC, Message):
+class Agent(ABC):
     stateMachine: FSM
     def __init__(self, env, name:str=""):
         self.env = env
         self.name = name
         self.var = dotdict()
         self._linkFSM()
-        Message.__init__(self,env)
     def _linkFSM(self):
         from FSM import FSM
         fsmList = get_class_dict(self, FSM)

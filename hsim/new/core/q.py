@@ -1,7 +1,7 @@
 from heapq import heappush
 import numpy as np
 from agent import Agent
-from msg import MessageQueue
+from msg import MessageQueue, Message
 from event import ConditionEvent
 
 class Queue(MessageQueue):
@@ -10,14 +10,16 @@ class Queue(MessageQueue):
         self.capacity = capacity if capacity > 0 else np.inf
         
     def take(self, agent:Agent) -> ConditionEvent:
-        event = ConditionEvent(self.env, action=self._put, condition=self._capacity_condition, arguments=(agent,)).add()
+        msg:Message = Message(self.env, content=agent, receiver=self, wait=True)
+        event = ConditionEvent(self.env, action=self._put, condition=self._capacity_condition, arguments=(msg,)).add()
         event.verify()
-        return event
+        return event, msg
         
-    def _put(self, agent:Agent):
-        agent.reset()
-        heappush(self.queue, agent)
-        agent.receive()
+    def _put(self, msg:Message):
+        agent:Agent = msg.content
+        msg.reset()
+        heappush(self.queue, msg)
+        msg.receive()
         self._trigger()
     
     def _capacity_condition(self):
@@ -27,14 +29,21 @@ class Queue(MessageQueue):
         raise NotImplementedError("Queue does not support receive method")
     
 class LockedQueue(Queue):
-    def _put(self, agent:Agent):
-        heappush(self.queue, agent)
+    def _put(self, msg:Message):
+        heappush(self.queue, msg)
         # does not self trigger
         # does not receive
     
     def receive(self, agent:Agent=None):
         if agent is None:
-            agent = self.get()
-        agent.reset()
-        agent.receive()
+            msg = self.get()
+            agent = msg.content
+        else:
+            try:
+                msg = [msg for msg in self.queue if msg.content == agent][0]
+                agent = agent
+            except IndexError:
+                raise ValueError("Agent not in queue")
+        msg.reset()
+        msg.receive()
         self._trigger()
