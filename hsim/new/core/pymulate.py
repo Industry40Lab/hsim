@@ -1,11 +1,13 @@
+from typing import Iterable, Union
 import numpy as np
-from q import LockedQueue, Queue
+from q import LockedQueue, PriorityQueue, Queue
 import types
 from transitions import ConditionTransition, MessageTransition, TimeoutTransition, EventTransition
 from states import State
 from FSM import FSM
 from env import Environment
-from event import BaseEvent, wait
+from msg import Message
+from event import BaseEvent, ConditionEvent, wait
 from agent import Agent, FSM
 import dill
 from warnings import warn
@@ -41,27 +43,47 @@ def calculateServiceTime(self,entity=None,attribute='serviceTime'):
             return self.var.serviceTimeFunction()
         elif len(self.var.serviceTime)>0:
             return self.var.serviceTimeFunction(*self.var.serviceTime)
+        
+class DESBlock(Agent):
+    __priorityQueue__, __lockedQueue__ = False, False
+    Next : Union[Agent,Iterable[Agent]]
+    def __init__(self,env,name=None,capacity=1) -> None:
+        super().__init__(env,name)
+        if self.__priorityQueue__:
+            self.store = PriorityQueue(env)
+        elif self.__lockedQueue__:
+            self.store = LockedQueue(env)
+        else:
+            self.store:Queue = Queue(env,capacity=capacity)
+        self.store.on_receive = self.on_receive
+    def take(self,item) -> tuple[ConditionEvent, Message]:
+        return self.store.take(item)
+    def give(self, other, item) -> tuple[ConditionEvent, Message]:
+        return other.take(item)
+    def on_receive(self) -> None:
+        raise NotImplementedError(f"on_receive method is not implemented for {self}.")
+    class FSM(FSM):
+        class Empty(State):
+            initial_state=True
+            
+class DESLocked(DESBlock):
+    __lockedQueue__ = True
+    
 
-class Server(Agent):
-    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None):
+class Server(DESBlock):
+    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None) -> None:
         super().__init__(env,name)
         self.var.serviceTime = serviceTime
         self.var.serviceTimeFunction = serviceTimeFunction
-        self.Store:Queue = Queue(env,1)
-        self.Store.on_receive = self.on_receive
         setattr(self,'calculateServiceTime',types.MethodType(calculateServiceTime, self))
-    def take(self,item):
-        return self.Store.take(item)
-    def give(self, other, item):
-        return other.take(item)
-    def on_receive(self):
+    def on_receive(self) -> None:
         self.stateMachine.transitionsFrom["Starving"][0]()
     class FSM(FSM):
         class Starving(State):
             initial_state=True
         class Working(State):
             def on_enter(self):
-                self.var.item = self.Store.inspect()
+                self.var.item, self.var.message = self.store.inspect()
         class Blocking(State):
             pass
 
@@ -71,24 +93,20 @@ class Server(Agent):
 
         def W2B(self):
             try:
-                next = self.Next
-                self.give(next, self._agent.var.item)
-                self.var.item.receipts["received"].action = self.transitionsFrom["Blocking"][0]
-            except ZeroDivisionError as e:
+                _, msg = self.give(self.Next, self._agent.var.item)
+                msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
+            except AttributeError as e:
                 warn(RuntimeWarning(e))
         T2.on_transition = W2B
-        T3.on_transition = lambda self: self._fsm._agent.Store.get()
+        T3.on_transition = lambda self: self._fsm._agent.store.get()
         
-'''
-class Buffer(Agent):
+
+class Buffer(DESBlock):
+    """
+    Pushes first agent according to dispatching rule.
+    """
     def __init__(self,env,name=None,capacity=np.inf):
         super().__init__(env,name)
-        self.Store:Queue = Queue(env,capacity)
-        self.Store.on_receive = self.on_receive
-    def take(self,item):
-        return self.Store.take(item)
-    def give(self, other, item):
-        return other.take(item)
     def on_receive(self):
         self.stateMachine.transitionsFrom["Starving"][0]()
 
@@ -97,52 +115,37 @@ class Buffer(Agent):
             initial_state=True
         class Blocking(State):
             pass
-        
         T1=MessageTransition.define(Starving, Blocking)
         T2=EventTransition.define(Blocking, Starving)
-    
-        def W2B(self):
+        def S2B(self):
             try:
-                next = self.Next
-                self.give(next, self._agent.var.item)
-                self.var.item.receipts["received"].action = (self.transitionsFrom["Blocking"][0],self._fsm._agent.Store.get())
+                item, _ = self.store.inspect(index = -1) # get the last item
+                _, msg = self.give(self.Next, item)
+                msg.receipts["received"].action = (self.transitionsFrom["Blocking"][0],self._fsm._agent.Store.get())
             except Exception as e:
                 warn(RuntimeWarning(e))
-        T1.on_transition = W2B
-        # T2.on_transition = lambda self: self._fsm._agent.Store.get()
-'''
+        T1.on_transition = S2B
+        T2.on_transition = lambda self: self._fsm._agent.Store.get()
 
-class Buffer(Agent):
+
+class Store(DESBlock):
+    """
+    Pushes every agent.
+    
+    Note: does not require a FSM.
+    """
     def __init__(self,env,name=None,capacity=np.inf):
         super().__init__(env,name)
-        self.Store:Queue = Queue(env,capacity)
-        self.Store.on_receive = self.on_receive
-    def take(self,item):
-        return self.Store.take(item)
-    def give(self, other, item):
-        return other.take(item)
     def on_receive(self):
         self._forward_item()
 
     def _forward_item(self):
-        item = self.Store.inspect(index = -1) # get the last item
-        self.give(self.Next, item)
-        item.receipts["received"].action = (self.stateMachine.transitionsFrom["Blocking"][0], self.Store.queue.remove)
-        item.receipts["received"].arguments = ([], [item])
-        self.stateMachine.transitionsFrom["Starving"][0].verify()
+        item, _ = self.store.inspect(index = -1) # get the last item
+        _, msg = self.give(self.Next, item)
+        msg.receipts["received"].action = self.store.pull
+        msg.receipts["received"].arguments = (item,)
         
-    class FSM(FSM):
-        class Starving(State):
-            initial_state=True
-        class Blocking(State):
-            pass
-        
-        T1=ConditionTransition.define(Starving, Blocking)
-        T2=ConditionTransition.define(Blocking, Starving)
     
-
-
-     
 # class Switch(Agent):
 #     def __init__(self,env,name=None,capacity=np.inf):
 #         super().__init__(env,name)
@@ -173,7 +176,7 @@ def test1():
     env = Environment()
     a = Server(env)
     q = Queue(env,10)
-    a.Next = q
+    # a.Next = q
     a.stateMachine.start()
     env.run(10)
     x = Agent(env,"test")
@@ -201,6 +204,23 @@ def test2():
     
 def test3():
     env = Environment()
+    a = Server(env)
+    b = Store(env)
+    q = Queue(env,10)
+    a.Next = b
+    b.Next = q
+    a.stateMachine.start()
+    b.stateMachine.start()
+    env.run(10)
+    x1 = Agent(env,"test1")
+    a.take(x1)
+    env.run(20)
+    x2 = Agent(env,"test2")
+    a.take(x2)
+    env.run(30)
+    
+def test4():
+    env = Environment()
     a = Switch(env)
     q1 = Queue(env,10)
     q2 = Queue(env,10)
@@ -216,4 +236,6 @@ def test3():
     
 
 if __name__ == "__main__":
+    test1()
     test2()
+    test3()

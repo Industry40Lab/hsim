@@ -1,6 +1,8 @@
 from abc import abstractmethod
 from heapq import heappop, heappush
-from typing import Any, OrderedDict
+import heapq
+import types
+from typing import Any, Callable, OrderedDict, Tuple
 
 from event import BaseEvent, RecurringEvent, Status
 
@@ -41,6 +43,12 @@ class Message():
     def reset(self):
         self.receipts["received"].reset()
         self.receipts["read"].reset()
+    def __lt__(self,other:'Message'):
+        try:
+            return self.content < other.content # compare content
+        except AttributeError:
+            return False
+        
 
 class MessageQueue:
     put, get = heappush, heappop
@@ -85,6 +93,26 @@ class MessageQueue:
     @abstractmethod
     def on_receive(self):
         pass
+    
+
+class PriorityMessageQueue(MessageQueue):
+    def __init__(self, env, capacity=None, priorityFcn:Callable[[Tuple[Message, Message]], bool]=lambda x,y: False):
+        super().__init__(env, capacity=capacity)
+        self._priorityFcn = priorityFcn
+
+    def _put(self, msg:Message):
+        msg.__lt__ = types.MethodType(self.priorityFcn, msg)
+        heappush(self.queue, msg)
+        msg.receive()
+        self._trigger()
+    @property
+    def priorityFcn(self):
+        return self._priorityFcn
+    def changePriorityFcn(self, fcn:Callable[[Tuple[Message, Message]], bool]):
+        self._priorityFcn = fcn
+        for msg in self.queue:
+            msg.__lt__ = types.MethodType(fcn, msg)
+        heapq.heapify(self.queue)
         
 class CallableList(list):
     def __init__(self, *args):

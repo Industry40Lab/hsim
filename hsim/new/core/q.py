@@ -1,7 +1,8 @@
 from heapq import heappush
+from typing import Any, Callable, Tuple, Union
 import numpy as np
 from agent import Agent
-from msg import MessageQueue, Message
+from msg import MessageQueue, Message, PriorityMessageQueue
 from event import ConditionEvent
 
 class Queue(MessageQueue):
@@ -9,7 +10,7 @@ class Queue(MessageQueue):
         super().__init__(env)
         self.capacity = capacity if capacity > 0 else np.inf
         
-    def take(self, agent:Agent) -> ConditionEvent:
+    def take(self, agent:Agent) -> tuple[ConditionEvent, Message]:
         msg:Message = Message(self.env, content=agent, receiver=self, wait=True)
         event = ConditionEvent(self.env, action=self._put, condition=self._capacity_condition, arguments=(msg,)).add()
         event.verify()
@@ -28,6 +29,18 @@ class Queue(MessageQueue):
     def receive(self, *args, **kwargs):
         raise NotImplementedError("Queue does not support receive method")
     
+    def inspect(self, index=0) -> tuple[Union[Agent,Any],Message]:
+        msg = super().inspect(index)
+        return msg.content, msg
+    
+    def pull(self, other : Union[Agent,Message]):
+        if isinstance(other, Agent):
+            try:
+                msg = [msg for msg in self.queue if msg.content == other][0]
+            except IndexError:
+                raise ValueError("Agent not in queue")
+        self.queue.remove(msg) 
+        
 class LockedQueue(Queue):
     def _put(self, msg:Message):
         heappush(self.queue, msg)
@@ -47,3 +60,8 @@ class LockedQueue(Queue):
         msg.reset()
         msg.receive()
         self._trigger()
+        
+class PriorityQueue(Queue, PriorityMessageQueue):
+    def __init__(self, env, capacity=None, priorityFcn:Callable[[Tuple[Message, Message]], bool]=lambda x,y: False):
+        super().__init__(env, capacity=capacity)
+        self._priorityFcn = priorityFcn

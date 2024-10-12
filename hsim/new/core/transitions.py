@@ -80,10 +80,10 @@ class TimeoutTransition(Transition):
         self.event = DelayEvent(self._env, self.timeout, action=self).add()
 
 class MessageTransition(Transition):
-    """Incomplete"""
+    _message = None
     def __init__(self, fsm, source:'State', target:'State', message:Any=None):
         super().__init__(fsm, source, target)
-        self.message = message
+        self.message = self._message if message is None else message
     def start(self):
         self.event = BaseEvent(self._env, action=self).add()
     def interpret(self, message):
@@ -101,9 +101,10 @@ class EventTransition(Transition):
         
         
 class ConditionTransition(Transition):
-    def __init__(self, fsm, source:'State', target:'State', condition:Callable[[], bool] = lambda *args: True):
+    _condition = lambda *args : True
+    def __init__(self, fsm, source:'State', target:'State', condition:Callable[[], bool] = None):
         super().__init__(fsm,  source, target)
-        self.condition = condition
+        self.condition = self._condition if condition is None else condition 
     def start(self):
         self.event = ConditionEvent(self._env, condition=self.condition, action=self).add()
     def verify(self) -> bool:

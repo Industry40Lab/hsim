@@ -62,12 +62,7 @@ class Scheduler(sched.scheduler):
                         elif len(event.arguments) != len(event.action):
                             raise ValueError("Arguments do not match")
                         for index, action in enumerate(event.action):
-                            '''debug'''
-                            try:
-                                action(*event.arguments[index], **event.kwargs)
-                            except:
-                                print("Error in action")
-                            # action(*event.arguments[index], **event.kwargs)
+                            action(*event.arguments[index], **event.kwargs)
                     delayfunc(0)   # Let other threads run
                     push(self._past, event)
                     event.process()
