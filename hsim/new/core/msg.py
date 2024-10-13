@@ -2,7 +2,7 @@ from abc import abstractmethod
 from heapq import heappop, heappush
 import heapq
 import types
-from typing import Any, Callable, OrderedDict, Tuple
+from typing import Any, Callable, Iterable, OrderedDict, Tuple
 
 from event import BaseEvent, RecurringEvent, Status
 
@@ -67,6 +67,11 @@ class MessageQueue:
     def _put(self, message):
         heappush(self.queue, message)
 
+    def receiveContent(self, content:Any, sender=None) -> Message:
+        message = Message(self.env, content, receiver=self, sender=sender, wait=True)
+        self.receive(message)
+        return message
+
     def receive(self, message: Message):
         self._put(message)
         message.receive()
@@ -93,6 +98,13 @@ class MessageQueue:
     @abstractmethod
     def on_receive(self):
         pass
+    
+    def __getitem__(self, index):
+        return self.queue[index]
+    
+    def __repr__(self) -> str:
+        content = f": {[f'{msg}:{msg.content}' for msg in self.queue]}" if self.queue else ""
+        return f"<{self.__class__.__name__} object at {hex(id(self))}> ({len(self.queue)})" + content
     
 
 class PriorityMessageQueue(MessageQueue):

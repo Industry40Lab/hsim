@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Iterable, Union
 from env import Environment
 from abc import ABC
 from FSM import FSM, get_class_dict
@@ -7,11 +7,14 @@ from msg import Message
           
 class Agent(ABC):
     stateMachine: FSM
+    connections:dict[str,Union['Agent',Iterable['Agent']]] = {}
+
     def __init__(self, env, name:str=""):
         self.env = env
         self.name = name
         self.var = dotdict()
         self._linkFSM()
+        env.add_agent(self)
     def _linkFSM(self):
         from FSM import FSM
         fsmList = get_class_dict(self, FSM)
@@ -21,6 +24,12 @@ class Agent(ABC):
             name = FSM.__name__ if FSM.__name__ != "FSM" else "stateMachine"
             setattr(self, name, fsm)
             fsm._agent = self
+    def activate_fsm(self):
+        [fsm.start() for fsm in [x for x in self.__dict__.values() if isinstance(x,FSM)] if fsm.startable and not fsm.active]
+    def receive(self, message:Message):
+        self.stateMachine.receive(message)
+    def receiveContent(self, content:Any, sender=None) -> Message:
+        return self.stateMachine.receiveContent(content, sender)
     def __lt__(self, other: Any) -> bool:
         return False
 

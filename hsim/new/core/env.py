@@ -3,10 +3,10 @@ import sched
 import threading
 import time
 from typing import Any, Callable, Optional, Union
-from collections import deque
+from collections import OrderedDict, deque
 
 import numpy as np
-from event import BaseEvent as Event, Status
+from event import BaseEvent as Event, ConditionEvent, Status
 from event import TimedEvent
 
 
@@ -66,6 +66,7 @@ class Scheduler(sched.scheduler):
                     delayfunc(0)   # Let other threads run
                     push(self._past, event)
                     event.process()
+            [event.verify() for event in self._queue if isinstance(event, ConditionEvent)]
         '''
         while True:
             if not self.queue:
@@ -111,6 +112,18 @@ class Context:
         pass
     def __exit__(self,a,b,c):
         pass
+
+class Counter():
+    def __init__(self, value=0):
+        super().__init__()
+        self._value = value
+    def __call__(self):
+        return self.__next__()
+    def __next__(self):
+        self._value += 1
+        return self._value
+    def __repr__(self) -> str:
+        return "Counter({self.val})".format(self._value)
     
 class Environment:
     def __init__(self, real_time: Union[float,int,bool] = False, current_time: bool = False):
@@ -118,6 +131,8 @@ class Environment:
         self._real_time = real_time if real_time is not True else 1.0
         self.scheduler = Scheduler(self._time, self._sleep, self)
         self._objects = list()
+        self._agents = OrderedDict()
+        self.counter = Counter()
 
     def _time(self) -> float:
         return time.time() if self._real_time else self._now
@@ -127,6 +142,15 @@ class Environment:
             time.sleep(delay/self._real_time)
         else:
             self._now += delay
+    
+    def add_agent(self, obj: Any) -> None:
+        count = self.counter()
+        key = obj.name if obj.name is not None else count
+        self._agents[key] = obj
+        
+    def _activate_fsm(self) -> None:
+        for ag in self._agents.values():
+            ag.activate_fsm()
 
     @property
     def now(self) -> float:
@@ -139,6 +163,7 @@ class Environment:
         return self.scheduler.enterabs(time, priority, action, args, kwargs)
 
     def run(self, until: Optional[float] = None) -> None:
+        self._activate_fsm()
         if until is not None:
             if until < self.now:
                 until += self.now

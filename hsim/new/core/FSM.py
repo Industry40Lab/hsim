@@ -11,6 +11,8 @@ from msg import Message, MessageQueue
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+MODE = 2
+
 class FSM:
     def __init__(self, env):
         self._env = env
@@ -18,14 +20,17 @@ class FSM:
         self._states:List['State'] = []
         self._transitions:List['Transition'] = []
         self._messages:MessageQueue = MessageQueue(env)
-        self.add_state(get_class_dict(self, State))
+        self.add_state(get_class_dict(self, State,iter=False))
         self.add_transition(get_class_dict(self, Transition))
+        self.active, self.startable, self.stoppable = False, True, True
     def start(self):
         for state in self._states:
             state.start() if state.initial_state else None
+        self.active = True
     def stop(self):
         for state in self._states:
             state.stop()
+        self.active = False
     def add_state(self, state:Union["State", Iterable["State"]]):
         if isinstance(state, State):
             self._states.append(state)
@@ -51,6 +56,10 @@ class FSM:
     def receive(self, message):
         self._messages.receive(message)
         self._on_receive(message)
+    def receiveContent(self, content, sender=None) -> Message:
+        msg:Message = Message(self._env, content, sender=sender, receiver=self, wait=True)
+        self.receive(msg)
+        return msg
     def guard_message(self):
         msg = self._messages.get()
         for transition in self._transitions:
@@ -87,10 +96,10 @@ class FSM:
             except AttributeError as e2:
                 raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'") from e2
 
-def get_class_dict(par, sub, txt = "FSM"):
-    for cls in par.__class__.__mro__:
-        if cls.__name__ == txt:
-            break
+def get_class_dict(par, sub, txt = "FSM", iter=False):
+    # for cls in par.__class__.__mro__:
+    #     if cls.__name__ == txt:
+    #         break
     cls = [cls for cls in par.__class__.__mro__][0]
     z = {**cls.__dict__, **dict()}
     return [x for x in z.values() if hasattr(x,'__base__') and (x.__base__ is sub or (hasattr(x.__base__,'__base__') and x.__base__.__base__ is sub)) and type(x) is type]

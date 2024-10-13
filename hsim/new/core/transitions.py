@@ -87,7 +87,7 @@ class MessageTransition(Transition):
     def start(self):
         self.event = BaseEvent(self._env, action=self).add()
     def interpret(self, message):
-        return self.message == message or self.message is None
+        return self.message == message.content or self.message is None
 
 
 class EventTransition(Transition):
