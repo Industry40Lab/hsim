@@ -9,6 +9,8 @@ import numpy as np
 from event import BaseEvent as Event, ConditionEvent, Status
 from event import TimedEvent
 
+DEBUG = True
+
 
 class Scheduler(sched.scheduler):
     def __init__(self, timefunc: Callable[[], float], delayfunc: Callable[[float], None], env:'Environment'):
@@ -55,50 +57,30 @@ class Scheduler(sched.scheduler):
                 else:
                     event.trigger()
                     if callable(event.action):
-                        event.action(*event.arguments, **event.kwargs)
+                        try:
+                            event.action(*event.arguments, **event.kwargs)
+                        except Exception as e:
+                            if DEBUG:
+                                print(f"Error in event {event}: {e}. Action: {event.action}. Arguments: {event.arguments}")
+                            else:
+                                raise e
                     else: #Iterable
                         if len(event.arguments) == 0:
                             event.arguments = [() for _ in range(len(event.action))]
                         elif len(event.arguments) != len(event.action):
                             raise ValueError("Arguments do not match")
                         for index, action in enumerate(event.action):
-                            action(*event.arguments[index], **event.kwargs)
+                            try:
+                                action(*event.arguments[index], **event.kwargs)
+                            except Exception as e:
+                                if DEBUG:
+                                    print(f"Error in event {event}: {e}. Action: {event.action}. Arguments: {event.arguments}")
+                                else:
+                                    raise e
                     delayfunc(0)   # Let other threads run
                     push(self._past, event)
                     event.process()
             [event.verify() for event in self._queue if isinstance(event, ConditionEvent)]
-        '''
-        while True:
-            if not self.queue:
-                break
-            event = self.queue[0]
-            now = timefunc()
-            if event.time > now:
-                delay = True
-            else:
-                delay = False
-                event, _ = pop(self.queue), pop(self._queue)
-            if delay:
-                if not blocking:
-                    return event.time - now
-                delayfunc(event.time - now)
-            elif event.pending:
-                event.time = np.inf
-                event.schedule()
-                self.enterevent(event)
-            else:
-                if event.scheduled:
-                    event.trigger()
-                elif "StopSimulation" in event.kwargs:
-                    break
-                elif event.triggered:
-                    push(self._past, event)
-                    event.action(*event.arguments)
-                    # event.action(*argument, **kwargs)
-                    delayfunc(0)   # Let other threads run
-                    event.process()
-                else:
-                    raise ValueError("Undefined event status")'''
     @property
     def queue(self):
         events = [event for event in self._queue if event.time >= self.timefunc() and event.time < float('inf')]

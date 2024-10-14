@@ -7,13 +7,14 @@ from msg import Message
           
 class Agent(ABC):
     stateMachine: FSM
-    connections:dict[str,Union['Agent',Iterable['Agent']]] = {}
+    connections:dict[str,Union['Agent',Iterable['Agent']]]
 
     def __init__(self, env, name:str=""):
         self.env = env
         self.name = name
         self.var = dotdict()
         self._linkFSM()
+        self.connections = {}
         env.add_agent(self)
     def _linkFSM(self):
         from FSM import FSM
@@ -26,6 +27,8 @@ class Agent(ABC):
             fsm._agent = self
     def activate_fsm(self):
         [fsm.start() for fsm in [x for x in self.__dict__.values() if isinstance(x,FSM)] if fsm.startable and not fsm.active]
+    def deactivate_fsm(self):
+        [fsm.stop() for fsm in [x for x in self.__dict__.values() if isinstance(x,FSM)] if fsm.active]
     def receive(self, message:Message):
         self.stateMachine.receive(message)
     def receiveContent(self, content:Any, sender=None) -> Message:

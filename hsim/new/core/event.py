@@ -1,6 +1,7 @@
 from __future__ import annotations
 from enum import Enum, auto
 from typing import Any, Callable, Iterable, List, Optional, Union
+from warnings import warn
 
 import numpy as np
 
@@ -35,6 +36,19 @@ class BaseEvent():
         except ValueError as e:
             if self.triggered and safe:
                 raise ValueError("Cannot cancel processed event")
+    def add_action(self, action:Callable, arguments: Any = []) -> None:
+        if action is object:
+            self.action, self.arguments = list(), list()
+        elif not isinstance(action, Iterable):
+            self.action, self.arguments = [self.action], [self.arguments]
+        if isinstance(action, Iterable):
+            if len(action) != len(arguments):
+                raise ValueError("Arguments should be provided for each action")
+            else:
+                for a,b in zip(action, arguments):
+                    self.action.append(a), self.arguments.append(b)
+        else:
+            self.action.append(action), self.arguments.append([arguments])
     def schedule(self, time=None) -> BaseEvent:
         self.time = time if time else self.time
         self._status = Status.SCHEDULED

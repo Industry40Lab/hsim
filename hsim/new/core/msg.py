@@ -81,7 +81,10 @@ class MessageQueue:
         try:
             self.queue.remove(message)
         except ValueError:
-            print("Message not found")
+            print("Message not found in receiver, just deleting it")
+            message.reset()
+            [self.env.scheduler._queue.remove(message.receipts[key]) for key in message.receipts]
+            del message
         
     def get(self)->Message:
         message = heappop(self.queue)

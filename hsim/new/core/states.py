@@ -60,7 +60,9 @@ class State:
                 return getattr(object.__getattribute__(self,'_fsm'),name)
             except AttributeError as e2:
                 raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'") from e2
-
+    @property
+    def transition(self, name:str):
+        return {name:[transition for transition in self.transitions if transition.name == name]}
         
 from transitions import Transition, MessageTransition
 from FSM import FSM

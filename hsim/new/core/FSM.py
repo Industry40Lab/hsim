@@ -85,6 +85,9 @@ class FSM:
     @property
     def transitionsTo(self):
         return {name: [transition for transition in self._transitions if transition.target == target] for name, target in self.states.items()}
+    @property
+    def transitionsFromTo(self):
+        return {(source, target): [transition for transition in self._transitions if transition.source == source and transition.target == target] for source in self.states for target in self.states}
     def __getattr__(self, name: str) -> Any:
         try:
             return object.__getattribute__(self,name)
@@ -96,10 +99,7 @@ class FSM:
             except AttributeError as e2:
                 raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'") from e2
 
-def get_class_dict(par, sub, txt = "FSM", iter=False):
-    # for cls in par.__class__.__mro__:
-    #     if cls.__name__ == txt:
-    #         break
+def get_class_dict(par, sub):
     cls = [cls for cls in par.__class__.__mro__][0]
     z = {**cls.__dict__, **dict()}
     return [x for x in z.values() if hasattr(x,'__base__') and (x.__base__ is sub or (hasattr(x.__base__,'__base__') and x.__base__.__base__ is sub)) and type(x) is type]

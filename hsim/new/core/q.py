@@ -27,6 +27,7 @@ class Queue(MessageQueue):
         return len(self.queue) < self.capacity
         
     def receive(self, *args, **kwargs):
+        return
         raise NotImplementedError("Queue does not support receive method")
     
     def inspect(self, index=0) -> tuple[Union[Agent,Any],Message]:
@@ -39,12 +40,14 @@ class Queue(MessageQueue):
                 msg = [msg for msg in self.queue if msg.content == other][0]
             except IndexError:
                 raise ValueError("Agent not in queue")
+        else:
+            msg = other
         self.queue.remove(msg) 
         
 class LockedQueue(Queue):
     def _put(self, msg:Message):
         heappush(self.queue, msg)
-        # does not self trigger
+        self._trigger()
         # does not receive
     
     def receive(self, agent:Agent=None):
@@ -57,9 +60,9 @@ class LockedQueue(Queue):
                 agent = agent
             except IndexError:
                 raise ValueError("Agent not in queue")
-        msg.reset()
+        # msg.reset()
         msg.receive()
-        self._trigger()
+        # self._trigger()
         
 class PriorityQueue(Queue, PriorityMessageQueue):
     def __init__(self, env, capacity=None, priorityFcn:Callable[[Tuple[Message, Message]], bool]=lambda x,y: False):

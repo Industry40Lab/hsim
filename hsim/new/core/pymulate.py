@@ -12,7 +12,7 @@ from des import DESBlock, TimedBlock
 
 
 class Server(DESBlock, TimedBlock):
-    def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None) -> None:
+    def __init__(self,env,name=None,serviceTime=1,serviceTimeFunction=None) -> None:
         super().__init__(env,name)
         self.var.serviceTime = serviceTime
         self.var.serviceTimeFunction = serviceTimeFunction
@@ -24,6 +24,7 @@ class Server(DESBlock, TimedBlock):
         class Working(State):
             def on_enter(self):
                 self.var.item, self.var.message = self.store.inspect()
+                self.transitions[0].timeout = self.calculateServiceTime(self.var.item)
         class Blocking(State):
             pass
 
@@ -38,7 +39,7 @@ class Server(DESBlock, TimedBlock):
             except AttributeError as e:
                 warn(RuntimeWarning(e))
         W2B.on_transition = onW2B
-        B2S.on_transition = lambda self: self._fsm._agent.store.get()
+        B2S.on_transition = lambda self: self._fsm._agent.store.get() if self._fsm._agent.store else None
         
 
 class Buffer(DESBlock):
@@ -61,11 +62,11 @@ class Buffer(DESBlock):
             try:
                 item, _ = self.store.inspect(index = -1) # get the last item
                 _, msg = self.give(self.connections["next"], item)
-                msg.receipts["received"].action = (self.transitionsFrom["Blocking"][0],self._fsm._agent.Store.get())
+                msg.receipts["received"].action = (self.transitionsFrom["Blocking"][0],self._fsm._agent.store.get)
             except Exception as e:
                 warn(RuntimeWarning(e))
         T1.on_transition = S2B
-        T2.on_transition = lambda self: self._fsm._agent.Store.get()
+        # T2.on_transition = lambda self: self._fsm._agent.store.get()
 
 
 class Store(DESBlock):
@@ -101,17 +102,17 @@ class Generator(DESBlock, TimedBlock):
             initial_state=True
         class Blocking(State):
             pass
-        T1=MessageTransition.define(Starving, Blocking)
+        T1=TimeoutTransition.define(Starving, Blocking)
         T2=EventTransition.define(Blocking, Starving)
         def S2B(self):
             try:
                 item = self.agent_function()
                 _, msg = self.give(self.connections["next"], item)
-                msg.receipts["received"].action = (self.transitionsFrom["Blocking"][0],self._fsm._agent.Store.get())
+                msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
             except Exception as e:
                 warn(RuntimeWarning(e))
         T1.on_transition = S2B
-        T2.on_transition = lambda self: self._fsm._agent.Store.get()
+        T2.on_transition = lambda self: None
 
 
 class Terminator(DESBlock):
@@ -120,13 +121,14 @@ class Terminator(DESBlock):
     
     Note: does not require a FSM.
     """
-    def __init__(self,env,name=None,capacity=np.inf):
-        super().__init__(env,name)
+    def __init__(self,env,name=None):
+        super().__init__(env,name,capacity=np.inf)
     def on_receive(self):
         self._terminate_item()
 
     def _terminate_item(self):
-        warn(NotImplementedError("The _terminate_item method is not implemented yet."))
+        item, _ = self.store.inspect(index = -1) # get the last item
+        item.deactivate_fsm()
 
 def test1():
     env = Environment()

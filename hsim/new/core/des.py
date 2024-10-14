@@ -9,14 +9,14 @@ from agent import Agent, FSM
 class DESBlock(Agent):
     __queueType = "standard" # "priority", "locked"
     Next : Union[Agent,Iterable[Agent]]
-    def __init__(self,env,name=None,capacity=1) -> None:
+    def __init__(self,env,name=None,capacity=1, queueType="standard") -> None:
         super().__init__(env,name)
-        if self.__queueType == "standard":
+        if queueType == "standard":
             self.store:Queue = Queue(env,capacity=capacity)
-        elif self.__queueType == "priority":
-            self.store = PriorityQueue(env)
-        elif self.__queueType == "locked":
-            self.store = LockedQueue(env)
+        elif queueType == "priority":
+            self.store = PriorityQueue(env,capacity=capacity)
+        elif queueType == "locked":
+            self.store = LockedQueue(env,capacity=capacity)
         else:
             raise ValueError(f"Queue type {self.__queueType} is not recognized.")
         self.store.on_receive = self.on_receive
@@ -64,7 +64,8 @@ class TimedBlock(Agent):
                 return self.var.serviceTimeFunction(*self.var.serviceTime)
             
 class DESLocked(DESBlock):
-    __lockedQueue__ = True
+    def __init__(self,env,name=None,capacity=1) -> None:
+        super().__init__(env,name,capacity,queueType="locked")
 
 
 
