@@ -22,8 +22,10 @@ class DESBlock(Agent):
         self.store.on_receive = self.on_receive
     def take(self,item) -> tuple[ConditionEvent, Message]:
         return self.store.take(item)
-    def give(self, other, item) -> tuple[ConditionEvent, Message]:
+    def give(self, other:Agent, item:Agent) -> tuple[ConditionEvent, Message]:
         return other.take(item)
+    def post(self, item:Agent) -> tuple[ConditionEvent, Message]:
+        return self.store.post(item)
     def on_receive(self) -> None:
         raise NotImplementedError(f"on_receive method is not implemented for {self}.")
     class FSM(FSM):

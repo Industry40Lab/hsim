@@ -42,7 +42,13 @@ class Queue(MessageQueue):
                 raise ValueError("Agent not in queue")
         else:
             msg = other
-        self.queue.remove(msg) 
+        self.queue.remove(msg)
+        
+    def post(self, agent:Agent, decisor:Callable=lambda *args:None) -> tuple[ConditionEvent, Message]:
+        msg:Message = Message(self.env, content=agent, receiver=self, wait=True)
+        event = ConditionEvent(self.env, action=decisor, condition=self._capacity_condition, arguments=(msg,)).add()
+        event.verify()
+        return event, msg
         
 class LockedQueue(Queue):
     def _put(self, msg:Message):

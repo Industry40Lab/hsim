@@ -1,6 +1,6 @@
 from typing import Iterable, List, Union
 from agent import Agent
-from event import ConditionEvent
+from event import AnyEvent, ConditionEvent
 from pymulate import Server, Generator, Terminator
 from env import Environment
 from des import DESLocked
@@ -13,32 +13,27 @@ class Switch(DESLocked):
     def on_receive(self) -> None:
         """Triggered when an item is received from the store. It inspects the store and posts the item to the next agents.
         """
-        item, oldmsg = self.store.inspect()
-        messages = list()
-        self.post(self.pick(agent=item),item)
+        item, _ = self.store.inspect()
+        self.multipost(self.pick(agent=item),item)
     def pick(self,agent=None) -> Union[List[Server],Server]:
         return self.connections["next"]
-    def decide(self,events):
+    def decide(self,*events):
         """Switches between available outputs, chosing the first one that is available.
         """
-        length:int = sum([event.verify() for event in events])
         index = [event.verify() for event in events].index(True)
         msg = events[index].arguments[0]
         msg.receiver._put(msg)
         self.store.receive(msg.content)
         self.store.pull(msg.content) 
-    def post(self,nexts:Iterable[Agent], item:Agent):
+    def multipost(self,nexts:Iterable[Agent], item:Agent):
         """Tries to give an item to multiple outputs.
 
         Args:
             nexts (Iterable[Agent])
             item (Agent)
         """
-        tuples = [self.give(next,item) for next in nexts]
-        events, _ = zip(*tuples)
-        for event in events:
-            event.action = lambda *args:None
-        master = ConditionEvent(self.env, condition=lambda: any([event.condition() for event in events]), priority=0, action=self.decide, arguments=[events]).add()
+        events, _ = zip(*[next.post(item) for next in nexts])
+        master = AnyEvent(self.env, events=events, priority=0, action=self.decide).add()
 
 
 def test1():

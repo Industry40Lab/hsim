@@ -12,7 +12,7 @@ class Status(Enum):
     PROCESSED = auto()
     
 class BaseEvent():
-    def __init__(self, env: 'Environment', priority: Union[float,int]=1, action: Union[Iterable[Callable[..., Any]], Callable[..., Any]] = object, arguments: Any = [], **kwargs: Any):
+    def __init__(self, env: 'Environment', priority: Union[float,int]=1, action: Union[Iterable[Callable[..., Any]], Callable[..., Any]] = object, arguments: Any = [], **kwargs: Any): # type: ignore
         self.env = env
         self.sequence = next(env.scheduler._sequence_generator)
         self.time = np.inf
@@ -102,29 +102,29 @@ class BaseEvent():
     
     
 class TimedEvent(BaseEvent):
-    def __init__(self, env: 'Environment', time: Union[float,int,None], priority: Union[float,int] = 1, action: Union[Iterable[Callable[..., Any]], Callable[..., Any]] = object, arguments: Any = [], **kwargs: Any):
+    def __init__(self, env: 'Environment', time: Union[float,int,None], priority: Union[float,int] = 1, action: Union[Iterable[Callable[..., Any]], Callable[..., Any]] = object, arguments: Any = [], **kwargs: Any): # type: ignore
         super().__init__(env, priority, action, arguments, **kwargs)
         self.time = time
         if self.time < self.env.now:
             raise ValueError("Event cannot be scheduled in the past")
         self._status : Status = Status.SCHEDULED if time < np.inf else Status.PENDING
     @classmethod
-    def at(cls, env: 'Environment', time: Union[float,int], priority: Union[float,int] = 1) -> TimedEvent:
+    def at(cls, env: 'Environment', time: Union[float,int], priority: Union[float,int] = 1) -> TimedEvent: # type: ignore
         return cls(env, time, priority)
 
 
 class DelayEvent(BaseEvent):
-    def __init__(self, env: 'Environment', delay: Union[float,int], priority: Union[float,int] = 1, action: Union[Iterable[Callable[..., Any]], Callable[..., Any]] = object, arguments: Any = [], **kwargs: Any):
+    def __init__(self, env: 'Environment', delay: Union[float,int], priority: Union[float,int] = 1, action: Union[Iterable[Callable[..., Any]], Callable[..., Any]] = object, arguments: Any = [], **kwargs: Any): # type: ignore
         super().__init__(env, priority, action, arguments, **kwargs)
         self.time = delay + self.env.now
         self._status : Status = Status.SCHEDULED if delay < np.inf else Status.PENDING
     @classmethod
-    def after(cls, env: 'Environment', delay: Union[float,int], priority: Union[float,int] = 1) -> TimedEvent:
+    def after(cls, env: 'Environment', delay: Union[float,int], priority: Union[float,int] = 1) -> TimedEvent: # type: ignore
         return cls(env, env.now + delay, priority)
 
 
 class ConditionEvent(BaseEvent):
-    def __init__(self, env: 'Environment', condition: Callable[[], bool], priority: Union[float,int] = 1, action:Union[Iterable[Callable[..., Any]], Callable[..., Any]]=object, arguments: Any = [], **kwargs: Any):
+    def __init__(self, env: 'Environment', condition: Callable[[], bool], priority: Union[float,int] = 1, action:Union[Iterable[Callable[..., Any]], Callable[..., Any]]=object, arguments: Any = [], **kwargs: Any): # type: ignore
         super().__init__(env, priority,action, arguments, **kwargs)
         self.condition = condition
         self._status : Status = Status.PENDING
@@ -137,7 +137,7 @@ class ConditionEvent(BaseEvent):
             return False
             
 class RecurringEvent(BaseEvent):
-    def __init__(self, env: 'Environment', priority: float | int = 1, action: Iterable[Callable[..., Any]] | Callable[..., Any] = object, arguments: Any = [], **kwargs: Any):
+    def __init__(self, env: 'Environment', priority: float | int = 1, action: Iterable[Callable[..., Any]] | Callable[..., Any] = object, arguments: Any = [], **kwargs: Any): # type: ignore
         super().__init__(env, priority, action, arguments, **kwargs)
     def new(self) -> BaseEvent:
         new = BaseEvent(self.env, self.priority, self.action, self.arguments, **self.kwargs)
@@ -146,6 +146,20 @@ class RecurringEvent(BaseEvent):
         return new
     def __iter__(self) -> BaseEvent:
         return self.new()
+    
+class AnyEvent(ConditionEvent):
+    def __init__(self, env: 'Environment', events:Iterable[ConditionEvent], priority: Union[float,int] = 1, action:Union[Iterable[Callable[..., Any]], Callable[..., Any]]=object, **kwargs: Any): # type: ignore
+        arguments = [event for event in events]
+        condition = lambda: any([event.condition() for event in events])
+        super().__init__(env, condition, priority, action, arguments, **kwargs)
+        
+        
+class AllEvent(ConditionEvent):
+    def __init__(self, env: 'Environment', events:Iterable[ConditionEvent], priority: Union[float,int] = 1, action:Union[Iterable[Callable[..., Any]], Callable[..., Any]]=object, **kwargs: Any): # type: ignore
+        arguments = [event for event in events]
+        condition = lambda: all([event.condition() for event in events])
+        super().__init__(env, condition, priority, action, arguments, **kwargs)
+        
     
 def attachAction(action, arguments: List[Any] = []) -> Callable[..., Any]:
     return action
@@ -173,4 +187,3 @@ def wait(func):
     return wrapper
 
 
-# from env import Environment

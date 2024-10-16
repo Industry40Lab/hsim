@@ -20,7 +20,7 @@ class FSM:
         self._states:List['State'] = []
         self._transitions:List['Transition'] = []
         self._messages:MessageQueue = MessageQueue(env)
-        self.add_state(get_class_dict(self, State,iter=False))
+        self.add_state(get_class_dict(self, State))
         self.add_transition(get_class_dict(self, Transition))
         self.active, self.startable, self.stoppable = False, True, True
     def start(self):
