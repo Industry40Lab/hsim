@@ -61,6 +61,7 @@ class Scheduler(sched.scheduler):
                             event.action(*event.arguments, **event.kwargs)
                         except Exception as e:
                             if DEBUG:
+                                event.action(*event.arguments, **event.kwargs)
                                 print(f"Error in event {event}: {e}. Action: {event.action}. Arguments: {event.arguments}")
                             else:
                                 raise e

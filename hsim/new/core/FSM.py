@@ -11,8 +11,6 @@ from msg import Message, MessageQueue
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MODE = 2
-
 class FSM:
     def __init__(self, env):
         self._env = env
@@ -22,8 +20,8 @@ class FSM:
         self._messages:MessageQueue = MessageQueue(env)
         self._pseudostates:List['Pseudostate'] = []
         self.add_element(get_class_dict(self, State))
-        self.add_element(get_class_dict(self, Transition))
         self.add_element(get_class_dict(self, Pseudostate))
+        self.add_element(get_class_dict(self, Transition))
         self.active, self.startable, self.stoppable = False, True, True
     def start(self):
         for state in self._states:
@@ -37,18 +35,19 @@ class FSM:
         if isinstance(element, Iterable):
             for e in element:
                 self.add_element(e)
-        elif isinstance(element, State):
-            self._states.append(element)
-        elif isinstance(element, Transition):
-            self._transitions.append(element)
-        elif isinstance(element, Pseudostate):
-            self._pseudostates.append(element)
+        elif not isinstance(element, type):
+            if isinstance(element, State):
+                self._states.append(element)
+            elif isinstance(element, Transition):
+                self._transitions.append(element)
+            elif isinstance(element, Pseudostate):
+                self._pseudostates.append(element)
         elif isinstance(element, type):
             if issubclass(element, State):
                 initial_state = getattr(element, 'initial_state', False)
                 self.add_element(element(element.__name__, self, initial_state))
             elif issubclass(element, Transition):
-                source, target = self.states[element._sourceStateClass.__name__], self.states[element._targetStateClass.__name__]
+                source, target = self.statesps[element._sourceStateClass.__name__], self.statesps[element._targetStateClass.__name__]
                 self.add_element(element(self, source, target).__override__())
             elif issubclass(element, Pseudostate):
                 self.add_element(element(element.__name__, self))
@@ -88,6 +87,14 @@ class FSM:
     @property
     def transitionsFromTo(self):
         return {(source, target): [transition for transition in self._transitions if transition.source == source and transition.target == target] for source in self.states for target in self.states}
+    @property
+    def pseudostates(self):
+        return {state.name: state for state in self._pseudostates}
+    @property
+    def statesps(self):
+        d = {state.name: state for state in self._states}
+        d.update({state.name: state for state in self._pseudostates})
+        return d
     def __getattr__(self, name: str) -> Any:
         try:
             return object.__getattribute__(self,name)

@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from collections import OrderedDict
-from typing import Any, Callable, Iterable, List, Union
+from typing import Any, Callable, Iterable, List, Type, Union
 import numpy as np
 import logging
 
@@ -75,13 +75,24 @@ class Pseudostate:
         self._fsm = fsm
         self._env = fsm._env
     def start(self) -> None:
-        targets:Iterable[State] = [*self.control()]
+        targets:Iterable[Type] = [*self.control()]
         for target in targets:
-            target.start()
+            self.states[target.__name__].start()
     @abstractmethod    
     def control(self) -> Iterable[State]:
         if True:
             return self.fsm.Empty,
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return object.__getattribute__(self,name)
+        except AttributeError as e1:
+            if name == 'fsm' or name[:2] == "__":
+                raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'") from e1
+            try:
+                return getattr(object.__getattribute__(self,'_fsm'),name)
+            except AttributeError as e2:
+                raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'") from e2
+
 
 
 from transitions import Transition, MessageTransition
