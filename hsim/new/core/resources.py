@@ -16,7 +16,8 @@ class UnreliableMachine(Server):
         B2S=EventTransition.define(FSM.Blocking, FSM.Starving)
         
         
-# needing pseudostate or multiple transitions=??
-class Pseudostate():
-    def start(self):
-        pass
+def main():
+    pass
+
+if __name__ == "__main__":
+    main()

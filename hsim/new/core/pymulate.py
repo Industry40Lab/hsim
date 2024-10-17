@@ -3,7 +3,7 @@ import numpy as np
 from q import Queue
 import types
 from transitions import MessageTransition, TimeoutTransition, EventTransition
-from states import State
+from states import Pseudostate, State
 from FSM import FSM
 from env import Environment
 from agent import Agent, FSM
@@ -26,6 +26,8 @@ class Server(DESBlock, TimedBlock):
                 self.var.item, self.var.message = self.store.inspect()
                 self.transitions[0].timeout = self.calculateServiceTime(self.var.item)
         class Blocking(State):
+            pass
+        class No(Pseudostate):
             pass
 
         S2W=MessageTransition.define(Starving, Working)

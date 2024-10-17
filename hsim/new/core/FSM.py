@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import Any, Callable, Iterable, List, Union
+from typing import Any, Callable, Iterable, List, Type, Union
 import numpy as np
 import logging
 
@@ -20,8 +20,10 @@ class FSM:
         self._states:List['State'] = []
         self._transitions:List['Transition'] = []
         self._messages:MessageQueue = MessageQueue(env)
-        self.add_state(get_class_dict(self, State))
-        self.add_transition(get_class_dict(self, Transition))
+        self._pseudostates:List['Pseudostate'] = []
+        self.add_element(get_class_dict(self, State))
+        self.add_element(get_class_dict(self, Transition))
+        self.add_element(get_class_dict(self, Pseudostate))
         self.active, self.startable, self.stoppable = False, True, True
     def start(self):
         for state in self._states:
@@ -31,28 +33,26 @@ class FSM:
         for state in self._states:
             state.stop()
         self.active = False
-    def add_state(self, state:Union["State", Iterable["State"]]):
-        if isinstance(state, State):
-            self._states.append(state)
-        elif isinstance(state, type):
-            initial_state = state.initial_state if hasattr(state, 'initial_state') else False
-            self._states.append(state(state.__name__,self,initial_state))
-        elif isinstance(state, Iterable):
-            for s in state:
-                self.add_state(s)
-    def add_transition(self, transition:Union["Transition", Iterable["Transition"]]):
-        if isinstance(transition, Transition):
-            self._transitions.append(transition)
-        elif isinstance(transition, Iterable):
-            if len(transition) == 0:
-                return
-            elif isinstance(transition[0], Transition):
-                for t in transition:
-                    self._transitions.append(t)
-            elif isinstance(transition[0], type):
-                for t in transition:
-                    source, target = self.states[t._sourceStateClass.__name__], self.states[t._targetStateClass.__name__]
-                    self._transitions.append(t(self, source, target).__override__())
+    def add_element(self, element: Union["State", "Transition", "Pseudostate", Type, Iterable]):
+        if isinstance(element, Iterable):
+            for e in element:
+                self.add_element(e)
+        elif isinstance(element, State):
+            self._states.append(element)
+        elif isinstance(element, Transition):
+            self._transitions.append(element)
+        elif isinstance(element, Pseudostate):
+            self._pseudostates.append(element)
+        elif isinstance(element, type):
+            if issubclass(element, State):
+                initial_state = getattr(element, 'initial_state', False)
+                self.add_element(element(element.__name__, self, initial_state))
+            elif issubclass(element, Transition):
+                source, target = self.states[element._sourceStateClass.__name__], self.states[element._targetStateClass.__name__]
+                self.add_element(element(self, source, target).__override__())
+            elif issubclass(element, Pseudostate):
+                self.add_element(element(element.__name__, self))
+                
     def receive(self, message):
         self._messages.receive(message)
         self._on_receive(message)
@@ -107,4 +107,4 @@ def get_class_dict(par, sub):
 
 
 from transitions import Transition, MessageTransition
-from states import State
+from states import State, Pseudostate

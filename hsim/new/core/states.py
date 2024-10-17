@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from collections import OrderedDict
 from typing import Any, Callable, Iterable, List, Union
 import numpy as np
@@ -64,5 +65,24 @@ class State:
     def transition(self, name:str):
         return {name:[transition for transition in self.transitions if transition.name == name]}
         
+
+# needing pseudostate or multiple transitions=??
+class Pseudostate:
+    initial_state = False
+    _active = False
+    def __init__(self, name:str, fsm:'FSM'):
+        self.name = name
+        self._fsm = fsm
+        self._env = fsm._env
+    def start(self) -> None:
+        targets:Iterable[State] = [*self.control()]
+        for target in targets:
+            target.start()
+    @abstractmethod    
+    def control(self) -> Iterable[State]:
+        if True:
+            return self.fsm.Empty,
+
+
 from transitions import Transition, MessageTransition
 from FSM import FSM
