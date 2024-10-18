@@ -2,7 +2,7 @@
 from typing import Callable, Iterable, Union
 from warnings import warn
 import numpy as np
-from pymulate import Server, Generator, Terminator
+from pymulate import Server, Generator, Terminator, forwardItemB2S
 from FSM import FSM
 from states import Pseudostate, State
 from transitions import MessageTransition, TimeoutTransition, EventTransition
@@ -11,10 +11,10 @@ from agent import Agent
 from q import Queue
 
 class UnreliableMachine(Server):
-    def __init__(self, env, name=None, serviceTime=1, serviceTimeFunction=None, failure_rate=0.1, TTRfcn:Callable=lambda self,*args: self.var.TTR[0], TTRvalue:Iterable[Union[float,int]]=(1,)):
+    def __init__(self, env, name=None, serviceTime=1, serviceTimeFunction=None, failure_rate=0.1, TTRfcn:Callable=lambda *args: args[0] if hasattr(args,"__len__") else args, TTRvalue:Iterable[Union[float,int]]=(1,)):
         super().__init__(env, name, serviceTime, serviceTimeFunction)
         self.var.failure_rate = failure_rate
-        self.var.TTR = TTRvalue
+        self.var.TTR = {"fcn":TTRfcn,"value":TTRvalue}
     class FSM(FSM):
         class Starving(State):
             initial_state=True
@@ -26,10 +26,10 @@ class UnreliableMachine(Server):
             pass
         class Failed(State):
             def on_enter(self):
-                self.transitions[0].timeout = 10
+                self.transitions[0].timeout = self.var.TTR["fcn"](*self.var.TTR["value"])
         class PS1(Pseudostate):
             def control(self):
-                if np.random.rand() < self.failure_rate:
+                if np.random.rand() < self.var.failure_rate:
                     return self.Failed,
                 else:
                     return self.Working,
@@ -39,19 +39,15 @@ class UnreliableMachine(Server):
         W2B=TimeoutTransition.define(Working, Blocking)
         B2S=EventTransition.define(Blocking, Starving)
         
-        def onW2B(self):
-            try:
-                _, msg = self.give(self.connections["next"], self._agent.var.item)
-                msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
-            except AttributeError as e:
-                warn(RuntimeWarning(e))
-        W2B.on_transition = onW2B
+        W2B.on_transition = lambda self: forwardItemB2S(self,self.var.item)
         B2S.on_transition = lambda self: self._fsm._agent.store.get() if self._fsm._agent.store else None
-        
+
+
+
         
 def test1():
     env = Environment()
-    a = UnreliableMachine(env,failure_rate=0.9)
+    a = UnreliableMachine(env,failure_rate=0.99)
     q = Queue(env,10)
     a.connections["next"] = q
     env.run(10)

@@ -11,6 +11,14 @@ from warnings import warn
 from des import DESBlock, TimedBlock
 
 
+def forwardItemB2S(self,item):
+    try:
+        _, msg = self.give(self.connections["next"], item)
+        msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
+    except AttributeError as e:
+        warn(RuntimeWarning(e))
+
+
 class Server(DESBlock, TimedBlock):
     def __init__(self,env,name=None,serviceTime=1,serviceTimeFunction=None) -> None:
         super().__init__(env,name)
@@ -34,13 +42,7 @@ class Server(DESBlock, TimedBlock):
         W2B=TimeoutTransition.define(Working, Blocking)
         B2S=EventTransition.define(Blocking, Starving)
 
-        def onW2B(self):
-            try:
-                _, msg = self.give(self.connections["next"], self._agent.var.item)
-                msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
-            except AttributeError as e:
-                warn(RuntimeWarning(e))
-        W2B.on_transition = onW2B
+        W2B.on_transition = lambda self: forwardItemB2S(self,self.var.item)
         B2S.on_transition = lambda self: self._fsm._agent.store.get() if self._fsm._agent.store else None
         
 
@@ -60,15 +62,9 @@ class Buffer(DESBlock):
             pass
         T1=MessageTransition.define(Starving, Blocking)
         T2=EventTransition.define(Blocking, Starving)
-        def S2B(self):
-            try:
-                item, _ = self.store.inspect(index = -1) # get the last item
-                _, msg = self.give(self.connections["next"], item)
-                msg.receipts["received"].action = (self.transitionsFrom["Blocking"][0],self._fsm._agent.store.get)
-            except Exception as e:
-                warn(RuntimeWarning(e))
-        T1.on_transition = S2B
-        # T2.on_transition = lambda self: self._fsm._agent.store.get()
+
+        T1.on_transition = lambda self: forwardItemB2S(self,self.store.inspect(index = -1))
+        T2.on_transition = lambda self: self._fsm._agent.store.get()
 
 
 class Store(DESBlock):
@@ -106,14 +102,9 @@ class Generator(DESBlock, TimedBlock):
             pass
         T1=TimeoutTransition.define(Starving, Blocking)
         T2=EventTransition.define(Blocking, Starving)
-        def S2B(self):
-            try:
-                item = self.agent_function()
-                _, msg = self.give(self.connections["next"], item)
-                msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
-            except Exception as e:
-                warn(RuntimeWarning(e))
-        T1.on_transition = S2B
+
+        
+        T1.on_transition = lambda self: forwardItemB2S(self,self.agent_function())
         T2.on_transition = lambda self: None
 
 
