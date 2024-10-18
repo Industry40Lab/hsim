@@ -1,3 +1,9 @@
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+
+
 from typing import Any, Iterable, Union
 from hsim.core.core.env import Environment
 from abc import ABC

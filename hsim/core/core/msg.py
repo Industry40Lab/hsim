@@ -1,9 +1,14 @@
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+
+
 from abc import abstractmethod
 from heapq import heappop, heappush
 import heapq
 import types
 from typing import Any, Callable, Iterable, OrderedDict, Tuple
-
 from hsim.core.core.event import BaseEvent, RecurringEvent, Status
 
 class Message():

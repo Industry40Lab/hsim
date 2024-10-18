@@ -1,3 +1,9 @@
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+
+
 from heapq import heappush
 from typing import Any, Callable, Tuple, Union
 import numpy as np
