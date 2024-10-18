@@ -3,9 +3,9 @@ from typing import Any, Callable, Iterable, List, Type, Union
 import numpy as np
 import logging
 
-from event import ConditionEvent, BaseEvent, TimedEvent
-from env import Environment
-from msg import Message, MessageQueue
+from hsim.core.core.event import ConditionEvent, BaseEvent, TimedEvent
+from hsim.core.core.env import Environment
+from hsim.core.core.msg import Message, MessageQueue
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -113,5 +113,5 @@ def get_class_dict(par, sub):
         
 
 
-from transitions import Transition, MessageTransition
-from states import State, Pseudostate
+from .transitions import Transition, MessageTransition
+from .states import State, Pseudostate

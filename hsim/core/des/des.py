@@ -1,10 +1,16 @@
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+
+
 from typing import Iterable, Union
-from q import LockedQueue, PriorityQueue, Queue
-from states import State
-from FSM import FSM
-from msg import Message
-from event import ConditionEvent
-from agent import Agent, FSM
+from hsim.core.agent.q import LockedQueue, PriorityQueue, Queue
+from hsim.core.fsm.states import State
+from hsim.core.fsm.FSM import FSM
+from hsim.core.core.msg import Message
+from hsim.core.core.event import ConditionEvent
+from hsim.core.agent.agent import Agent, FSM
 
 class DESBlock(Agent):
     __queueType = "standard" # "priority", "locked"

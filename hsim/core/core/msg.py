@@ -4,7 +4,7 @@ import heapq
 import types
 from typing import Any, Callable, Iterable, OrderedDict, Tuple
 
-from event import BaseEvent, RecurringEvent, Status
+from hsim.core.core.event import BaseEvent, RecurringEvent, Status
 
 class Message():
     def __init__(self, env, content:Any=None, receiver:'MessageQueue'=None, sender=None, wait=False):

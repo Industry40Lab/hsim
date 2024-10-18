@@ -1,9 +1,9 @@
 from heapq import heappush
 from typing import Any, Callable, Tuple, Union
 import numpy as np
-from agent import Agent
-from msg import MessageQueue, Message, PriorityMessageQueue
-from event import ConditionEvent
+from hsim.core.agent.agent import Agent
+from hsim.core.core.msg import MessageQueue, Message, PriorityMessageQueue
+from hsim.core.core.event import ConditionEvent
 
 class Queue(MessageQueue):
     def __init__(self, env, capacity=None):

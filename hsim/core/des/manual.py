@@ -1,10 +1,16 @@
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+
+    
 from typing import Union
-from q import Queue
-from transitions import ConditionTransition, MessageTransition, TimeoutTransition, EventTransition
-from states import State
-from FSM import FSM
-from env import Environment
-from agent import Agent, FSM
+from hsim.core.agent.q import Queue
+from hsim.core.fsm.transitions import ConditionTransition, MessageTransition, TimeoutTransition, EventTransition
+from hsim.core.fsm.states import State
+from hsim.core.fsm.FSM import FSM
+from hsim.core.core.env import Environment
+from hsim.core.agent.agent import Agent, FSM
 from warnings import warn
 from pymulate import Server, Store
 
@@ -73,7 +79,7 @@ class Operator(Agent):
 
 
     
-def test4():
+def test1():
     env = Environment()
     a = ManualStation(env)
     b = Store(env)
@@ -96,4 +102,4 @@ def test4():
 
 if __name__ == "__main__":
 
-    test4()
+    test1()

@@ -1,12 +1,18 @@
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+
+    
 from abc import abstractmethod
 from collections import OrderedDict
 from typing import Any, Callable, Iterable, List, Type, Union
 import numpy as np
 import logging
 
-from event import ConditionEvent, BaseEvent, TimedEvent
-from env import Environment
-from msg import Message, MessageQueue
+from hsim.core.core.event import ConditionEvent, BaseEvent, TimedEvent
+from hsim.core.core.env import Environment
+from hsim.core.core.msg import Message, MessageQueue
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -95,5 +101,5 @@ class Pseudostate:
 
 
 
-from transitions import Transition, MessageTransition
-from FSM import FSM
+from hsim.core.fsm.transitions import Transition, MessageTransition
+from hsim.core.fsm.FSM import FSM

@@ -1,3 +1,9 @@
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+
+    
 import heapq
 import sched
 import threading
@@ -6,8 +12,8 @@ from typing import Any, Callable, Optional, Union
 from collections import OrderedDict, deque
 
 import numpy as np
-from event import BaseEvent as Event, ConditionEvent, Status
-from event import TimedEvent
+from hsim.core.core.event import BaseEvent as Event, ConditionEvent, Status
+from hsim.core.core.event import TimedEvent
 
 DEBUG = True
 

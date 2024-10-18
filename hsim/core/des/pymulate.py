@@ -1,14 +1,20 @@
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+    
+    
 from typing import Callable
 import numpy as np
-from q import Queue
+from hsim.core.agent.q import Queue
 import types
-from transitions import MessageTransition, TimeoutTransition, EventTransition
-from states import Pseudostate, State
-from FSM import FSM
-from env import Environment
-from agent import Agent, FSM
+from hsim.core.fsm.transitions import MessageTransition, TimeoutTransition, EventTransition
+from hsim.core.fsm.states import Pseudostate, State
+from hsim.core.fsm.FSM import FSM
+from hsim.core.core.env import Environment
+from hsim.core.agent.agent import Agent, FSM
 from warnings import warn
-from des import DESBlock, TimedBlock
+from hsim.core.des.des import DESBlock, TimedBlock
 
 
 def forwardItemB2S(self,item):

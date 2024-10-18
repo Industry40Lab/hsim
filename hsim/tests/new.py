@@ -1,7 +1,7 @@
 import logging
 
-from env import Environment
-from msg import Message
+from hsim.core.core.env import Environment
+from hsim.core.core.msg import Message
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

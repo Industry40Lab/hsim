@@ -1,9 +1,15 @@
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+
+
 from typing import Iterable, List, Union
-from agent import Agent
-from event import AnyEvent, ConditionEvent
+from hsim.core.agent.agent import Agent
+from hsim.core.core.event import AnyEvent, ConditionEvent
 from pymulate import Server, Generator, Terminator
-from env import Environment
-from des import DESLocked
+from hsim.core.core.env import Environment
+from hsim.core.des.des import DESLocked
 
 class Switch(DESLocked):
     """Multi-purpose switch block that can be used to route entities to different outputs based on a condition.

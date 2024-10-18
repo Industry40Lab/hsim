@@ -1,8 +1,8 @@
 from typing import Any, Iterable, Union
-from env import Environment
+from hsim.core.core.env import Environment
 from abc import ABC
-from FSM import FSM, get_class_dict
-from msg import Message
+from hsim.core.fsm.FSM import FSM, get_class_dict
+from hsim.core.core.msg import Message
 
           
 class Agent(ABC):
@@ -17,7 +17,7 @@ class Agent(ABC):
         self.connections = {}
         env.add_agent(self)
     def _linkFSM(self):
-        from FSM import FSM
+        from hsim.core.fsm.FSM import FSM
         fsmList = get_class_dict(self, FSM)
         fsmList.append(FSM) if len(fsmList) == 0 else None
         for FSM in fsmList:

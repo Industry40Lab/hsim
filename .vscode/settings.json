@@ -1,0 +1,8 @@
+{
+    "python.analysis.extraPaths": [
+        "./hsim/core/fsm",
+        "./hsim/core/agent",
+        "./hsim/core/des",
+        "./hsim/core/core"
+    ]
+}

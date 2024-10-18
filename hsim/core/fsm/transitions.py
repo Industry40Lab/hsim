@@ -4,9 +4,9 @@ from typing import Any, Callable, Iterable, List, Union
 import numpy as np
 import logging
 
-from event import ConditionEvent, BaseEvent, DelayEvent, TimedEvent
-from env import Environment
-from msg import Message, MessageQueue
+from hsim.core.core.event import ConditionEvent, BaseEvent, DelayEvent, TimedEvent
+from hsim.core.core.env import Environment
+from hsim.core.core.msg import Message, MessageQueue
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -111,5 +111,5 @@ class ConditionTransition(Transition):
         return self.event.verify()
 
         
-from states import State
-from FSM import FSM
+from .states import State
+from .FSM import FSM

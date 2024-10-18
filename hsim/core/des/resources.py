@@ -1,14 +1,19 @@
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+    
 
 from typing import Callable, Iterable, Union
 from warnings import warn
 import numpy as np
 from pymulate import Server, Generator, Terminator, forwardItemB2S
-from FSM import FSM
-from states import Pseudostate, State
-from transitions import MessageTransition, TimeoutTransition, EventTransition
-from env import Environment
-from agent import Agent
-from q import Queue
+from hsim.core.fsm.FSM import FSM
+from hsim.core.fsm.states import Pseudostate, State
+from hsim.core.fsm.transitions import MessageTransition, TimeoutTransition, EventTransition
+from hsim.core.core.env import Environment
+from hsim.core.agent.agent import Agent
+from hsim.core.agent.q import Queue
 
 class UnreliableMachine(Server):
     def __init__(self, env, name=None, serviceTime=1, serviceTimeFunction=None, failure_rate=0.1, TTRfcn:Callable=lambda *args: args[0] if hasattr(args,"__len__") else args, TTRvalue:Iterable[Union[float,int]]=(1,)):
