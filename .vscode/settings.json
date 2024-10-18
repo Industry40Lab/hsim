@@ -4,5 +4,10 @@
         "./hsim/core/agent",
         "./hsim/core/des",
         "./hsim/core/core"
-    ]
+    ],
+    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.autoImportCompletions": true,
+    "pylint.severity": {
+        "warning": "Hint"
+    }
 }

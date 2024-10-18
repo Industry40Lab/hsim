@@ -1,19 +1,17 @@
-if __name__ == "__main__":
-    import sys
-    import os
-    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
-    
-    
+from warnings import warn
 from typing import Callable
 import numpy as np
 from hsim.core.agent.q import Queue
 import types
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 from hsim.core.fsm.transitions import MessageTransition, TimeoutTransition, EventTransition
 from hsim.core.fsm.states import Pseudostate, State
 from hsim.core.fsm.FSM import FSM
 from hsim.core.core.env import Environment
 from hsim.core.agent.agent import Agent, FSM
-from warnings import warn
 from hsim.core.des.des import DESBlock, TimedBlock
 
 
@@ -89,8 +87,8 @@ class Store(DESBlock):
         _, msg = self.give(self.connections["next"], item)
         msg.receipts["received"].action = self.store.pull
         msg.receipts["received"].arguments = (item,)
-      
-        
+
+
 class Generator(DESBlock, TimedBlock):
     """Generates agents.
     Args:
