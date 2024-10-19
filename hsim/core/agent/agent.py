@@ -1,12 +1,11 @@
 if __name__ == "__main__":
-    import sys
-    import os
+    import sys; import os
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
 
+from abc import ABC
 from typing import Any, Iterable, Union
 from hsim.core.core.env import Environment
-from abc import ABC
 from hsim.core.fsm.FSM import FSM, get_class_dict
 from hsim.core.core.msg import Message
 
