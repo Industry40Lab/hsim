@@ -7,7 +7,7 @@ if __name__ == "__main__":
 from typing import Callable, Iterable, Union
 from warnings import warn
 import numpy as np
-from pymulate import Server, Generator, Terminator, forwardItemB2S
+from hsim.core.des.pymulate import Server, Generator, Terminator, forwardItemB2S
 from hsim.core.fsm.FSM import FSM
 from hsim.core.fsm.states import Pseudostate, State
 from hsim.core.fsm.transitions import MessageTransition, TimeoutTransition, EventTransition
@@ -47,6 +47,44 @@ class UnreliableMachine(Server):
         W2B.on_transition = lambda self: forwardItemB2S(self,self.var.item)
         B2S.on_transition = lambda self: self._fsm._agent.store.get() if self._fsm._agent.store else None
 
+class Quality:
+    def __init__(self, function:callable=np.random.rand(), threshold=0, *args):
+        self.function = function
+        self.threshold = threshold
+        self.args = args
+    def __call__(self)->bool:
+        return self.function(*self.args) < self.threshold
+
+class QualityMachine(Server):
+    def __init__(self, env, name=None, serviceTime=1, serviceTimeFunction=None, quality=Quality()):
+        super().__init__(env, name, serviceTime, serviceTimeFunction)
+        self.quality:Callable[[],bool] = Quality
+    def forwardItemB2S(self,item):
+        try:
+            if self.quality():
+                _, msg = self.give(self.connections["next"], item)
+                msg.receipts["received"].action = self.stateMachine.transitionsFrom["Blocking"][0]
+            else:
+                _, msg = self.give(self.connections["quality"], item)
+                msg.receipts["received"].action = self.stateMachine.transitionsFrom["Blocking"][0]
+        except AttributeError as e:
+            warn(RuntimeWarning(e))
+    class FSM(FSM):
+        class Starving(State):
+            initial_state=True
+        class Working(State):
+            def on_enter(self):
+                self.var.item, self.var.message = self.store.inspect()
+                self.transitions[0].timeout = self.calculateServiceTime(self.var.item)
+        class Blocking(State):
+            pass
+
+        S2W=MessageTransition.define(Starving, Working)
+        W2B=TimeoutTransition.define(Working, Blocking)
+        B2S=EventTransition.define(Blocking, Starving)
+
+        W2B.on_transition = lambda self: self.forwardItemB2S(self.var.item)
+        B2S.on_transition = lambda self: self._fsm._agent.store.get() if self._fsm._agent.store else None
 
 
         
@@ -61,6 +99,19 @@ def test1():
     env.run(20)
     a.take(Agent(env,"test"))
     env.run(30)
+    
+def test2():
+    env = Environment()
+    a = QualityMachine(env,serviceTime=1,quality=Quality(threshold=0.99))
+    q = Queue(env,10)
+    a.connections["next"] = q
+    env.run(10)
+    x = Agent(env,"test")
+    a.take(x)
+    env.run(20)
+    a.take(Agent(env,"test"))
+    env.run(30)
 
 if __name__ == "__main__":
-    test1()
+    # test1()
+    test2()

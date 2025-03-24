@@ -1,9 +1,18 @@
 # -*- coding: utf-8 -*-
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
 
-from pymulate import Store, Queue, Environment, Generator, Server, ServerDoubleBuffer, Operator, ManualStation
+from hsim.core.des.pymulate import Store, Queue, Environment, Generator, Server
+from hsim.core.des.manual import Operator, ManualStation
 
-from pymulate import MachineMIP, SwitchQualityMIP, FinalAssemblyManualMIP, FinalAssemblyMIP, AutomatedMIP
+from hsim.core.des.resources import UnreliableMachine as MachineMIP
+
+from hsim.core.des.resources import ServerDoubleBuffer
+
+from hsim.core.des.pymulate import SwitchQualityMIP, FinalAssemblyManualMIP, FinalAssemblyMIP, AutomatedMIP
 
 import pandas as pd
 import numpy as np

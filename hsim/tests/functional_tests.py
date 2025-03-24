@@ -11,5 +11,5 @@ if __name__ == "__main__":
     test1(), test2(), test3()
     from hsim.core.des.switch import test1
     test1()
-    from hsim.core.des.manual import test4
-    test4()
+    from hsim.core.des.manual import test1
+    test1()

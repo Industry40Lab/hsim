@@ -1,5 +1,7 @@
+from math import e
+from tkinter import X
 from warnings import warn
-from typing import Callable
+from typing import Callable, Union
 import numpy as np
 import types
 if __name__ == "__main__":
@@ -12,7 +14,7 @@ from hsim.core.fsm.states import Pseudostate, State
 from hsim.core.fsm.FSM import FSM
 from hsim.core.core.env import Environment
 from hsim.core.agent.agent import Agent, FSM
-from hsim.core.des.des import DESBlock, TimedBlock
+from hsim.core.des.des import DESBlock, DESLocked, TimedBlock
 
 
 def forwardItemB2S(self,item):
@@ -39,8 +41,6 @@ class Server(DESBlock, TimedBlock):
                 self.transitions[0].timeout = self.calculateServiceTime(self.var.item)
         class Blocking(State):
             pass
-        class No(Pseudostate):
-            pass
 
         S2W=MessageTransition.define(Starving, Working)
         W2B=TimeoutTransition.define(Working, Blocking)
@@ -55,7 +55,7 @@ class Buffer(DESBlock):
     Pushes first agent according to dispatching rule.
     """
     def __init__(self,env,name=None,capacity=np.inf):
-        super().__init__(env,name)
+        super().__init__(env,name,capacity)
     def on_receive(self):
         self.stateMachine.transitionsFrom["Starving"][0]()
 
@@ -67,7 +67,7 @@ class Buffer(DESBlock):
         T1=MessageTransition.define(Starving, Blocking)
         T2=EventTransition.define(Blocking, Starving)
 
-        T1.on_transition = lambda self: forwardItemB2S(self,self.store.inspect(index = -1))
+        T1.on_transition = lambda self: forwardItemB2S(self,self.store.inspect(index = -1)[0])
         T2.on_transition = lambda self: self._fsm._agent.store.get()
 
 
@@ -78,7 +78,7 @@ class Store(DESBlock):
     Note: does not require a FSM.
     """
     def __init__(self,env,name=None,capacity=np.inf):
-        super().__init__(env,name)
+        super().__init__(env,name,capacity=capacity)
     def on_receive(self):
         self._forward_item()
 
@@ -87,6 +87,34 @@ class Store(DESBlock):
         _, msg = self.give(self.connections["next"], item)
         msg.receipts["received"].action = self.store.pull
         msg.receipts["received"].arguments = (item,)
+        
+class EmptyBuffer(DESBlock):
+    def __init__(self,env,name=None,capacity=np.inf):
+        super().__init__(env,name,capacity,queueType="locked")
+    def on_receive(self):
+        self.stateMachine.transitionsFrom["Starving"][0]()
+
+    class FSM(FSM):
+        class Starving(State):
+            initial_state=True
+        class Blocking(State):
+            pass
+        T1=MessageTransition.define(Starving, Blocking)
+        T2=EventTransition.define(Blocking, Starving)
+        def forwardItem(self):
+            item, msg = self.store.inspect(index = -1)
+            _, msg = self.give(self.connections["next"], item)
+            if msg.receipts["received"].action is None:
+                msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
+            elif isinstance(msg.receipts["received"].action,list):
+                msg.receipts["received"].action.append( self.transitionsFrom["Blocking"][0] )
+            else:
+                msg.receipts["received"].action = [msg.receipts["received"].action, self.transitionsFrom["Blocking"][0]]
+                
+
+        T1.on_transition = lambda self: self.forwardItem()
+        T2.on_transition = lambda self: self._fsm._agent.store.get()
+
 
 
 class Generator(DESBlock, TimedBlock):
@@ -94,11 +122,17 @@ class Generator(DESBlock, TimedBlock):
     Args:
         agent_function: Callable[[],Agent] - function that generates agents.
     """
-    def __init__(self, env, name=None, agent_function:Callable[[],Agent]=None, serviceTime=None, serviceTimeFunction=None):
+    def __init__(self, env, name=None, agent_function:Union[Callable[[],Agent],Agent]=Agent, serviceTime=0, serviceTimeFunction=None):
         super().__init__(env, name)
-        self.agent_function = types.MethodType(agent_function, self)
+        if not callable(agent_function):
+            raise ValueError("Agent function must be a callable or an Agent class")
+        elif isinstance(agent_function,type):
+            self.agent_function = types.MethodType(lambda self: Agent(self.env), self)
+        else:
+            self.agent_function = types.MethodType(agent_function, self) 
         self.var.serviceTime = serviceTime
         self.var.serviceTimeFunction = serviceTimeFunction
+        self.stateMachine.transitionsFrom["Starving"][0].timeout = self.calculateServiceTime()
     class FSM(FSM):
         class Starving(State):
             initial_state=True
@@ -124,8 +158,11 @@ class Terminator(DESBlock):
         self._terminate_item()
 
     def _terminate_item(self):
-        item, _ = self.store.inspect(index = -1) # get the last item
+        item, msg = self.store.inspect(index = -1) # get the last item
         item.deactivate_fsm()
+        
+def example_agent_function(obj):
+    return Agent(obj.env)
 
 def test1():
     env = Environment()
@@ -169,8 +206,46 @@ def test3():
     a.take(x2)
     env.run(30)
     
+def test4():
+    env = Environment()
+    g = Generator(env,"",example_agent_function,serviceTime=10)
+    t = Terminator(env)
+    g.connections["next"] = t
+    env.run(100)
+    
+    
+def test5():
+    env = Environment()
+    g = Generator(env,"",Agent,serviceTime=10)
+    t = Terminator(env)
+    g.connections["next"] = t
+    env.run(100)
 
+def test5():
+    env = Environment()
+    g = Generator(env,"",Agent,serviceTime=10)
+    q1 = Buffer(env,capacity=2)
+    q2 = Buffer(env,capacity=2)
+    t = Terminator(env)
+    g.connections["next"] = q1
+    q1.connections["next"] = q2
+    q2.connections["next"] = t
+    env.run(100)
+    
+def test5():
+    env = Environment()
+    g = Generator(env,"",Agent,serviceTime=10)
+    s1 = Server(env,serviceTime=10)
+    s2 = Server(env,serviceTime=10)
+    t = Terminator(env)
+    g.connections["next"] = s1
+    s1.connections["next"] = s2
+    s2.connections["next"] = t
+    env.run(100)
+    
 if __name__ == "__main__":
     test1()
     test2()
     test3()
+    test4()
+    test5()

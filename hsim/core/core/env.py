@@ -122,6 +122,7 @@ class Environment:
         self._objects = list()
         self._agents = OrderedDict()
         self.counter = Counter()
+        self._debug = True
 
     def _time(self) -> float:
         return time.time() if self._real_time else self._now

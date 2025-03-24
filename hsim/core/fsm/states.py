@@ -26,7 +26,7 @@ class State:
         self.initial_state = initial_state
         self._active = False
     def _on_enter(self):
-        print(f"Entering {self.name} state")
+        print(f"{self._fsm} entering {self.name} state at {self.env.now}") if self._env._debug else None
         self.on_enter()
     def on_enter(self):
         pass

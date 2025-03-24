@@ -1,9 +1,3 @@
-    """TEST
-
-    Returns:
-        _type_: _description_
-    """
-
 import arcade
 from typing import Dict
 

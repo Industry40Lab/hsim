@@ -12,7 +12,7 @@ from hsim.core.fsm.FSM import FSM
 from hsim.core.core.env import Environment
 from hsim.core.agent.agent import Agent, FSM
 from warnings import warn
-from pymulate import Server, Store
+from hsim.core.des.pymulate import Server, Store
 
 class ManualStation(Server):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None) -> None:
@@ -76,9 +76,7 @@ class Operator(Agent):
                 return s
         return None
         
-
-
-    
+   
 def test1():
     env = Environment()
     a = ManualStation(env)

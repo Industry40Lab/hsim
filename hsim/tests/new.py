@@ -7,9 +7,9 @@ from hsim.core.core.msg import Message
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from FSM import FSM
-from states import State
-from transitions import MessageTransition, TimeoutTransition
+from hsim.core.fsm.FSM import FSM
+from hsim.core.fsm.states import State
+from hsim.core.fsm.transitions import MessageTransition, TimeoutTransition
 
 
 import pickle
