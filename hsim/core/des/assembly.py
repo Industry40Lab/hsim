@@ -152,10 +152,12 @@ def test3():
     env = Environment()
     g = Generator(env,Agent, serviceTime=1)
     q = EmptyBuffer(env,capacity=10)
+    q2 = EmptyBuffer(env,capacity=10)
     s = Server(env,serviceTime=4.9)
     t = Terminator(env)
     g.connections["next"] = q
-    q.connections["next"] = s
+    q.connections["next"] = q2
+    q2.connections["next"] = s
     s.connections["next"] = t
     env.run(1)
     env.run(20)

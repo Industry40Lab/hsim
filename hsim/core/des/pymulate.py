@@ -102,14 +102,14 @@ class EmptyBuffer(DESBlock):
         T1=MessageTransition.define(Starving, Blocking)
         T2=EventTransition.define(Blocking, Starving)
         def forwardItem(self):
-            item, msg = self.store.inspect(index = -1)
+            item, oldMsg = self.store.inspect(index = -1)
             _, msg = self.give(self.connections["next"], item)
-            if msg.receipts["received"].action is None:
+            if oldMsg.receipts["received"].action is None:
                 msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
-            elif isinstance(msg.receipts["received"].action,list):
-                msg.receipts["received"].action.append( self.transitionsFrom["Blocking"][0] )
+            elif isinstance(oldMsg.receipts["received"].action,list):
+                msg.receipts["received"].action = oldMsg.receipts["received"].action + [self.transitionsFrom["Blocking"][0] ]
             else:
-                msg.receipts["received"].action = [msg.receipts["received"].action, self.transitionsFrom["Blocking"][0]]
+                msg.receipts["received"].action = [oldMsg.receipts["received"].action, self.transitionsFrom["Blocking"][0]]
                 
 
         T1.on_transition = lambda self: self.forwardItem()
