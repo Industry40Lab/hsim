@@ -89,25 +89,9 @@ class DESLocked(DESBlock):
     __queueType = "locked"
     
 
-class AgentMask(Agent):
-    def __init__(self,original,masked:dict):
-        for key in masked.keys():
-            if key not in original.__dict__.keys():
-                raise AttributeError(f"Attribute {key} does not exists in {original}.")
-        self.original = original
-        self.masked = masked
-    def __getattribute__(self, name):
-        mask = object.__getattribute__(self,"masked")
-        if name in mask.keys():
-            return mask[name]
-        return object.__getattribute__(self,"original").__getattribute__("name")
-    @classmethod
-    def mask(cls,original,masked:dict):
-        return cls(original,masked)
-
-
 class DESMulti(DESBase):
     Next : Union[Agent,Iterable[Agent]]
+    defaultStoreIndex = 0
     def __init__(self,env,name=None,size:int=1,capacity:Union[int,Iterable[int]]=1,queueType:Union[str,Iterable[str]]="standard",storeNames:Union[str,Iterable[str]]="") -> None:
         super().__init__(env,name)
         self.stores = list()
@@ -125,9 +109,11 @@ class DESMulti(DESBase):
     @property
     def store(self):
         raise AttributeError("store is not a valid attribute for DESMulti.")
-    def take(self,item,storeIndex:int=0) -> tuple[ConditionEvent, Message]:
+    def take(self,item,storeIndex:int=-1) -> tuple[ConditionEvent, Message]:
+        storeIndex = storeIndex if storeIndex >= 0 else self.defaultStoreIndex
         return self.stores[storeIndex].take(item)
-    def post(self, item:Agent, storeIndex:int=0) -> tuple[ConditionEvent, Message]:
+    def post(self, item:Agent, storeIndex:int=-1) -> tuple[ConditionEvent, Message]:
+        storeIndex = storeIndex if storeIndex >= 0 else self.defaultStoreIndex
         return self.stores[storeIndex].post(item)
     def on_receive(self,storeIndex:int) -> None:
         raise NotImplementedError(f"on_receive method is not implemented for {self}.")
@@ -139,6 +125,8 @@ class DESMulti(DESBase):
                 return getattr(self,key)
         except:
             raise KeyError(f"Key {key} is not valid.")
+    def toStore(self,index:int):
+        return self.mask({"defaultStoreIndex":index})
                 
     
 
