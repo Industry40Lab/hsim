@@ -38,7 +38,7 @@ class Transition:
         else:
             self.event = BaseEvent(env, action=self)
     def stop(self):
-        self.event.cancel(safe=False)
+        self.event.cancel(safe=False) if self.event is not None else None 
     def _on_transition(self):
         self.on_transition()
     def on_start(self):
