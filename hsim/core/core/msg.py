@@ -114,6 +114,8 @@ class MessageQueue:
         content = f": {[f'{msg}:{msg.content}' for msg in self.queue]}" if self.queue else ""
         return f"<{self.__class__.__name__} object at {hex(id(self))}> ({len(self.queue)})" + content
     
+    def __len__(self):
+        return len(self.queue)
 
 class PriorityMessageQueue(MessageQueue):
     def __init__(self, env, capacity=None, priorityFcn:Callable[[Tuple[Message, Message]], bool]=lambda x,y: False):
