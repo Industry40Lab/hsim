@@ -4,6 +4,7 @@ if __name__ == "__main__":
 
 
 from abc import ABC
+from copy import copy
 from typing import Any, Iterable, Union
 from hsim.core.core.env import Environment
 from hsim.core.fsm.FSM import FSM, get_class_dict
@@ -42,7 +43,14 @@ class Agent(ABC):
         return False
     def __repr__(self):
         return f"{self.name}: " + super().__repr__()
-
+    def mask(self,dict:dict={})->"Agent":
+        newAgent = copy(self)
+        for key in dict.keys():
+            if not hasattr(self, key):
+                raise AttributeError(f"Attribute {key} does not exists in {self}.")
+            else:
+                newAgent.__setattr__(key, dict[key])
+        return newAgent
 
 class dotdict(dict):
     """MATLAB-like dot.notation access to dictionary attributes"""
