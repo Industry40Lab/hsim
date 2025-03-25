@@ -162,12 +162,3 @@ def calculateServiceTime(self,entity=None,attribute='serviceTime'):
         elif len(self.var.serviceTime)>0:
             return self.var.serviceTimeFunction(*self.var.serviceTime)
         
-if __name__ == "__main__":
-    env = Environment()
-    a = DESMulti(env,size=2)
-    x = Agent(env)
-    m = AgentMask.mask(x,{"no":"test"})
-    print(m.store)
-    a.take(x,1)
-    env.run(10)
-    print(1)
