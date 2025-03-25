@@ -13,7 +13,7 @@ from hsim.core.agent.agent import Agent
 from hsim.core.fsm.transitions import MessageTransition, TimeoutTransition, EventTransition
 from hsim.core.fsm.states import State
 from hsim.core.fsm.FSM import FSM
-from hsim.core.des.pymulate import forwardItemB2S
+from hsim.core.des.pymulate import forwardItemB2S, forwardItemEmpty
 
 
 
@@ -51,8 +51,8 @@ class Assembly(DESMulti, TimedBlock):
         W2B.on_transition = lambda self: forwardItemB2S(self,self.var.item)
         B2S.on_transition = lambda self: None
 
-from hsim.core.des.pymulate import Buffer
-class Port(Buffer):
+from hsim.core.des.pymulate import Buffer, EmptyBuffer
+class Port(EmptyBuffer):
     def __init__(self,env,name=None):
         super().__init__(env,name,capacity=0)
     
@@ -63,8 +63,8 @@ class Port(Buffer):
             pass
         T1=MessageTransition.define(Starving, Blocking)
         T2=EventTransition.define(Blocking, Starving)
-
-        T1.on_transition = lambda self: forwardItemB2S(self,self.store.inspect(index = -1)[0])
+                
+        T1.on_transition = lambda self: forwardItemEmpty(self)
         T2.on_transition = lambda self: self._fsm._agent.store.get()
 
 
@@ -79,14 +79,14 @@ class Ports(OrderedDict[Port]):
         try:
             return super().__getitem__(key)
         except KeyError:
-            return super().__getitem__(f"{self.name}{key}")
+            return self.getPortByID(0)
     
     @property
     def ports(self):
         return (i for i in self.values())
     
     def getPortByID(self,id):
-        return islice(self.ports,id,id+1)
+        return next(islice(self.ports,id,id+1))
     
     def addPort(self,name)-> Port:
         self[name] = Port(self.env,name)
@@ -94,26 +94,29 @@ class Ports(OrderedDict[Port]):
     
 
 class Frame(Agent):
-    def __init__(self, env, name = "", inputPorts = 1, outputPorts = 1, inputStoreNames="",outputStoreNames=""):
+    def __init__(self, env, name, inputPorts = 1, outputPorts = 1, inputStoreNames="",outputStoreNames=""):
         super().__init__(env, name)
         # self.input_ports = DESMulti(env, name, inputPorts, queueType="locked", storeNames=inputStoreNames)
         # self.output_ports = DESMulti(env, name, outputPorts, queueType="locked", storeNames=outputStoreNames)
         self.input_ports = Ports(env,name="input")
         self.output_ports = Ports(env,name="output")
         for i in range(inputPorts):
-            name = inputStoreNames[i] if inputStoreNames != "" else f"input{i}"
-            setattr(self,name,self.input_ports.addPort(name))
+            thisName = inputStoreNames[i] if inputStoreNames != "" else f"input{i}"
+            setattr(self,thisName,self.input_ports.addPort(thisName))
         for i in range(outputPorts):
-            name = outputStoreNames[i] if outputStoreNames != "" else f"output{i}"
-            setattr(self,name,self.output_ports.addPort(name))
+            thisName = outputStoreNames[i] if outputStoreNames != "" else f"output{i}"
+            setattr(self,thisName,self.output_ports.addPort(thisName))
         agents = self.define()
         if agents is dict:
             for key, value in agents.items():
+                value.name = self.name + "." + key
                 setattr(self,key,value)
         else:
             assert any([a.name for a in agents]), "Missing sub-agents name definitions"
             for a in agents:
-                setattr(self,a.name,a) 
+                thisName = a.name
+                a.name = self.name + "." + thisName
+                setattr(self,thisName,a) 
                 
         # return {key:value for key,value in locals().items() if issubclass(type(value),Agent) and value is not self}
     @abstractmethod
@@ -167,15 +170,11 @@ def test4():
     env = Environment()
     class F1(Frame):
         def define(self):
-            A = Store(self.env,"A")
-            B = Server(self.env,"B",serviceTime=1)
-            C = Store(self.env,"C")
-            self.input_ports[0].connections["next"] = A
-            A.connections["next"] = B
-            B.connections["next"] = C
-            C.connections["next"] = self.output_ports[0]
-            return {A, B, C}
-    a = F1(env,inputPorts=1,outputPorts=1)
+            s = Server(self.env,"s",serviceTime=1)
+            self.input_ports[0].connections["next"] = s
+            s.connections["next"] = self.output_ports[0]
+            return {s}
+    a = F1(env,"F",inputPorts=1,outputPorts=1)
     g = Generator(env,Agent)
     t = Terminator(env)
     
@@ -184,13 +183,59 @@ def test4():
     env.run(30)
     print("done")
     
+    
+def test5():
+    env = Environment()
+    class F1(Frame):
+        def define(self):
+            A = Buffer(self.env,"A",capacity=2)
+            B = Server(self.env,"B",serviceTime=1)
+            self.input_ports[0].connections["next"] = A
+            A.connections["next"] = B
+            B.connections["next"] = self.output_ports[0]
+            return {A, B}
+    a = F1(env,"F",inputPorts=1,outputPorts=1)
+    g = Generator(env,Agent)
+    t = Terminator(env)
+    
+    g.connections["next"] = a.input_ports[0]
+    a.output_ports[0].connections["next"] = t
+    env.run(30)
+    print("done")
 
+
+def test6():
+    env = Environment()
+    class F1(Frame):
+        def define(self):
+            A = Buffer(self.env,"A",capacity=2)
+            B = Server(self.env,"B",serviceTime=1)
+            C = Buffer(self.env,"A",capacity=2)
+            self.input_ports[0].connections["next"] = A
+            A.connections["next"] = B
+            B.connections["next"] = C
+            C.connections["next"] = self.output_ports[0]
+            return {A, B, C}
+    a = F1(env,"F",inputPorts=1,outputPorts=1)
+    g = Generator(env,Agent)
+    t = Terminator(env)
+    
+    g.connections["next"] = a.input_ports[0]
+    a.output_ports[0].connections["next"] = t
+    env.run(30)
+    print("done")
+    
+    
 if __name__ == "__main__":
     from hsim.core.des.pymulate import Generator, Store, Server, Terminator, EmptyBuffer, Buffer
     # test1()
     # print("\n\n\n\n")
     # test2()
     # print("\n\n\n\n")
-    test3()
+    # test3()
+    # print("\n\n\n\n")
+    # test4()
+    # print("\n\n\n\n")
+    # test5()
     print("\n\n\n\n")
-    test4()
+    test6()

@@ -40,6 +40,8 @@ class Agent(ABC):
         return self.stateMachine.receiveContent(content, sender)
     def __lt__(self, other: Any) -> bool:
         return False
+    def __repr__(self):
+        return f"{self.name}: " + super().__repr__()
 
 
 class dotdict(dict):

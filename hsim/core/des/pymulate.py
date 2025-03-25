@@ -88,12 +88,23 @@ class Store(DESBlock):
         msg.receipts["received"].action = self.store.pull
         msg.receipts["received"].arguments = (item,)
         
+def forwardItemEmpty(self):
+    item, oldMsg = self.store.inspect(index = -1)
+    _, msg = self.give(self.connections["next"], item)
+    if oldMsg.receipts["received"].action is None:
+        msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
+    elif isinstance(oldMsg.receipts["received"].action,list):
+        msg.receipts["received"].action = oldMsg.receipts["received"].action + [self.transitionsFrom["Blocking"][0] ]
+    else:
+        msg.receipts["received"].action = [oldMsg.receipts["received"].action, self.transitionsFrom["Blocking"][0]]
+
+
 class EmptyBuffer(DESBlock):
     def __init__(self,env,name=None,capacity=np.inf):
         super().__init__(env,name,capacity,queueType="locked")
     def on_receive(self):
         self.stateMachine.transitionsFrom["Starving"][0]()
-
+    
     class FSM(FSM):
         class Starving(State):
             initial_state=True
@@ -101,18 +112,8 @@ class EmptyBuffer(DESBlock):
             pass
         T1=MessageTransition.define(Starving, Blocking)
         T2=EventTransition.define(Blocking, Starving)
-        def forwardItem(self):
-            item, oldMsg = self.store.inspect(index = -1)
-            _, msg = self.give(self.connections["next"], item)
-            if oldMsg.receipts["received"].action is None:
-                msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
-            elif isinstance(oldMsg.receipts["received"].action,list):
-                msg.receipts["received"].action = oldMsg.receipts["received"].action + [self.transitionsFrom["Blocking"][0] ]
-            else:
-                msg.receipts["received"].action = [oldMsg.receipts["received"].action, self.transitionsFrom["Blocking"][0]]
                 
-
-        T1.on_transition = lambda self: self.forwardItem()
+        T1.on_transition = lambda self: forwardItemEmpty(self)
         T2.on_transition = lambda self: self._fsm._agent.store.get()
 
 
@@ -243,9 +244,35 @@ def test5():
     s2.connections["next"] = t
     env.run(100)
     
+def test6():
+    env = Environment()
+    g = Generator(env,"",Agent,serviceTime=10)
+    b0 = EmptyBuffer(env,capacity=1)
+    b1 = Buffer(env,capacity=2)
+    s = Server(env,serviceTime=10)
+    t = Terminator(env)
+    g.connections["next"] = b0
+    b0.connections["next"] = b1
+    b1.connections["next"] = s
+    s.connections["next"] = t
+    env.run(100)
+    
+def test7():
+    env = Environment()
+    g = Generator(env,"",Agent,serviceTime=1)
+    b = Buffer(env,capacity=2)
+    s = Server(env,serviceTime=10)
+    t = Terminator(env)
+    g.connections["next"] = b
+    b.connections["next"] = s
+    s.connections["next"] = t
+    env.run(100)
+    
 if __name__ == "__main__":
     test1()
     test2()
     test3()
     test4()
     test5()
+    test6()
+    test7()
