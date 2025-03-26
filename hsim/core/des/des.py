@@ -84,6 +84,48 @@ class TimedBlock(Agent):
             elif len(self.var.serviceTime)>0:
                 return self.var.serviceTimeFunction(*self.var.serviceTime)
 
+class TimedBlock(Agent):
+    def calculateTime(self,timeFunction,time,entity=None,attribute='serviceTime'):
+        if timeFunction == None:
+            if type(time)==int or type(time)==float:
+                return time
+            elif time == None:
+                time = getattr(entity,attribute)
+                if type(time) is dict:
+                    time = time[self.name]
+                return time
+            elif len(time)==0:
+                time = getattr(entity,attribute)
+                if type(time) is dict:
+                    time = time[self.name]
+                return time
+            elif len(time)>0:
+                return time[0]
+        elif timeFunction != None:
+            if type(time)==int or type(time)==float:
+                return timeFunction(time)
+            try:
+                if time==None:
+                    time = getattr(entity,attribute)
+                    if type(time) is dict:
+                        time = time[self.name]
+                    return timeFunction(time)
+            except:
+                pass
+            if len(time)==0:
+                return timeFunction()
+            elif len(time)>0:
+                return timeFunction(*time)
+    def calculateServiceTime(self,entity=None,attribute='serviceTime'):
+        timeFunction = self.var.serviceTimeFunction
+        time = self.var.serviceTime
+        return self.calculateTime(timeFunction,time,entity,attribute)
+    def calculateSetupTime(self,entity=None,attribute='serviceTime'):
+        timeFunction = self.var.setupTimeFunction
+        time = self.var.setupTime
+        return self.calculateTime(timeFunction,time,entity,attribute)
+
+
             
 class DESLocked(DESBlock):
     __queueType = "locked"
