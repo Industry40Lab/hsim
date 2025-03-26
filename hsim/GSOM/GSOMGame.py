@@ -5,8 +5,7 @@ if __name__ == "__main__":
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
 
-from turtle import Terminator
-from hsim.core.des.pymulate import Store, Environment, Generator, Server, Buffer
+from hsim.core.des.pymulate import Store, Environment, Generator, Server, Buffer, Terminator
 from hsim.core.des.manual import Operator, ManualStation
 
 from hsim.core.des.resources import UnreliableMachine as MachineMIP
@@ -328,7 +327,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     
     final1case = Store(env)
     final1ele = Store(env)
-    final2assebly = FinalAssemblyManualMIP(env,serviceTime=d.loc[d.index==24].values,serviceTimeFunction=normal_dist_bounded)
+    final2assebly = FinalAssemblyManualMIP(env,serviceTime=d.loc[d.index==24].values,serviceTimeFunction=normal_dist_bounded,size=2)
     final2inspect = MachineMIP(env,serviceTime=d.loc[d.index==25].values,serviceTimeFunction=normal_dist_bounded)
     
     final3 = Buffer(env)
