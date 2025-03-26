@@ -63,10 +63,14 @@ class Frame(Agent):
         self.output_ports = Ports(env,name="output")
         for i in range(inputPorts):
             thisName = inputStoreNames[i] if inputStoreNames != "" else f"input{i}"
-            setattr(self,thisName,self.input_ports.addPort(thisName))
+            thisPort = self.input_ports.addPort(thisName)
+            thisPort._frame = self
+            setattr(self,thisName,thisPort)
         for i in range(outputPorts):
             thisName = outputStoreNames[i] if outputStoreNames != "" else f"output{i}"
-            setattr(self,thisName,self.output_ports.addPort(thisName))
+            thisPort = self.output_ports.addPort(thisName)
+            thisPort._frame = self
+            setattr(self,thisName,thisPort)
         agents = self.define()
         if agents is dict:
             for key, value in agents.items():
@@ -77,12 +81,15 @@ class Frame(Agent):
             for a in agents:
                 thisName = a.name
                 a.name = self.name + "." + thisName
-                setattr(self,thisName,a) 
+                setattr(self,thisName,a)
+                a._frame = self
                 
         # return {key:value for key,value in locals().items() if issubclass(type(value),Agent) and value is not self}
     @abstractmethod
     def define(self) -> Union[dict[Agent],Iterable[str]]:
         pass
+    def take(self,agent:Agent,id:int=0):
+        return self.input_ports.getPortByID(id).take(agent)
 
 
 def test1():
