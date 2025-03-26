@@ -42,7 +42,8 @@ class Agent(ABC):
     def __lt__(self, other: Any) -> bool:
         return False
     def __repr__(self):
-        return f"{self.name}: " + super().__repr__()
+        name = self.name if self.name is not None else self.__class__.__name__ + "-" + str(id(self))
+        return f"{name}: " + super().__repr__()
     def mask(self,dict:dict={})->"Agent":
         newAgent = copy(self)
         for key in dict.keys():
