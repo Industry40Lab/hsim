@@ -53,7 +53,7 @@ class Message():
             return self.content < other.content # compare content
         except AttributeError:
             return False
-        
+
 
 class MessageQueue:
     put, get = heappush, heappop
@@ -61,6 +61,8 @@ class MessageQueue:
         self.env = env
         self.queue = list()
         self.event = BaseEvent(env, action=self._on_receive).add()
+        self._message_history = list()
+        self._queue_history = list()
         
     def _trigger(self):
         # self.event.action = self._on_receive
@@ -71,6 +73,7 @@ class MessageQueue:
         
     def _put(self, message):
         heappush(self.queue, message)
+        self._log_in(message)
 
     def receiveContent(self, content:Any, sender=None) -> Message:
         message = Message(self.env, content, receiver=self, sender=sender, wait=True)
@@ -94,6 +97,7 @@ class MessageQueue:
     def get(self)->Message:
         message = heappop(self.queue)
         message.read()
+        self._log_out(message)
         return message
         
     def inspect(self, index=0):
@@ -116,6 +120,14 @@ class MessageQueue:
     
     def __len__(self):
         return len(self.queue)
+    
+    def _log(self,message,direction:bool):
+        self._message_history.append((message,message.content,direction,self.env.now))
+        self._queue_history.append((len(self.queue),self.env.now))
+    def _log_in(self,message):
+        self._log(message,True)
+    def _log_out(self,message):
+        self._log(message,False)
 
 class PriorityMessageQueue(MessageQueue):
     def __init__(self, env, capacity=None, priorityFcn:Callable[[Tuple[Message, Message]], bool]=lambda x,y: False):
