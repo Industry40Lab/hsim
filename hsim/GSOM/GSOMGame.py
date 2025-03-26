@@ -5,14 +5,15 @@ if __name__ == "__main__":
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
 
-from hsim.core.des.pymulate import Store, Queue, Environment, Generator, Server
+from turtle import Terminator
+from hsim.core.des.pymulate import Store, Environment, Generator, Server, Buffer
 from hsim.core.des.manual import Operator, ManualStation
 
 from hsim.core.des.resources import UnreliableMachine as MachineMIP
+from hsim.core.des.resources import SUMachine as AutomatedMIP
+from hsim.core.des.resources import ManualAssembly as FinalAssemblyManualMIP
+from hsim.core.des.resources import ServerDoubleBuffer, QualityServerDoubleBuffer
 
-from hsim.core.des.resources import ServerDoubleBuffer
-
-from hsim.core.des.pymulate import SwitchQualityMIP, FinalAssemblyManualMIP, FinalAssemblyMIP, AutomatedMIP
 
 import pandas as pd
 import numpy as np
@@ -102,7 +103,7 @@ class Entity():
 def main(filename,folder='',fullpath='',app=True,pa=False):
     if pa:
         with open('target.txt') as f:
-            fullpath = f.read()[:-1]
+            fullpath = f.read()
         folder,filename=fullpath.rsplit('/',1)
         folder=folder+'/'
     if folder == '':
@@ -206,9 +207,9 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     g_case.createEntity = ggg
     
     case0 = ManualStation(env,serviceTime=d.loc[d.index==1].values,serviceTimeFunction=normal_dist_bounded)
-    case1 = ServerDoubleBuffer(env,serviceTime=d.loc[d.index==2].values,serviceTimeFunction=normal_dist_bounded,capacityIn = 4, capacityOut = 4)
+    case1 = ServerDoubleBuffer(env,name="case1",serviceTime=d.loc[d.index==2].values,serviceTimeFunction=normal_dist_bounded,inputBufferCapacity = 4, outputBufferCapacity = 4)
     
-    case2queueIn = Queue(env,capacity = 4)
+    case2queueIn = Buffer(env,capacity = 4)
     if c.loc[c.index==3]['M/A/T'].values == 'M':
         case2 = ManualStation(env,serviceTime=d.loc[d.index==3].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==3]['M/A/T'].values == 'S':
@@ -218,9 +219,9 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     elif c.loc[c.index==3]['M/A/T'].values == 'C':
         case2 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
     
-    case2queueOut = Queue(env,capacity = 4)
+    case2queueOut = Buffer(env,capacity = 4)
     
-    case3queueIn = Queue(env,capacity = 4)
+    case3queueIn = Buffer(env,capacity = 4)
     if c.loc[c.index==4]['M/A/T'].values == 'M':
         case3 = ManualStation(env,serviceTime=d.loc[d.index==4].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==4]['M/A/T'].values == 'S':
@@ -229,14 +230,15 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
         case3 = Server(env,serviceTime=d.loc[d.index==4].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==4]['M/A/T'].values == 'C':
         case3 = ManualStation(env,serviceTime=d.loc[d.index==4].values*0.25,serviceTimeFunction=normal_dist_bounded)
-    case3queueOut = Queue(env,capacity = 4)
+    case3queueOut = Buffer(env,capacity = 4)
     
-    case4 = ServerDoubleBuffer(env,serviceTime=d.loc[d.index==5].values,serviceTimeFunction=normal_dist_bounded)
+    """case4 = ServerDoubleBuffer(env,serviceTime=d.loc[d.index==5].values,serviceTimeFunction=normal_dist_bounded)
     case4quality = SwitchQualityMIP(env)
     case4quality.var.quality_rate = Q_case
-    case4scrap = Store(env)
+    case4scrap = Store(env)"""
+    case4 = QualityServerDoubleBuffer(env,"case4",serviceTime=d.loc[d.index==5].values,serviceTimeFunction=normal_dist_bounded,inputBufferCapacity = 4, outputBufferCapacity = 4,qualityThreshold=Q_case)
     
-    case5queueIn = Queue(env,capacity = 4)
+    case5queueIn = Buffer(env,capacity = 4)
     if c.loc[c.index==6]['M/A/T'].values == 'M':
         case5 = ManualStation(env,serviceTime=d.loc[d.index==6].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==6]['M/A/T'].values == 'S':
@@ -245,10 +247,10 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
         case5 = Server(env,serviceTime=d.loc[d.index==6].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==6]['M/A/T'].values == 'C':
         case5 = ManualStation(env,serviceTime=d.loc[d.index==6].values*0.25,serviceTimeFunction=normal_dist_bounded)
-    case5queueOut = Queue(env,capacity = 4)
+    case5queueOut = Buffer(env,capacity = 4)
     
     
-    case6queueIn = Queue(env,capacity = 4)
+    case6queueIn = Buffer(env,capacity = 4)
     if c.loc[c.index==7]['M/A/T'].values == 'M':
         case6 = ManualStation(env,serviceTime=d.loc[d.index==7].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==7]['M/A/T'].values == 'S':
@@ -257,7 +259,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
         case6 = Server(env,serviceTime=d.loc[d.index==7].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==7]['M/A/T'].values == 'C':
         case6 = ManualStation(env,serviceTime=d.loc[d.index==7].values*0.25,serviceTimeFunction=normal_dist_bounded)
-    case6queueOut = Queue(env,capacity = 4)
+    case6queueOut = Buffer(env,capacity = 4)
     
     
     # %% electronics
@@ -266,11 +268,11 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     g_ele.createEntity = ggg
     
     ele0 = ManualStation(env,serviceTime=d.loc[d.index==8].values,serviceTimeFunction=normal_dist_bounded)
-    ele1queue = Queue(env,capacity=4)
+    ele1queue = Buffer(env,capacity=4)
     ele1 = MachineMIP(env,'ele1',serviceTime=d.loc[d.index==9].values,serviceTimeFunction=normal_dist_bounded)
-    ele2queueIn = Queue(env,capacity=4)
+    ele2queueIn = Buffer(env,capacity=4)
     ele2 = MachineMIP(env,'ele2',serviceTime=d.loc[d.index==10].values,serviceTimeFunction=normal_dist_bounded)
-    ele2queueOut = Queue(env,'aaa',capacity=4)
+    ele2queueOut = Buffer(env,'aaa',capacity=4)
     
     
     
@@ -287,40 +289,40 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
             glob['ele_line'+str(i)] = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
     
         
-    ele_line1 = Queue(env)
+    ele_line1 = Buffer(env)
     # ele_line2 = ManualStation(env,serviceTime=d.loc[d.index==11].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line3 = Queue(env)
+    ele_line3 = Buffer(env)
     # ele_line4 = ManualStation(env,serviceTime=d.loc[d.index==12].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line5 = Queue(env)
+    ele_line5 = Buffer(env)
     # ele_line6 = ManualStation(env,serviceTime=d.loc[d.index==13].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line7 = Queue(env)
+    ele_line7 = Buffer(env)
     # ele_line8 = ManualStation(env,serviceTime=d.loc[d.index==14].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line9 = Queue(env)
+    ele_line9 = Buffer(env)
     # ele_line10 = ManualStation(env,serviceTime=d.loc[d.index==15].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line11 = Queue(env)
+    ele_line11 = Buffer(env)
     # ele_line12 = ManualStation(env,serviceTime=d.loc[d.index==16].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line13 = Queue(env)
+    ele_line13 = Buffer(env)
     # ele_line14 = ManualStation(env,serviceTime=d.loc[d.index==17].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line15= Queue(env)
+    ele_line15= Buffer(env)
     # ele_line16= ManualStation(env,serviceTime=d.loc[d.index==18].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line17= Queue(env)
+    ele_line17= Buffer(env)
     # ele_line18 = ManualStation(env,serviceTime=d.loc[d.index==19].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line19 = Queue(env)
+    ele_line19 = Buffer(env)
     # ele_line20= ManualStation(env,serviceTime=d.loc[d.index==20].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line21= Queue(env)
+    ele_line21= Buffer(env)
     # ele_line22 = ManualStation(env,serviceTime=d.loc[d.index==21].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line23 = Queue(env)
+    ele_line23 = Buffer(env)
     # ele_line24 = ManualStation(env,serviceTime=d.loc[d.index==22].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line25 = Queue(env)
+    ele_line25 = Buffer(env)
     
-    
-    ele_line26in = Queue(env)
+    """ele_line26in = Queue(env)
     ele_line26 = Server(env,'ele_line26',serviceTime=d.loc[d.index==23].values,serviceTimeFunction=normal_dist_bounded)
     ele_line26out = Queue(env)
     
     ele_quality = SwitchQualityMIP(env)
     ele_quality.var.quality_rate = Q_ele
-    ele_scrap = Store(env)
+    ele_scrap = Store(env)"""
+    ele_line26 = QualityServerDoubleBuffer(env,"ele_line26",serviceTime=d.loc[d.index==23].values,serviceTimeFunction=normal_dist_bounded,inputBufferCapacity = 4, outputBufferCapacity = 4,qualityThreshold=Q_ele)
     
     # %% final
     
@@ -329,7 +331,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     final2assebly = FinalAssemblyManualMIP(env,serviceTime=d.loc[d.index==24].values,serviceTimeFunction=normal_dist_bounded)
     final2inspect = MachineMIP(env,serviceTime=d.loc[d.index==25].values,serviceTimeFunction=normal_dist_bounded)
     
-    final3 = Queue(env)
+    final3 = Buffer(env)
     if a['Packaging'][26] == 0:
         final4pack = ManualStation(env,serviceTime=d.loc[d.index==26].values,serviceTimeFunction=normal_dist_bounded)
     elif a['Packaging'][26] == 1:
@@ -343,102 +345,95 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
         final5pallet = Server(env,serviceTime=d.loc[d.index==27].values,serviceTimeFunction=normal_dist_bounded)
     
     
-    T = Store(env)
+    T = Terminator(env)
     
     # %% connect
     Q=Store(env)
     
-    g_case.Next = case0
+    g_case.connections["next"] = case0
     
-    case0.Next = case1
+    case0.connections["next"] = case1.input_ports[0]
     
-    case1.Next = case2queueIn
+    case1.output_ports[0].connections["next"] = case2queueIn
     
     if c.loc[c.index==3]['M/A/T'].values == 'M':
-        case2queueIn.Next = case2
-        case2.Next = case2queueOut
+        case2queueIn.connections["next"] = case2
+        case2.connections["next"] = case2queueOut
     else:
-        case2queueIn.Next = case2
-        case2.Next = case2queueOut
-    case2queueOut.Next = case3queueIn
+        case2queueIn.connections["next"] = case2
+        case2.connections["next"] = case2queueOut
+    case2queueOut.connections["next"] = case3queueIn
     
     if c.loc[c.index==4]['M/A/T'].values == 'M':
-        case3queueIn.Next = case3
-        case3.Next = case3queueOut
+        case3queueIn.connections["next"] = case3
+        case3.connections["next"] = case3queueOut
     else:
-        case3queueIn.Next = case3
-        case3.Next = case3queueOut
-    case3queueOut.Next = case4
+        case3queueIn.connections["next"] = case3
+        case3.connections["next"] = case3queueOut
+    case3queueOut.connections["next"] = case4.input_ports[0]
     
-    case4.Next = case4quality
-    case4quality.Next = case5queueIn
+    case4.output_ports[0].connections["next"] = case5queueIn
     
-    case4quality.Rework = case4scrap
-    
+   
     if c.loc[c.index==6]['M/A/T'].values == 'M':
-        case5queueIn.Next = case5
-        case5.Next = case5queueOut
+        case5queueIn.connections["next"] = case5
+        case5.connections["next"] = case5queueOut
     else:
-        case5queueIn.Next = case5
-        case5.Next = case5queueOut
-    case5queueOut.Next = case6queueIn
+        case5queueIn.connections["next"] = case5
+        case5.connections["next"] = case5queueOut
+    case5queueOut.connections["next"] = case6queueIn
     
     if c.loc[c.index==3]['M/A/T'].values == 'M':
-        case6queueIn.Next = case6
-        case6.Next = final1case
+        case6queueIn.connections["next"] = case6
+        case6.connections["next"] = final1case
     else:
-        case6queueIn.Next = case6
-        case6.Next = final1case
-    case6queueOut.Next = final1case
+        case6queueIn.connections["next"] = case6
+        case6.connections["next"] = final1case
+    case6queueOut.connections["next"] = final1case
 
-    g_ele.Next = ele0
-    ele0.Next = ele1queue
-    ele1queue.Next = ele1
-    ele1.Next = ele2queueIn
-    ele2queueIn.Next = ele2
-    ele2.Next = ele2queueOut
-    ele2queueOut.Next = ele_line1
-    ele_line1.Next = ele_line2
-    ele_line2.Next = ele_line3
-    ele_line3.Next = ele_line4
-    ele_line4.Next = ele_line5
-    ele_line5.Next = ele_line6
-    ele_line6.Next = ele_line7
-    ele_line7.Next = ele_line8
-    ele_line8.Next = ele_line9
-    ele_line9.Next = ele_line10
-    ele_line10.Next = ele_line11
-    ele_line11.Next = ele_line12
-    ele_line12.Next = ele_line13
-    ele_line13.Next = ele_line14
-    ele_line14.Next = ele_line15
-    ele_line15.Next = ele_line16
-    ele_line16.Next = ele_line17
-    ele_line17.Next = ele_line18
-    ele_line18.Next = ele_line19
-    ele_line19.Next = ele_line20
-    ele_line20.Next = ele_line21
-    ele_line21.Next = ele_line22
-    ele_line22.Next = ele_line23
-    ele_line23.Next = ele_line24
-    ele_line24.Next = ele_line25
-    ele_line25.Next = ele_line26in
+    g_ele.connections["next"] = ele0
+    ele0.connections["next"] = ele1queue
+    ele1queue.connections["next"] = ele1
+    ele1.connections["next"] = ele2queueIn
+    ele2queueIn.connections["next"] = ele2
+    ele2.connections["next"] = ele2queueOut
+    ele2queueOut.connections["next"] = ele_line1
+    ele_line1.connections["next"] = ele_line2
+    ele_line2.connections["next"] = ele_line3
+    ele_line3.connections["next"] = ele_line4
+    ele_line4.connections["next"] = ele_line5
+    ele_line5.connections["next"] = ele_line6
+    ele_line6.connections["next"] = ele_line7
+    ele_line7.connections["next"] = ele_line8
+    ele_line8.connections["next"] = ele_line9
+    ele_line9.connections["next"] = ele_line10
+    ele_line10.connections["next"] = ele_line11
+    ele_line11.connections["next"] = ele_line12
+    ele_line12.connections["next"] = ele_line13
+    ele_line13.connections["next"] = ele_line14
+    ele_line14.connections["next"] = ele_line15
+    ele_line15.connections["next"] = ele_line16
+    ele_line16.connections["next"] = ele_line17
+    ele_line17.connections["next"] = ele_line18
+    ele_line18.connections["next"] = ele_line19
+    ele_line19.connections["next"] = ele_line20
+    ele_line20.connections["next"] = ele_line21
+    ele_line21.connections["next"] = ele_line22
+    ele_line22.connections["next"] = ele_line23
+    ele_line23.connections["next"] = ele_line24
+    ele_line24.connections["next"] = ele_line25
+    ele_line25.connections["next"] = ele_line26.input_ports[0]
     
-    ele_line26in.Next = ele_line26
-    ele_line26.Next = ele_line26out
-    ele_line26out.Next = ele_quality
-    ele_quality.Next = final1ele
-    ele_quality.Rework = ele_scrap
+    ele_line26.output_ports[0].connections["next"] = final1ele
     
-    final2assebly.Before1 = final1case
-    final2assebly.Before2 = final1ele
-    final2assebly.Next = final2inspect
-    final2inspect.Next = final3
-    final3.Next = final4pack
-    buf = Queue(env)
-    buf.Next = final5pallet
-    final4pack.Next = buf
-    final5pallet.Next = T
+    final1ele.connections["next"] = final2assebly.toStore(0)
+    final1case.connections["next"] = final2assebly.toStore(1)
+    
+    final2assebly.connections["next"] = final2inspect
+    final2inspect.connections["next"] = final3
+    final3.connections["next"] = final4pack
+    final4pack.connections["next"] = final5pallet
+    final5pallet.connections["next"] = T
     
     # %% operators
     n_lim = e['# of operators'].values[0]
@@ -456,7 +451,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
             for j in b[i].index:
                 if b[i][j]>0:
                     if c['M/A/T'][j]=='M' or c['M/A/T'][j]=='S' or c['M/A/T'][j]=='C':
-                        op_list[-1].var.station.append(list_stations[int(j-1)])
+                        op_list[-1].connections["stations"].append(list_stations[int(j-1)])
             # op_list.append(op)
             # del(op)
             if len(op_list)==n_lim:
@@ -486,7 +481,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     import time
     step = 600
     time_end = 24*3600
-    prod_parts = list();
+    prod_parts = list()
     time_start = time.time()
     print('Good luck!')
     
@@ -612,7 +607,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
 
 
 if __name__ == '__main__':
-    main('',app=False,pa=True)
+    main("",app=False,pa=True)
     
 # if __name__ == '__main__':
 #     main('',app=True,pa=True)
