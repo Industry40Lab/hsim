@@ -46,6 +46,7 @@ class ManualStation(Server):
             except AttributeError as e:
                 warn(RuntimeWarning(e))
         W2B.on_transition = onW2B
+        B2S.on_transition = lambda self: self._fsm._agent.store.get()
      
 
 class Operator(Agent):
