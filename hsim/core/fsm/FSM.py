@@ -7,15 +7,12 @@ if __name__ == "__main__":
 from collections import OrderedDict
 from typing import Any, Callable, Iterable, List, Type, Union
 import numpy as np
-import logging
+import pandas as pd
 
 from hsim.core.core.event import ConditionEvent, BaseEvent, TimedEvent
 from hsim.core.core.env import Environment
 from hsim.core.core.msg import Message, MessageQueue
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 class FSM:
     def __init__(self, env):
@@ -25,6 +22,8 @@ class FSM:
         self._transitions:List['Transition'] = []
         self._messages:MessageQueue = MessageQueue(env)
         self._pseudostates:List['Pseudostate'] = []
+        self._state_history = []  # Track state history with timestamps
+        self._transition_history = []  # Track transitions with timestamps
         self.add_element(get_class_dict(self, State))
         self.add_element(get_class_dict(self, Pseudostate))
         self.add_element(get_class_dict(self, Transition))
@@ -111,6 +110,26 @@ class FSM:
                 return getattr(object.__getattribute__(self,'_agent'),name)
             except AttributeError as e2:
                 raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'") from e2
+
+    def log_state_entry(self, state):
+        self._state_history.append((state.name, True, self._env.now))
+    def log_state_exit(self, state):
+        self._state_history.append((state.name, False, self._env.now))
+    def log_transition(self, source, target):
+        self._transition_history.append((source.name, target.name, self._env.now))
+
+    @property
+    def state_history(self):
+        return self._state_history
+    @property
+    def transition_history(self):
+        return self._transition_history
+    @property
+    def state_history_table(self):
+        return pd.DataFrame(self.state_history,columns=["State","I/O","Time"])
+    @property
+    def transition_history_table(self):
+        return pd.DataFrame(self.transition_history,columns=["Source","Target","Time"])
 
 def get_class_dict(par, sub):
     cls = [cls for cls in par.__class__.__mro__][0]

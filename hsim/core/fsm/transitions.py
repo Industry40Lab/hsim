@@ -49,6 +49,7 @@ class Transition:
         pass
     def __call__(self):
         print(f"{self._fsm} transitioning from {self.source.name} to {self.target.name} at time {self._env.now}") if self._env._debug else None
+        self._fsm.log_transition(self.source, self.target)  # Log the transition
         self.source.stop()
         self._on_transition()
         self.target.start()

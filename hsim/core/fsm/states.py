@@ -36,11 +36,13 @@ class State:
         pass
     def start(self):
         self._active = True
+        self._fsm.log_state_entry(self)  # Log state entry
         self._on_enter()
         for transition in self.transitions:
             transition.start()
     def stop(self):
         self._active = False
+        self._fsm.log_state_exit(self)  # Log state exit
         self._on_exit()
         for transition in self.transitions:
             transition.stop()
