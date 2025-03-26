@@ -25,7 +25,8 @@ class Queue(MessageQueue):
     def _put(self, msg:Message):
         agent:Agent = msg.content
         msg.reset()
-        heappush(self.queue, msg)
+        super()._put(msg)
+        # heappush(self.queue, msg)
         msg.receive()
         self._trigger()
     
