@@ -29,10 +29,11 @@ class ManualStation(Server):
         class Working(State):
             def on_enter(self):
                 self.var.item, self.var.message = self.store.inspect()
+                self.transitions[0].timeout = self.calculateServiceTime(self.var.item)
         class Blocking(State):
             pass
-        S2I=MessageTransition.define(Server.FSM.Starving, Idle)
-        I2W=MessageTransition.define(Idle, Server.FSM.Working)
+        S2I=MessageTransition.define(Starving, Idle)
+        I2W=MessageTransition.define(Idle, Working)
         I2W._message = "Operator"
         W2B=TimeoutTransition.define(Working, Blocking)
         B2S=EventTransition.define(Blocking, Starving)

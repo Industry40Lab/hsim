@@ -5,14 +5,15 @@ if __name__ == "__main__":
 
 from abc import abstractmethod
 from typing import Iterable, Union
+from itertools import accumulate
 from hsim.core.core.env import Environment
 from hsim.core.agent.agent import Agent
 from hsim.core.fsm.transitions import MessageTransition, EventTransition
 from hsim.core.fsm.states import State
 from hsim.core.fsm.FSM import FSM
 from hsim.core.des.pymulate import forwardItemEmpty
-
 from hsim.core.des.pymulate import Buffer, EmptyBuffer
+
 class Port(EmptyBuffer):
     def __init__(self,env,name=None):
         super().__init__(env,name,capacity=0)
@@ -71,18 +72,19 @@ class Frame(Agent):
             thisPort = self.output_ports.addPort(thisName)
             thisPort._frame = self
             setattr(self,thisName,thisPort)
-        agents = self.define()
-        if agents is dict:
-            for key, value in agents.items():
+        self._agents = self.define()
+        if self._agents is dict:
+            for key, value in self._agents.items():
                 value.name = self.name + "." + key
                 setattr(self,key,value)
         else:
-            assert any([a.name for a in agents]), "Missing sub-agents name definitions"
-            for a in agents:
+            assert any([a.name for a in self._agents]), "Missing sub-agents name definitions"
+            for a in self._agents:
                 thisName = a.name
                 a.name = self.name + "." + thisName
                 setattr(self,thisName,a)
                 a._frame = self
+        self._agents = [*self._agents,*self.input_ports.values(),*self.output_ports.values()]
                 
         # return {key:value for key,value in locals().items() if issubclass(type(value),Agent) and value is not self}
     @abstractmethod
@@ -90,7 +92,12 @@ class Frame(Agent):
         pass
     def take(self,agent:Agent,id:int=0):
         return self.input_ports.getPortByID(id).take(agent)
-
+    @property
+    def _queue_history(self):
+        data = [(-1,e[1]) for port in self.output_ports.values() for e in port.store._queue_history] + [(1,e[1]) for port in self.input_ports.values() for e in port.store._queue_history]
+        data.sort(key=lambda x: x[1]) 
+        cumulative_qty = list(accumulate(qty for qty, _ in data))
+        return list(zip(cumulative_qty, (time for _, time in data)))
 
 def test1():
     env = Environment()

@@ -34,7 +34,7 @@ class UnreliableMachine(Server):
             pass
         class Failed(State):
             def on_enter(self):
-                self.transitions[0].timeout = self.var.TTR["fcn"](*self.var.TTR["value"])
+                self.transitions[0].timeout = self.var.TTR["fcn"](self.var.TTR["value"])
         class PS1(Pseudostate):
             def control(self):
                 if np.random.rand() < self.var.failure_rate:
@@ -172,13 +172,21 @@ class SUMachine(ManualStation):
         B2S.on_transition = lambda self: self._fsm._agent.store.get() if self._fsm._agent.store else None
         
 class ManualAssembly(Assembly):
-    def __init__(self,env,name=None,size=1,serviceTime=1,serviceTimeFunction=None,mainAgent:Union[int,type]=0,queueType:Union[Iterable[str],str]="standard") -> None:
+    def __init__(self,env:Environment,name=None,size=1,serviceTime=1,serviceTimeFunction=None,mainAgent:Union[int,type]=0,queueType:Union[Iterable[str],str]="standard") -> None:
         Assembly.__init__(self,env,name,size,serviceTime,serviceTimeFunction,mainAgent,queueType=queueType)
         self.connections["operator"] = None 
-    add_operator = ManualStation.add_operator
+    def add_operator(self,operator):
+        self.connections["operator"] = operator
+        self.receiveContent("Operator")
+    def on_receive(self,i) -> None:
+        if all(len(store.queue) > 0 for store in self.stores) and isinstance(self.stateMachine.current_state[0],self.FSM.Starving):
+            self.stateMachine.transitionsFrom["Starving"][0]()
     class FSM(FSM):
         class Starving(State):
             initial_state=True
+            def on_enter(self):
+                if all(len(store.queue) > 0 for store in self.stores):
+                    self.stateMachine.transitionsFrom["Starving"][0]()
         class Idle(State):
             pass
         class Working(State):
@@ -213,7 +221,6 @@ class ManualAssembly(Assembly):
                 warn(RuntimeWarning(e))
         W2B.on_transition = onW2B
         B2S.on_transition = lambda self: [msg.receive() for msg in self.var.msg]
-
 
 
 
@@ -292,15 +299,15 @@ def test6():
     g1.connections["next"] = a.toStore(1)
     a.connections["next"] = t
     op.connections["stations"].append(a)
-    env.run(10)
-    env.run(30)
+    env.run(100)
+    env.run(50)
     
 if __name__ == "__main__":
     from hsim.core.des.pymulate import Generator
     from hsim.core.des.manual import Operator
-    test1()
-    test2()
-    test3()
-    test4()
-    print("\n\n\n\n\n")
+    # test1()
+    # test2()
+    # test3()
+    # test4()
+    # test5()
     test6()

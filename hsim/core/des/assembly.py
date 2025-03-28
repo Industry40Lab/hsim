@@ -22,11 +22,14 @@ class Assembly(DESMulti, TimedBlock):
         self.var.mainAgent = mainAgent
         
     def on_receive(self,i) -> None:
-        if all(len(store.queue) > 0 for store in self.stores):
+        if all(len(store.queue) > 0 for store in self.stores) and isinstance(self.stateMachine.current_state[0],self.FSM.Starving):
             self.stateMachine.transitionsFrom["Starving"][0]()
     class FSM(FSM):
         class Starving(State):
             initial_state=True
+            def on_enter(self):
+                if all(len(store.queue) > 0 for store in self.stores):
+                    self.stateMachine.transitionsFrom["Starving"][0]()
         class Working(State):
             def on_enter(self):
                 mainAgent = self.var.mainAgent

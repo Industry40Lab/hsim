@@ -8,10 +8,9 @@ if __name__ == "__main__":
 from hsim.core.des.pymulate import Store, Environment, Generator, Server, Buffer, Terminator
 from hsim.core.des.manual import Operator, ManualStation
 
-from hsim.core.des.resources import UnreliableMachine as MachineMIP
+from hsim.core.des.resources import ManualAssembly, UnreliableMachine as MachineMIP
 from hsim.core.des.resources import SUMachine as AutomatedMIP
-from hsim.core.des.resources import ManualAssembly as FinalAssemblyManualMIP
-from hsim.core.des.resources import ServerDoubleBuffer, QualityServerDoubleBuffer
+from hsim.core.des.resources import ServerDoubleBuffer, QualityServerDoubleBuffer, Assembly
 
 
 import pandas as pd
@@ -205,60 +204,59 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     g_case = Generator(env,'g1',serviceTime=10)
     g_case.createEntity = ggg
     
-    case0 = ManualStation(env,serviceTime=d.loc[d.index==1].values,serviceTimeFunction=normal_dist_bounded)
-    case1 = ServerDoubleBuffer(env,name="case1",serviceTime=d.loc[d.index==2].values,serviceTimeFunction=normal_dist_bounded,inputBufferCapacity = 4, outputBufferCapacity = 4)
+    case0 = ManualStation(env, name="case0", serviceTime=d.loc[d.index == 1].values, serviceTimeFunction=normal_dist_bounded)
+    case1 = ServerDoubleBuffer(env, name="case1", serviceTime=d.loc[d.index == 2].values, serviceTimeFunction=normal_dist_bounded, inputBufferCapacity=4, outputBufferCapacity=4)
     
-    case2queueIn = Buffer(env,capacity = 4)
+    case2queueIn = Buffer(env,"case2queueIn",capacity = 4)
     if c.loc[c.index==3]['M/A/T'].values == 'M':
-        case2 = ManualStation(env,serviceTime=d.loc[d.index==3].values,serviceTimeFunction=normal_dist_bounded)
+        case2 = ManualStation(env,"case2",serviceTime=d.loc[d.index == 3].values, serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==3]['M/A/T'].values == 'S':
-        case2 = AutomatedMIP(env,serviceTime=d.loc[d.index==3].values,serviceTimeFunction=normal_dist_bounded)
+        case2 = AutomatedMIP(env,"case2",serviceTime=d.loc[d.index==3].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==3]['M/A/T'].values == 'A':
-        case2 = Server(env,serviceTime=d.loc[d.index==3].values,serviceTimeFunction=normal_dist_bounded)
+        case2 = Server(env,"case2",serviceTime=d.loc[d.index==3].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==3]['M/A/T'].values == 'C':
-        case2 = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
-    
-    case2queueOut = Buffer(env,capacity = 4)
+        case2 = ManualStation(env,"case2",serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
+    case2queueOut = Buffer(env,"case2queueOut",capacity = 4)
     
     case3queueIn = Buffer(env,capacity = 4)
     if c.loc[c.index==4]['M/A/T'].values == 'M':
-        case3 = ManualStation(env,serviceTime=d.loc[d.index==4].values,serviceTimeFunction=normal_dist_bounded)
+        case3 = ManualStation(env,"case3",serviceTime=d.loc[d.index == 4].values, serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==4]['M/A/T'].values == 'S':
-        case3 = AutomatedMIP(env,serviceTime=d.loc[d.index==4].values,serviceTimeFunction=normal_dist_bounded)
+        case3 = AutomatedMIP(env,"case3",serviceTime=d.loc[d.index==4].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==4]['M/A/T'].values == 'A':
-        case3 = Server(env,serviceTime=d.loc[d.index==4].values,serviceTimeFunction=normal_dist_bounded)
+        case3 = Server(env,"case3",serviceTime=d.loc[d.index==4].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==4]['M/A/T'].values == 'C':
-        case3 = ManualStation(env,serviceTime=d.loc[d.index==4].values*0.25,serviceTimeFunction=normal_dist_bounded)
+        case3 = ManualStation(env,"case3",serviceTime=d.loc[d.index==4].values*0.25,serviceTimeFunction=normal_dist_bounded)
     case3queueOut = Buffer(env,capacity = 4)
     
     """case4 = ServerDoubleBuffer(env,serviceTime=d.loc[d.index==5].values,serviceTimeFunction=normal_dist_bounded)
     case4quality = SwitchQualityMIP(env)
     case4quality.var.quality_rate = Q_case
     case4scrap = Store(env)"""
-    case4 = QualityServerDoubleBuffer(env,"case4",serviceTime=d.loc[d.index==5].values,serviceTimeFunction=normal_dist_bounded,inputBufferCapacity = 4, outputBufferCapacity = 4,qualityThreshold=Q_case)
+    case4 = QualityServerDoubleBuffer(env,"case4",serviceTime=d.loc[d.index==5].values,serviceTimeFunction=normal_dist_bounded,inputBufferCapacity = 4, outputBufferCapacity = 4,qualityThreshold=1-Q_case)
     
-    case5queueIn = Buffer(env,capacity = 4)
+    case5queueIn = Buffer(env,"case5queueIn",capacity = 4)
     if c.loc[c.index==6]['M/A/T'].values == 'M':
-        case5 = ManualStation(env,serviceTime=d.loc[d.index==6].values,serviceTimeFunction=normal_dist_bounded)
+        case5 = ManualStation(env,"case5",serviceTime=d.loc[d.index == 6].values, serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==6]['M/A/T'].values == 'S':
-        case5 = AutomatedMIP(env,serviceTime=d.loc[d.index==6].values,serviceTimeFunction=normal_dist_bounded)
+        case5 = AutomatedMIP(env,"case5",serviceTime=d.loc[d.index==6].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==6]['M/A/T'].values == 'A':
-        case5 = Server(env,serviceTime=d.loc[d.index==6].values,serviceTimeFunction=normal_dist_bounded)
+        case5 = Server(env,"case5",serviceTime=d.loc[d.index==6].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==6]['M/A/T'].values == 'C':
-        case5 = ManualStation(env,serviceTime=d.loc[d.index==6].values*0.25,serviceTimeFunction=normal_dist_bounded)
-    case5queueOut = Buffer(env,capacity = 4)
+        case5 = ManualStation(env,"case5",serviceTime=d.loc[d.index==6].values*0.25,serviceTimeFunction=normal_dist_bounded)
+    case5queueOut = Buffer(env,"case5queueOut",capacity = 4)
     
     
-    case6queueIn = Buffer(env,capacity = 4)
+    case6queueIn = Buffer(env,"case6queueIn",capacity = 4)
     if c.loc[c.index==7]['M/A/T'].values == 'M':
-        case6 = ManualStation(env,serviceTime=d.loc[d.index==7].values,serviceTimeFunction=normal_dist_bounded)
+        case6 = ManualStation(env, "case6", serviceTime=d.loc[d.index == 7].values, serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==7]['M/A/T'].values == 'S':
-        case6 = AutomatedMIP(env,serviceTime=d.loc[d.index==7].values,serviceTimeFunction=normal_dist_bounded)
+        case6 = AutomatedMIP(env,"case6",serviceTime=d.loc[d.index==7].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==7]['M/A/T'].values == 'A':
-        case6 = Server(env,serviceTime=d.loc[d.index==7].values,serviceTimeFunction=normal_dist_bounded)
+        case6 = Server(env,"case6",serviceTime=d.loc[d.index==7].values,serviceTimeFunction=normal_dist_bounded)
     elif c.loc[c.index==7]['M/A/T'].values == 'C':
-        case6 = ManualStation(env,serviceTime=d.loc[d.index==7].values*0.25,serviceTimeFunction=normal_dist_bounded)
-    case6queueOut = Buffer(env,capacity = 4)
+        case6 = ManualStation(env,"case6",serviceTime=d.loc[d.index==7].values*0.25,serviceTimeFunction=normal_dist_bounded)
+    case6queueOut = Buffer(env,"case6queueOut",capacity = 4)
     
     
     # %% electronics
@@ -266,12 +264,12 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     g_ele = Generator(env,'g2',serviceTime=10)
     g_ele.createEntity = ggg
     
-    ele0 = ManualStation(env,serviceTime=d.loc[d.index==8].values,serviceTimeFunction=normal_dist_bounded)
-    ele1queue = Buffer(env,capacity=4)
+    ele0 = ManualStation(env, serviceTime=d.loc[d.index == 8].values, serviceTimeFunction=normal_dist_bounded, name="ele0")
+    ele1queue = Buffer(env,"ele1queue",capacity=4)
     ele1 = MachineMIP(env,'ele1',serviceTime=d.loc[d.index==9].values,serviceTimeFunction=normal_dist_bounded)
-    ele2queueIn = Buffer(env,capacity=4)
+    ele2queueIn = Buffer(env,"ele2queueIn",capacity=4)
     ele2 = MachineMIP(env,'ele2',serviceTime=d.loc[d.index==10].values,serviceTimeFunction=normal_dist_bounded)
-    ele2queueOut = Buffer(env,'aaa',capacity=4)
+    ele2queueOut = Buffer(env,'ele2queueOut',capacity=4)
     
     
     
@@ -279,40 +277,42 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
         j = int(i/2+10)
         glob = globals()
         if c.loc[c.index==j]['M/A/T'].values == 'M':
-            glob['ele_line'+str(i)] = ManualStation(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+            glob['ele_line'+str(i)] = ManualStation(env,'ele_line'+str(i),serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
         elif c.loc[c.index==j]['M/A/T'].values == 'S':
-            glob['ele_line'+str(i)] = AutomatedMIP(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+            glob['ele_line'+str(i)] = AutomatedMIP(env,'ele_line'+str(i),serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
         elif c.loc[c.index==j]['M/A/T'].values == 'A':
-            glob['ele_line'+str(i)] = Server(env,serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
+            glob['ele_line'+str(i)] = Server(env,'ele_line'+str(i),serviceTime=d.loc[d.index==j].values,serviceTimeFunction=normal_dist_bounded)
         elif c.loc[c.index==j]['M/A/T'].values == 'C':
-            glob['ele_line'+str(i)] = ManualStation(env,serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
+            glob['ele_line'+str(i)] = ManualStation(env,'ele_line'+str(i),serviceTime=d.loc[d.index==3].values*0.25,serviceTimeFunction=normal_dist_bounded)
     
-        
-    ele_line1 = Buffer(env)
-    # ele_line2 = ManualStation(env,serviceTime=d.loc[d.index==11].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line3 = Buffer(env)
-    # ele_line4 = ManualStation(env,serviceTime=d.loc[d.index==12].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line5 = Buffer(env)
-    # ele_line6 = ManualStation(env,serviceTime=d.loc[d.index==13].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line7 = Buffer(env)
-    # ele_line8 = ManualStation(env,serviceTime=d.loc[d.index==14].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line9 = Buffer(env)
-    # ele_line10 = ManualStation(env,serviceTime=d.loc[d.index==15].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line11 = Buffer(env)
-    # ele_line12 = ManualStation(env,serviceTime=d.loc[d.index==16].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line13 = Buffer(env)
-    # ele_line14 = ManualStation(env,serviceTime=d.loc[d.index==17].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line15= Buffer(env)
-    # ele_line16= ManualStation(env,serviceTime=d.loc[d.index==18].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line17= Buffer(env)
-    # ele_line18 = ManualStation(env,serviceTime=d.loc[d.index==19].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line19 = Buffer(env)
-    # ele_line20= ManualStation(env,serviceTime=d.loc[d.index==20].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line21= Buffer(env)
-    # ele_line22 = ManualStation(env,serviceTime=d.loc[d.index==21].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line23 = Buffer(env)
-    # ele_line24 = ManualStation(env,serviceTime=d.loc[d.index==22].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line25 = Buffer(env)
+    for i in range(1,26,2):
+        glob = globals()   
+        glob['ele_line'+str(i)] = Buffer(env,'ele_line'+str(i),capacity=4)
+    # ele_line1 = Buffer(env)
+    # # ele_line2 = ManualStation(env,serviceTime=d.loc[d.index==11].values,serviceTimeFunction=normal_dist_bounded)
+    # ele_line3 = Buffer(env)
+    # # ele_line4 = ManualStation(env,serviceTime=d.loc[d.index==12].values,serviceTimeFunction=normal_dist_bounded)
+    # ele_line5 = Buffer(env)
+    # # ele_line6 = ManualStation(env,serviceTime=d.loc[d.index==13].values,serviceTimeFunction=normal_dist_bounded)
+    # ele_line7 = Buffer(env)
+    # # ele_line8 = ManualStation(env,serviceTime=d.loc[d.index==14].values,serviceTimeFunction=normal_dist_bounded)
+    # ele_line9 = Buffer(env)
+    # # ele_line10 = ManualStation(env,serviceTime=d.loc[d.index==15].values,serviceTimeFunction=normal_dist_bounded)
+    # ele_line11 = Buffer(env)
+    # # ele_line12 = ManualStation(env,serviceTime=d.loc[d.index==16].values,serviceTimeFunction=normal_dist_bounded)
+    # ele_line13 = Buffer(env)
+    # # ele_line14 = ManualStation(env,serviceTime=d.loc[d.index==17].values,serviceTimeFunction=normal_dist_bounded)
+    # ele_line15= Buffer(env)
+    # # ele_line16= ManualStation(env,serviceTime=d.loc[d.index==18].values,serviceTimeFunction=normal_dist_bounded)
+    # ele_line17= Buffer(env)
+    # # ele_line18 = ManualStation(env,serviceTime=d.loc[d.index==19].values,serviceTimeFunction=normal_dist_bounded)
+    # ele_line19 = Buffer(env)
+    # # ele_line20= ManualStation(env,serviceTime=d.loc[d.index==20].values,serviceTimeFunction=normal_dist_bounded)
+    # ele_line21= Buffer(env)
+    # # ele_line22 = ManualStation(env,serviceTime=d.loc[d.index==21].values,serviceTimeFunction=normal_dist_bounded)
+    # ele_line23 = Buffer(env)
+    # # ele_line24 = ManualStation(env,serviceTime=d.loc[d.index==22].values,serviceTimeFunction=normal_dist_bounded)
+    # ele_line25 = Buffer(env)
     
     """ele_line26in = Queue(env)
     ele_line26 = Server(env,'ele_line26',serviceTime=d.loc[d.index==23].values,serviceTimeFunction=normal_dist_bounded)
@@ -321,27 +321,27 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     ele_quality = SwitchQualityMIP(env)
     ele_quality.var.quality_rate = Q_ele
     ele_scrap = Store(env)"""
-    ele_line26 = QualityServerDoubleBuffer(env,"ele_line26",serviceTime=d.loc[d.index==23].values,serviceTimeFunction=normal_dist_bounded,inputBufferCapacity = 4, outputBufferCapacity = 4,qualityThreshold=Q_ele)
+    ele_line26 = QualityServerDoubleBuffer(env, "ele_line26", serviceTime=d.loc[d.index == 23].values, serviceTimeFunction=normal_dist_bounded, inputBufferCapacity=4, outputBufferCapacity=4, qualityThreshold=1-Q_ele)
     
     # %% final
     
-    final1case = Store(env)
-    final1ele = Store(env)
-    final2assebly = FinalAssemblyManualMIP(env,serviceTime=d.loc[d.index==24].values,serviceTimeFunction=normal_dist_bounded,size=2)
-    final2inspect = MachineMIP(env,serviceTime=d.loc[d.index==25].values,serviceTimeFunction=normal_dist_bounded)
+    final1case = Buffer(env,"final1case")
+    final1ele = Buffer(env,"final1ele")
+    final2assebly = ManualAssembly(env, name="finalAssembly", serviceTime=d.loc[d.index == 24].values, serviceTimeFunction=normal_dist_bounded, size=2)
+    final2inspect = MachineMIP(env, "final2inspect",serviceTime=d.loc[d.index == 25].values, serviceTimeFunction=normal_dist_bounded)
     
-    final3 = Buffer(env)
+    final3 = Buffer(env,"final3")
     if a['Packaging'][26] == 0:
-        final4pack = ManualStation(env,serviceTime=d.loc[d.index==26].values,serviceTimeFunction=normal_dist_bounded)
+        final4pack = ManualStation(env,"final4pack",serviceTime=d.loc[d.index==26].values,serviceTimeFunction=normal_dist_bounded)
     elif a['Packaging'][26] == 1:
-        final4pack = Server(env,serviceTime=d.loc[d.index==26].values,serviceTimeFunction=normal_dist_bounded)
+        final4pack = Server(env,"final4pack",serviceTime=d.loc[d.index==26].values,serviceTimeFunction=normal_dist_bounded)
     elif a['Packaging'][26] == 2:
-        final4pack = Server(env,serviceTime=d.loc[d.index==26].values*0.7,serviceTimeFunction=normal_dist_bounded)
+        final4pack = Server(env,"final4pack",serviceTime=d.loc[d.index==26].values*0.7,serviceTimeFunction=normal_dist_bounded)
     
     if a['Dispatching'][27] == 0:
-        final5pallet = ManualStation(env,serviceTime=d.loc[d.index==27].values,serviceTimeFunction=normal_dist_bounded)
+        final5pallet = ManualStation(env,"final5pallet",serviceTime=d.loc[d.index==27].values,serviceTimeFunction=normal_dist_bounded)
     elif a['Dispatching'][27] == 1:
-        final5pallet = Server(env,serviceTime=d.loc[d.index==27].values,serviceTimeFunction=normal_dist_bounded)
+        final5pallet = Server(env,"final5pallet",serviceTime=d.loc[d.index==27].values,serviceTimeFunction=normal_dist_bounded)
     
     
     T = Terminator(env)
@@ -384,10 +384,10 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     
     if c.loc[c.index==3]['M/A/T'].values == 'M':
         case6queueIn.connections["next"] = case6
-        case6.connections["next"] = final1case
+        case6.connections["next"] = case6queueOut
     else:
         case6queueIn.connections["next"] = case6
-        case6.connections["next"] = final1case
+        case6.connections["next"] = case6queueOut
     case6queueOut.connections["next"] = final1case
 
     g_ele.connections["next"] = ele0
@@ -463,7 +463,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     std_machines = [9,10,25]
     for index in std_machines:
         A = M[index]
-        list_stations[index-1].var.TTR = TTR/50
+        list_stations[index-1].var.TTR["value"] = TTR/50
         list_stations[index-1].var.failure_rate = 1/(TTR+TTR*(A/(1-A)))*100 #100
         
         # A = M[index]
@@ -483,18 +483,23 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     prod_parts = list()
     time_start = time.time()
     print('Good luck!')
+   
+    from hsim.core.utils import utils
+    utils.create_connection_chart(list(env._agents.values()))
     
     for i in range(step,time_end,step):
         env.run(i)
-        prod_parts.append(len(T))
+        prod_parts.append(len(T.store))
         if True: # monitoring
             print('Time elapsed: %d [s]' %i)
-            if len(T)==0:
+            if len(T.store)==0:
                 print('Warning - no output')
             else:
-                print(len(T))
+
+                print(len(T.store))
             elapsed = time.time()-time_start
-            if elapsed>300:
+            utils.log2(env)
+            if elapsed>180:
                 print('timeout')
                 break
             else:

@@ -15,7 +15,7 @@ import numpy as np
 from hsim.core.core.event import BaseEvent as Event, ConditionEvent, Status
 from hsim.core.core.event import TimedEvent
 
-DEBUG = True
+DEBUG = False
 
 
 class Scheduler(sched.scheduler):
@@ -61,6 +61,12 @@ class Scheduler(sched.scheduler):
                 elif "StopSimulation" in event.kwargs:
                     break
                 else:
+                    if isinstance(event, ConditionEvent):
+                        if not event.verify():
+                            # was too fast!
+                            event._status, event.time = Status.SCHEDULED, np.inf
+                            event.add()
+                            continue
                     event.trigger()
                     if callable(event.action):
                         try:
@@ -127,7 +133,7 @@ class Environment:
         self._objects = list()
         self._agents = OrderedDict()
         self.counter = Counter()
-        self._debug = True
+        self._debug = DEBUG
 
     def _time(self) -> float:
         return time.time() if self._real_time else self._now

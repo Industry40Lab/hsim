@@ -42,16 +42,24 @@ class Agent(ABC):
     def __lt__(self, other: Any) -> bool:
         return False
     def __repr__(self):
-        name = self.name if self.name is not None else self.__class__.__name__ + "-" + str(id(self))
-        return f"{name}: " + super().__repr__()
+        name = self.name if self.name is not None else str(id(self))
+        return f"{name}: {self.__class__.__name__}" 
     def mask(self,dict:dict={})->"Agent":
-        newAgent = copy(self)
+        newAgent = self.copy()
         for key in dict.keys():
             if not hasattr(self, key):
                 raise AttributeError(f"Attribute {key} does not exists in {self}.")
             else:
                 newAgent.__setattr__(key, dict[key])
         return newAgent
+    def __hash__(self):
+        if hasattr(self,"_copy"):
+            return hash(self._copy)
+        return super().__hash__()
+    def copy(self):
+        agentCopy = copy(self)
+        agentCopy._copy = self
+        return agentCopy
 
 class dotdict(dict):
     """MATLAB-like dot.notation access to dictionary attributes"""
