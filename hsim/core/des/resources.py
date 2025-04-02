@@ -19,7 +19,7 @@ from hsim.core.agent.q import Queue
 from hsim.core.des.manual import ManualStation
 
 class UnreliableMachine(Server):
-    def __init__(self, env, name=None, serviceTime=1, serviceTimeFunction=None, failure_rate=0.1, TTRfcn:Callable=lambda *args: args[0] if hasattr(args,"__len__") else args, TTRvalue:Iterable[Union[float,int]]=(1,)):
+    def __init__(self, env, name=None, serviceTime=1, serviceTimeFunction=None, failure_rate=0.1, TTRfcn:Callable=lambda *args: args[0] if hasattr(args,"__len__") else args, TTRvalue:Iterable[Union[float,int]]=1):
         super().__init__(env, name, serviceTime, serviceTimeFunction)
         self.var.failure_rate = failure_rate
         self.var.TTR = {"fcn":TTRfcn,"value":TTRvalue}
@@ -305,9 +305,9 @@ def test6():
 if __name__ == "__main__":
     from hsim.core.des.pymulate import Generator
     from hsim.core.des.manual import Operator
-    # test1()
-    # test2()
-    # test3()
-    # test4()
-    # test5()
+    test1()
+    test2()
+    test3()
+    test4()
+    test5()
     test6()

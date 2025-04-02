@@ -109,7 +109,7 @@ def test4():
     g2.connections["next"] = a.toStore(1)
     a.connections["next"] = q
     env.run(30)
-    assert len(q) == 3 and a.stateMachine.current_state[0].name == "Starving"
+    assert len(q) == 5 and a.stateMachine.current_state[0].name == "Starving"
     
 if __name__ == "__main__":
     from hsim.core.des.pymulate import Generator

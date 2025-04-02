@@ -64,16 +64,11 @@ class Scheduler(sched.scheduler):
                 delayfunc(0)   # Let other threads run
                 push(self._past, event)
                 event.process()
-            #[event.verify() for event in self._queue if isinstance(event, ConditionEvent)]
             for event in self._queue:
                 if isinstance(event, ConditionEvent):
                     result = event.verify()
                     if result:
                         break
-    @property
-    def queue(self):
-        events = [event for event in self._queue if event.time >= self.timefunc() and event.time < float('inf')]
-        return list(map(heapq.heappop, [events]*len(events)))
     def execute(self,event):
         if callable(event.action):
             try:
