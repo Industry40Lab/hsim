@@ -4,9 +4,8 @@ if __name__ == "__main__":
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
     
-import heapq
 import sched
-import threading
+from sortedcontainers import SortedList
 import time
 from typing import Any, Callable, Optional, Union
 from collections import OrderedDict, deque
@@ -24,11 +23,9 @@ class Scheduler(sched.scheduler):
         self._lock = Context()
         self._past = list()
         self._env = env
-    def heapify(self):
-        heapq.heapify(self._queue)
+        self._queue = SortedList(key=lambda event: (event.time, event.priority, event.sequence))
     def enter(self, event: 'Event') -> 'Event':
-        heapq.heappush(self._queue, event)
-        heapq.heapify(self._queue)
+        self._queue.add(event)
         return event
     def enterabs(self, time, priority, action=object, argument=(), kwargs=sched._sentinel) -> 'Event':
         if kwargs is sched._sentinel:
@@ -39,12 +36,9 @@ class Scheduler(sched.scheduler):
     def late(self, priority, action, argument=(), kwargs=sched._sentinel):
         return self.enterabs(np.inf, priority, action, argument, kwargs)
     def run(self, blocking=True):
-        delayfunc, timefunc, pop, push, lock, past = self.delayfunc, self.timefunc, heapq.heappop, heapq.heappush, self._lock, self._past
-        while True:
-            # with lock:
-            if not self._queue:
-                break
-            event = pop(self._queue)
+        delayfunc, timefunc, lock, past = self.delayfunc, self.timefunc, self._lock, self._past
+        while self._queue:
+            event = self._queue.pop(0)
             delayfunc(event.time - timefunc())
             if event.pending:
                 event.time = np.inf
@@ -55,14 +49,13 @@ class Scheduler(sched.scheduler):
             else:
                 if isinstance(event, ConditionEvent):
                     if not event.verify():
-                        # was too fast!
                         event._status, event.time = Status.SCHEDULED, np.inf
                         event.add()
                         continue
                 event.trigger()
                 self.execute(event)
-                delayfunc(0)   # Let other threads run
-                push(self._past, event)
+                delayfunc(0)
+                past.append(event)
                 event.process()
             for event in self._queue:
                 if isinstance(event, ConditionEvent):
@@ -79,7 +72,7 @@ class Scheduler(sched.scheduler):
                     print(f"Error in event {event}: {e}. Action: {event.action}. Arguments: {event.arguments}")
                 else:
                     raise e
-        else: #Iterable
+        else:
             if len(event.arguments) == 0:
                 event.arguments = [() for _ in range(len(event.action))]
             elif len(event.arguments) != len(event.action):
@@ -94,7 +87,6 @@ class Scheduler(sched.scheduler):
                         raise e 
     def cancel(self, event):
         self._queue.remove(event)
-        heapq.heapify(self._queue)
         
 class Context:
     def __enter__(self):
