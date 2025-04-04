@@ -17,6 +17,7 @@ class Status(Enum):
     SCHEDULED = auto()
     TRIGGERED = auto()
     PROCESSED = auto()
+    CONDITIONED = auto()
     
 class BaseEvent():
     def __init__(self, env: 'Environment', priority: Union[float,int]=1, action: Union[Iterable[Callable[..., Any]], Callable[..., Any]] = object, arguments: Any = [], **kwargs: Any): # type: ignore
@@ -29,6 +30,7 @@ class BaseEvent():
         self.arguments = arguments
         # self.action = attachAction(action, arguments, **kwargs)
         self.kwargs = kwargs
+        self._conditioned = False
     def add(self) -> BaseEvent:
         self.env.scheduler.enter(self)
         return self
@@ -59,6 +61,9 @@ class BaseEvent():
     def schedule(self, time=None) -> BaseEvent:
         self.time = time if time else self.time
         self._status = Status.SCHEDULED
+        if self in self.env.scheduler._queue:
+            self.env.scheduler._queue.remove(self)
+            self.env.scheduler._queue.add(self)
         return self
     def trigger(self) -> None:
         self._status = Status.TRIGGERED
@@ -89,24 +94,14 @@ class BaseEvent():
     def __lt__(self, other: BaseEvent) -> bool:
         return (self.time, self.priority, self.sequence) < (other.time, other.priority, other.sequence)
     def __le__(self, other: BaseEvent) -> bool:
-        if not isinstance(other, BaseEvent):
-            return NotImplemented
         return (self.time, self.priority, self.sequence) <= (other.time, other.priority, other.sequence)
     def __eq__(self, other: BaseEvent) -> bool:
-        if not isinstance(other, BaseEvent):
-            return NotImplemented
         return (self.time, self.priority, self.sequence) == (other.time, other.priority, other.sequence)
     def __ne__(self, other: BaseEvent) -> bool:
-        if not isinstance(other, BaseEvent):
-            return NotImplemented
         return (self.time, self.priority, self.sequence) != (other.time, other.priority, other.sequence)
     def __gt__(self, other: BaseEvent) -> bool:
-        if not isinstance(other, BaseEvent):
-            return NotImplemented
         return (self.time, self.priority, self.sequence) > (other.time, other.priority, other.sequence)
     def __ge__(self, other: BaseEvent) -> bool:
-        if not isinstance(other, BaseEvent):
-            return NotImplemented
         return (self.time, self.priority, self.sequence) >= (other.time, other.priority, other.sequence)
     
     
@@ -136,7 +131,8 @@ class ConditionEvent(BaseEvent):
     def __init__(self, env: 'Environment', condition: Callable[[], bool], priority: Union[float,int] = 1, action:Union[Iterable[Callable[..., Any]], Callable[..., Any]]=object, arguments: Any = [], **kwargs: Any): # type: ignore
         super().__init__(env, priority,action, arguments, **kwargs)
         self.condition = condition
-        self._status : Status = Status.PENDING
+        self._status : Status = Status.CONDITIONED
+        self._conditioned = True
 
     def verify(self) -> bool:
         if self.condition():

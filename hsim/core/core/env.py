@@ -17,6 +17,9 @@ from hsim.core.core.event import TimedEvent
 DEBUG = False
 
 
+
+
+
 class Scheduler(sched.scheduler):
     def __init__(self, timefunc: Callable[[], float], delayfunc: Callable[[float], None], env:'Environment'):
         super().__init__(timefunc, delayfunc)
@@ -47,9 +50,9 @@ class Scheduler(sched.scheduler):
             elif "StopSimulation" in event.kwargs:
                 break
             else:
-                if isinstance(event, ConditionEvent):
+                if event._conditioned:
                     if not event.verify():
-                        event._status, event.time = Status.SCHEDULED, np.inf
+                        event._status, event.time = Status.CONDITIONED, np.inf
                         event.add()
                         continue
                 event.trigger()
@@ -58,7 +61,7 @@ class Scheduler(sched.scheduler):
                 past.append(event)
                 event.process()
             for event in self._queue:
-                if isinstance(event, ConditionEvent):
+                if event._conditioned:
                     result = event.verify()
                     if result:
                         break
