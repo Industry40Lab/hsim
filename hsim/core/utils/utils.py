@@ -60,11 +60,11 @@ def create_connection_chart(objects, output_file="graph.html",remove_operators=T
     net.save_graph(output_file)
     print(f"Graph saved to {output_file}. Open it in a browser to view and edit.")
 
-def log(env:Environment):
+def log(env:Environment, filter:callable = lambda x: issubclass(type(x._agent),TimedBlock)):
 # Reconstruct states to get agent, state, timeIn, timeOut
     data = []
     for x in env._objects:
-        if not issubclass(type(x._agent),TimedBlock):
+        if not filter(x):
             continue
         agent = repr(x._agent)
         state_times = {}
@@ -78,6 +78,20 @@ def log(env:Environment):
 
     df = pd.DataFrame(data, columns=["agent", "state", "timeIn", "timeOut"])
     return df
+
+
+def statelog(env:Environment, metric="percentage", astable=False, filter:callable = lambda x: issubclass(type(x._agent),TimedBlock)):
+    df = log(env, filter)
+    df['time'] = df['timeOut'] - df['timeIn']
+    result = df.groupby(['agent', 'state'])['time'].sum().reset_index().set_index(['agent', 'state'])
+    
+    if metric == "percentage":
+        result /= env.now
+        
+    if astable:
+        result = result.pivot_table(index='agent', columns='state', values='time', aggfunc='sum', fill_value=0)
+
+    return result
 
 def log2(env:Environment):
     data = dict()

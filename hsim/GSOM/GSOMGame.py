@@ -98,8 +98,8 @@ class Entity():
             self.serviceTime = 1
             
     
-def main(filename,folder='',fullpath='',app=True,pa=False):
-    if pa:
+def main(filename, folder='', fullpath='',app=True):
+    if not app:
         with open('target.txt') as f:
             fullpath = f.read()
         folder,filename=fullpath.rsplit('/',1)
@@ -396,32 +396,32 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     ele1.connections["next"] = ele2queueIn
     ele2queueIn.connections["next"] = ele2
     ele2.connections["next"] = ele2queueOut
-    ele2queueOut.connections["next"] = ele_line1
-    ele_line1.connections["next"] = ele_line2
-    ele_line2.connections["next"] = ele_line3
-    ele_line3.connections["next"] = ele_line4
-    ele_line4.connections["next"] = ele_line5
-    ele_line5.connections["next"] = ele_line6
-    ele_line6.connections["next"] = ele_line7
-    ele_line7.connections["next"] = ele_line8
-    ele_line8.connections["next"] = ele_line9
-    ele_line9.connections["next"] = ele_line10
-    ele_line10.connections["next"] = ele_line11
-    ele_line11.connections["next"] = ele_line12
-    ele_line12.connections["next"] = ele_line13
-    ele_line13.connections["next"] = ele_line14
-    ele_line14.connections["next"] = ele_line15
-    ele_line15.connections["next"] = ele_line16
-    ele_line16.connections["next"] = ele_line17
-    ele_line17.connections["next"] = ele_line18
-    ele_line18.connections["next"] = ele_line19
-    ele_line19.connections["next"] = ele_line20
-    ele_line20.connections["next"] = ele_line21
-    ele_line21.connections["next"] = ele_line22
-    ele_line22.connections["next"] = ele_line23
-    ele_line23.connections["next"] = ele_line24
-    ele_line24.connections["next"] = ele_line25
-    ele_line25.connections["next"] = ele_line26.input_ports[0]
+    ele2queueOut.connections["next"] = ele_line1 # type: ignore
+    ele_line1.connections["next"] = ele_line2 # type: ignore
+    ele_line2.connections["next"] = ele_line3 # type: ignore
+    ele_line3.connections["next"] = ele_line4 # type: ignore
+    ele_line4.connections["next"] = ele_line5 # type: ignore
+    ele_line5.connections["next"] = ele_line6 # type: ignore
+    ele_line6.connections["next"] = ele_line7 # type: ignore
+    ele_line7.connections["next"] = ele_line8 # type: ignore
+    ele_line8.connections["next"] = ele_line9 # type: ignore
+    ele_line9.connections["next"] = ele_line10 # type: ignore
+    ele_line10.connections["next"] = ele_line11 # type: ignore
+    ele_line11.connections["next"] = ele_line12 # type: ignore
+    ele_line12.connections["next"] = ele_line13 # type: ignore
+    ele_line13.connections["next"] = ele_line14 # type: ignore
+    ele_line14.connections["next"] = ele_line15 # type: ignore
+    ele_line15.connections["next"] = ele_line16 # type: ignore
+    ele_line16.connections["next"] = ele_line17 # type: ignore
+    ele_line17.connections["next"] = ele_line18 # type: ignore
+    ele_line18.connections["next"] = ele_line19 # type: ignore
+    ele_line19.connections["next"] = ele_line20 # type: ignore
+    ele_line20.connections["next"] = ele_line21 # type: ignore
+    ele_line21.connections["next"] = ele_line22 # type: ignore
+    ele_line22.connections["next"] = ele_line23 # type: ignore
+    ele_line23.connections["next"] = ele_line24 # type: ignore
+    ele_line24.connections["next"] = ele_line25 # type: ignore
+    ele_line25.connections["next"] = ele_line26.input_ports[0] # type: ignore
     
     ele_line26.output_ports[0].connections["next"] = final1ele
     
@@ -438,7 +438,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     n_lim = e['# of operators'].values[0]
     n_max = 15
     list_stations_case = [case0,case1,case2,case3,case4,case5,case6]
-    list_stations_ele = [ele0,ele1,ele2,ele_line2,ele_line4,ele_line6,ele_line8,ele_line10,ele_line12,ele_line14,ele_line16,ele_line18,ele_line20,ele_line22,ele_line24,ele_line26]
+    list_stations_ele = [ele0,ele1,ele2,ele_line2,ele_line4,ele_line6,ele_line8,ele_line10,ele_line12,ele_line14,ele_line16,ele_line18,ele_line20,ele_line22,ele_line24,ele_line26] # type: ignore
     list_stations_final = [final2assebly,final2inspect,final4pack,final5pallet]
     list_stations = list_stations_case + list_stations_ele + list_stations_final
     op_list = list()
@@ -479,7 +479,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     
     import time
     step = 600
-    time_end = 24*3600
+    time_end = 1*3600
     prod_parts = list()
     time_start = time.time()
     print('Good luck!')
@@ -505,8 +505,6 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
             else:
                 print(elapsed)
     print('Done!')
-    # env.state_log2 = pd.DataFrame(env.state_log,columns = env.state_log2.columns)
-    env.state_log2 = env.log
     
     prod_parts=prod_parts[round(len(prod_parts)/10):]
     print(prod_parts)
@@ -524,75 +522,19 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
     th=th[1:-1]
     
     
-    from utils import stats
-    s = stats(env)
+    from hsim.core.utils import utils
+    states = utils.statelog(env, astable=True)
+    states = states.iloc[:-2]
+    states.index = list(range(1,1+len(states.index)))
+    states.index.name = "index"
     
-    from collections import OrderedDict
-    statistics = OrderedDict()
-    for machine in list_stations_case:
-        try:
-            for m in machine:
-                statistics[m._name] = [{key._name:s[m][key]} for key in s[m]]
-        except:
-            statistics[machine._name] = [{key._name:s[machine][key]} for key in s[machine]]
-    
-    for machine in list_stations_ele:
-        try:
-            for m in machine:
-                statistics[m._name] = [{key._name:s[m][key]} for key in s[m]]
-        except:
-            statistics[machine._name] = [{key._name:s[machine][key]} for key in s[machine]]
-    
-    
-    for machine in list_stations_final:
-        try:
-            for m in machine:
-                statistics[m._name] = [{key._name:s[m][key]} for key in s[m]]
-        except:
-            statistics[machine._name] = [{key._name:s[machine][key]} for key in s[machine]]
+    states_op = utils.statelog(env, astable=True, filter=lambda x: isinstance(x._agent, Operator))
+    states_op.rename(columns={"Sleep": "Idle"}, inplace=True)
+    states_op.index = list(range(1,1+len(states_op.index)))
+    states_op.index.name = "index"
+
         
-    
-    states = pd.DataFrame([])
-    for machine in statistics:
-        new_dict={k:v for element in statistics[machine] for k,v in element.items()}
-        new_df = pd.DataFrame(new_dict,index=[0])
-        states = pd.concat([states,new_df])
-    states = states.fillna(0)
-    try:
-        states.drop(columns='ForwardingOut',inplace=True)
-        states.drop(columns='RetrievingOut',inplace=True)
-        states.drop(columns='Retrieving',inplace=True)
-    except:
-        pass
-    states=states.drop(columns=[col for col in e.columns if "Retrieving" in col or 'Forwarding' in col])
-    
-    
-    statistics2 = OrderedDict()
-    for op in op_list:
-        statistics2[op._name] = [{key._name:s[op][key]} for key in s[op]]
-    states_op = pd.DataFrame([])
-    i = 1
-    for op in statistics2:
-        new_dict={k:v for element in statistics2[op] for k,v in element.items()}
-        new_df = pd.DataFrame(new_dict,index=[i])
-        states_op = pd.concat([states_op,new_df])
-        i += 1
-    
-    
-    list_all = list_stations_case + list_stations_ele + list_stations_final
-    list_labels = list()
-    for i in b.index:
-        try:
-            iter(list_all[i-1])
-            list_labels.append(str('%da'%i))
-            list_labels.append(str('%db'%i))
-            list_labels.append(str('%dc'%i))
-        except:
-            list_labels.append(str(i))
-    states['index']=list_labels
-    states.set_index('index',inplace=True)
-    
-    scores(path,th[0])
+    # scores(path,th[0])
     
     if folder == '':
         string = 'result.xlsx'
@@ -611,7 +553,7 @@ def main(filename,folder='',fullpath='',app=True,pa=False):
 
 
 if __name__ == '__main__':
-    main("",app=False,pa=True)
+    main("",app=False)
     
 # if __name__ == '__main__':
 #     main('',app=True,pa=True)
