@@ -479,7 +479,7 @@ def main(filename, folder='', fullpath='',app=True):
     
     import time
     step = 600
-    time_end = 1*3600
+    time_end = 24*3600
     prod_parts = list()
     time_start = time.time()
     print('Good luck!')

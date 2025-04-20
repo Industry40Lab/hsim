@@ -4,7 +4,7 @@ if __name__ == "__main__":
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 import pandas as pd
 from io import BytesIO
-import GSOMGame
+import hsim.GSOM.GSOMGame
 
 def scores_server(throughput, excel, folder, player='myself'):
     from datetime import datetime
@@ -19,7 +19,7 @@ def scores_server(throughput, excel, folder, player='myself'):
     new.to_csv(folder + 'results.csv', index=False, mode='a', header=False)
     
 def runner(file, username):
-    processed_data: dict = GSOMGame.main(file)
+    processed_data: dict = hsim.GSOM.GSOMGame.main(file)
     scores_server(processed_data['TH']["mean"], file, "", username)
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
