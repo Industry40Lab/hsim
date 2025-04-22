@@ -36,24 +36,6 @@
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('account.change_password') }}">
-                                    <i class="bi bi-key me-2"></i>
-                                    Change Password
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('account.change_email') }}">
-                                    <i class="bi bi-envelope me-2"></i>
-                                    Change Email
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('account.change_username') }}">
-                                    <i class="bi bi-person me-2"></i>
-                                    Change Username
-                                </a>
-                            </li>
-                            <li class="nav-item">
                                 <a class="nav-link" href="{{ url_for('auth.logout') }}">
                                     <i class="bi bi-box-arrow-right me-2"></i>
                                     Logout
@@ -98,6 +80,14 @@
                                 Leaderboard
                             </a>
                         </li>
+                        {% if session.username == 'admin' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin.admin_page') }}">
+                                <i class="bi bi-shield-lock me-2"></i>
+                                Admin
+                            </a>
+                        </li>
+                        {% endif %}
                     </ul>
                     {% endif %}
                 </div>
@@ -131,6 +121,47 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var btn = document.querySelector('.btn.btn-primary');
+            if (btn) {
+                btn.addEventListener('click', async function(event) {
+                    let successBtn = document.querySelector('.btn.btn-success');
+                    if (successBtn) {
+                        successBtn.style.display = 'none';
+                    }
+                    // Show spinner overlay immediately
+                    // Remove any existing spinner
+                    let existingSpinner = document.getElementById('btn-spinner');
+                    if (existingSpinner) existingSpinner.remove();
+
+                    // Create spinner container
+                    let spinnerContainer = document.createElement('div');
+                    spinnerContainer.id = 'btn-spinner';
+                    spinnerContainer.className = 'd-flex align-items-center mt-2';
+
+                    // Spinner
+                    let spinner = document.createElement('div');
+                    spinner.className = 'spinner-border text-primary';
+                    spinner.setAttribute('role', 'status');
+                    spinner.style.width = '2rem';
+                    spinner.style.height = '2rem';
+
+                    // Side text
+                    let text = document.createElement('span');
+                    text.className = 'ms-2';
+                    text.textContent = 'Simulation running...';
+
+                    spinnerContainer.appendChild(spinner);
+                    spinnerContainer.appendChild(text);
+
+                    // Insert spinner after the button
+                    btn.parentNode.insertBefore(spinnerContainer, btn.nextSibling);
+
+                });
+            }
+        });
+        </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

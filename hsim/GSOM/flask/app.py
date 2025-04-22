@@ -1,31 +1,37 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
 import sqlite3
 import os
+import shutil
+import tempfile
 from werkzeug.utils import secure_filename
 import io
 from threading import Thread
-import tempfile
+import atexit
 
 # Import route modules
 from routes.auth import auth_bp
 from routes.main import main_bp
 from routes.account import account_bp
 
+# Add import for admin blueprint
+from routes.admin import admin_bp
+
 # Create Flask app
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'  # Change this to a secure key in production
 
 # Configure upload folder
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'xlsx'}
+from hsim.GSOM.flask.config import UPLOAD_FOLDER, TEMP_FOLDER_NAME, USERS_DB
+TEMP_FOLDER = os.path.join(tempfile.gettempdir(), TEMP_FOLDER_NAME)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Ensure upload directory exists
+# Ensure upload and temp directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(TEMP_FOLDER, exist_ok=True)
 
 # Initialize SQLite database for user authentication
 def init_db():
-    conn = sqlite3.connect("users.db")
+    conn = sqlite3.connect(USERS_DB)
     cursor = conn.cursor()
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
@@ -41,10 +47,23 @@ def init_db():
 app.register_blueprint(auth_bp)
 app.register_blueprint(main_bp)
 app.register_blueprint(account_bp)
+app.register_blueprint(admin_bp)  # Register the admin blueprint
 
 # Initialize database on startup
 with app.app_context():
     init_db()
+
+# Cleanup function to remove temporary files when the app shuts down
+def cleanup_temp_files():
+    if os.path.exists(TEMP_FOLDER):
+        try:
+            shutil.rmtree(TEMP_FOLDER)
+            print(f"Cleaned up temporary directory: {TEMP_FOLDER}")
+        except Exception as e:
+            print(f"Error cleaning up temporary directory: {e}")
+
+# Register the cleanup function to run on exit
+atexit.register(cleanup_temp_files)
 
 # Root route redirects to main page
 @app.route('/')
@@ -52,4 +71,4 @@ def index():
     return redirect(url_for('main.dashboard'))
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)

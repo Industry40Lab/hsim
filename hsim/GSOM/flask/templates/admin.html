@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Page</title>
+</head>
+<body>
+    {% extends "layout.html" %}
+
+    {% block title %}Admin Page{% endblock %}
+
+    {% block header %}Admin Page{% endblock %}
+
+    {% block content %}
+    <h2>Users</h2>
+    <form method="post" action="{{ url_for('admin.admin_delete_all_users') }}" onsubmit="return confirm('Delete ALL users?');">
+        <button type="submit" class="btn btn-danger btn-sm mb-2">Delete All Users</button>
+    </form>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Update</th>
+                <th>Delete</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <form method="post" action="{{ url_for('admin.admin_update_user', username=user['username']) }}">
+                    <td>
+                        <input type="text" name="new_username" value="{{ user['username'] }}" class="form-control" required>
+                    </td>
+                    <td>
+                        <input type="email" name="new_email" value="{{ user['email'] }}" class="form-control" required>
+                    </td>
+                    <td>
+                        <button type="submit" class="btn btn-primary btn-sm">Update</button>
+                    </td>
+                    <td>
+                        <button type="submit"
+                                formaction="{{ url_for('admin.admin_delete_user', username=user['username']) }}"
+                                formmethod="post"
+                                class="btn btn-danger btn-sm"
+                                onclick="return confirm('Delete user {{ user['username'] }}?');">
+                            Delete
+                        </button>
+                    </td>
+                </form>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h2>Results</h2>
+    <form id="delete-results-form" method="post" action="{{ url_for('admin.admin_delete_selected_results') }}">
+        <button type="submit" class="btn btn-danger btn-sm mb-2" id="delete-selected-btn" disabled>Delete Selected</button>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>
+                        <input type="checkbox" id="select-all-results" onclick="toggleAllResults(this)">
+                    </th>
+                    <th>#</th>
+                    {% if results %}
+                        {% for key in results[0].keys() %}
+                            <th>{{ key }}</th>
+                        {% endfor %}
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in results %}
+                <tr>
+                    <td>
+                        <input type="checkbox" name="selected_results" value="{{ loop.index0 }}" class="result-checkbox" onclick="toggleDeleteButton()">
+                    </td>
+                    <td>{{ loop.index0 }}</td>
+                    {% for value in result.values() %}
+                        <td>{{ value }}</td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </form>
+    <script>
+    function toggleAllResults(source) {
+        let checkboxes = document.querySelectorAll('.result-checkbox');
+        for (let cb of checkboxes) {
+            cb.checked = source.checked;
+        }
+        toggleDeleteButton();
+    }
+    function toggleDeleteButton() {
+        let checked = document.querySelectorAll('.result-checkbox:checked').length > 0;
+        document.getElementById('delete-selected-btn').disabled = !checked;
+    }
+    </script>
+    {% endblock %}
+</body>
+</html>

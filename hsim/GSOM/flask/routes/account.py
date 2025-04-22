@@ -2,6 +2,8 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 import sqlite3
 import re
 
+from hsim.GSOM.flask.config import USERS_DB
+
 account_bp = Blueprint('account', __name__, url_prefix='/account')
 
 # Email validation regex
@@ -9,7 +11,7 @@ EMAIL_REGEX = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
 
 # Database connection helper
 def get_db_connection():
-    conn = sqlite3.connect('users.db')
+    conn = sqlite3.connect(USERS_DB)
     conn.row_factory = sqlite3.Row
     return conn
 

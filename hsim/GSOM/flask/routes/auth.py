@@ -1,3 +1,7 @@
+if __name__ == '__main__' or 'routes.main':
+    import sys
+    import os
+    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 import time
 from django.db import connection
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
@@ -14,9 +18,11 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 EMAIL_REGEX = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
 AZURE = True
 
+from hsim.GSOM.flask.config import USERS_DB
+
 # Database connection helper
 def get_db_connection():
-    conn = sqlite3.connect('users.db')
+    conn = sqlite3.connect(USERS_DB)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -49,10 +55,9 @@ def send_reset_email(email, username, new_password):
     
 def azure_reset_email(email, username, new_password):
     from azure.communication.email import EmailClient
-    POLLER_WAIT_TIME = 1 # seconds
+    from hsim.GSOM.flask.config import AZURE_CONNECTION_STRING, POLLER_WAIT_TIME
     try:
-        connection_string = "endpoint=https://co-service.france.communication.azure.com/;accesskey=F2Ak856tysHa1vOGwxzeee8Lt8V0G64fMeNEYLuxzADw0qAUlVMBJQQJ99BDACULyCpC87VsAAAAAZCSZ8cL"  # Replace with your Azure connection string  
-        email_client = EmailClient.from_connection_string(connection_string)  # Replace with your Azure connection string
+        email_client = EmailClient.from_connection_string(AZURE_CONNECTION_STRING)  # Replace with your Azure connection string
         
         message = {
             "content": {
@@ -72,13 +77,14 @@ def azure_reset_email(email, username, new_password):
         }
         
         poller = email_client.begin_send(message)
-        time_elapsed = 0
-        while not poller.done():
-            poller.wait(POLLER_WAIT_TIME)
-            time_elapsed += POLLER_WAIT_TIME
-
-            if time_elapsed > 10 * POLLER_WAIT_TIME:
-                raise RuntimeError("Polling timed out.")
+        # Wait for the poller to complete, but with a timeout and error handling
+        try:
+            result = poller.result(timeout=POLLER_WAIT_TIME)  # Wait up to 15 seconds for completion
+            # Optionally, check result.status or similar here
+            return True
+        except Exception as e:
+            flash(f"Email send operation did not complete: {e}", "error")
+            return False
 
     except Exception as e:
         flash(f"Failed to send email: {e}", "error")
