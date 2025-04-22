@@ -1,4 +1,3 @@
-import os
 RESULTS_FOLDER = "hsim/GSOM/flask/static/results/"
 RESULTS_FILENAME = "results.csv"
 RESULTS_CSV = RESULTS_FOLDER + RESULTS_FILENAME
