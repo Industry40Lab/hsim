@@ -1,3 +1,5 @@
+import time
+from django.db import connection
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 import sqlite3
 import re
@@ -10,6 +12,7 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 # Email validation regex
 EMAIL_REGEX = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+AZURE = True
 
 # Database connection helper
 def get_db_connection():
@@ -19,6 +22,8 @@ def get_db_connection():
 
 # Function to send email
 def send_reset_email(email, username, new_password):
+    if AZURE:
+        return azure_reset_email(email, username, new_password)
     try:
         sender_email = "your_email@example.com"  # Replace with your email
         sender_password = "your_password"  # Replace with your email password
@@ -38,6 +43,43 @@ def send_reset_email(email, username, new_password):
             server.login(sender_email, sender_password)
             server.sendmail(sender_email, email, msg.as_string())
         return True
+    except Exception as e:
+        flash(f"Failed to send email: {e}", "error")
+        return False
+    
+def azure_reset_email(email, username, new_password):
+    from azure.communication.email import EmailClient
+    POLLER_WAIT_TIME = 1 # seconds
+    try:
+        connection_string = "endpoint=https://co-service.france.communication.azure.com/;accesskey=F2Ak856tysHa1vOGwxzeee8Lt8V0G64fMeNEYLuxzADw0qAUlVMBJQQJ99BDACULyCpC87VsAAAAAZCSZ8cL"  # Replace with your Azure connection string  
+        email_client = EmailClient.from_connection_string(connection_string)  # Replace with your Azure connection string
+        
+        message = {
+            "content": {
+            "subject": "Password Reset Request",
+            "plainText": f"Hello {username},\n\nYour new password is: {new_password}\n\nPlease log in and change your password immediately.",
+            "html": f"<html><body><p>Hello {username},</p><p>Your new password is: <strong>{new_password}</strong></p><p>Please log in and change your password immediately.</p></body></html>"
+            },
+            "recipients": {
+            "to": [
+                {
+                "address": email,
+                "displayName": username
+                }
+            ]
+            },
+            "senderAddress": "<DoNotReply@1ec817b7-5abc-46b6-8a56-ada65744ba69.azurecomm.net>"
+        }
+        
+        poller = email_client.begin_send(message)
+        time_elapsed = 0
+        while not poller.done():
+            poller.wait(POLLER_WAIT_TIME)
+            time_elapsed += POLLER_WAIT_TIME
+
+            if time_elapsed > 10 * POLLER_WAIT_TIME:
+                raise RuntimeError("Polling timed out.")
+
     except Exception as e:
         flash(f"Failed to send email: {e}", "error")
         return False
