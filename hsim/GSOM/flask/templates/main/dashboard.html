@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block header %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Welcome, {{ username }}!</h5>
+            </div>
+            <div class="card-body">
+                <h6 class="card-title">Upload Simulation File</h6>
+                <form method="POST" action="{{ url_for('main.run_simulation') }}" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Upload your simulation file (.xlsx only)</label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".xlsx" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Run Simulation</button>
+                </form>
+                
+                {% if simulation_success %}
+                <div class="mt-4">
+                    <div class="alert alert-success">
+                        Simulation completed successfully!
+                    </div>
+                    <a href="{{ url_for('main.download_results') }}" class="btn btn-success">
+                        Download Results
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Leaderboard</h5>
+            </div>
+            <div class="card-body">
+                {% if leaderboard_data %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                {% for key in leaderboard_data[0].keys() %}
+                                <th>{{ key }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in leaderboard_data %}
+                            <tr>
+                                {% for value in row.values() %}
+                                <td>{{ value }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    No results available yet. Run a simulation to generate results.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

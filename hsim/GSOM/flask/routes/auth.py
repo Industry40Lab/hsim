@@ -1,0 +1,140 @@
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+import sqlite3
+import re
+import smtplib
+from email.mime.text import MIMEText
+import random
+import string
+
+auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
+
+# Email validation regex
+EMAIL_REGEX = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+
+# Database connection helper
+def get_db_connection():
+    conn = sqlite3.connect('users.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# Function to send email
+def send_reset_email(email, username, new_password):
+    try:
+        sender_email = "your_email@example.com"  # Replace with your email
+        sender_password = "your_password"  # Replace with your email password
+        smtp_server = "smtp.gmail.com"
+        smtp_port = 587
+
+        subject = "Password Reset Request"
+        body = f"Hello {username},\n\nYour new password is: {new_password}\n\nPlease log in and change your password immediately."
+
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = sender_email
+        msg["To"] = email
+
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, email, msg.as_string())
+        return True
+    except Exception as e:
+        flash(f"Failed to send email: {e}", "error")
+        return False
+
+# Login route
+@auth_bp.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        conn = get_db_connection()
+        user = conn.execute(
+            'SELECT * FROM users WHERE username = ? AND password = ?', 
+            (username, password)
+        ).fetchone()
+        conn.close()
+        
+        if user:
+            session['authenticated'] = True
+            session['username'] = username
+            flash('Login successful!', 'success')
+            return redirect(url_for('main.dashboard'))
+        else:
+            flash('Invalid username or password.', 'error')
+    
+    return render_template('auth/login.html')
+
+# Register route
+@auth_bp.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+        
+        # Validate input
+        if not re.match(EMAIL_REGEX, email):
+            flash('Invalid email format. Please enter a valid email.', 'error')
+        elif password != confirm_password:
+            flash('Passwords do not match. Please try again.', 'error')
+        else:
+            conn = get_db_connection()
+            try:
+                conn.execute(
+                    'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
+                    (username, email, password)
+                )
+                conn.commit()
+                flash('Registration successful! Please log in.', 'success')
+                return redirect(url_for('auth.login'))
+            except sqlite3.IntegrityError:
+                flash('Username or email already exists. Please try again.', 'error')
+            finally:
+                conn.close()
+    
+    return render_template('auth/register.html')
+
+# Forgot password route
+@auth_bp.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        identifier = request.form['identifier']
+        
+        conn = get_db_connection()
+        user = conn.execute(
+            'SELECT username, email FROM users WHERE username = ? OR email = ?', 
+            (identifier, identifier)
+        ).fetchone()
+        
+        if user:
+            username, email = user['username'], user['email']
+            # Generate a random password
+            new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
+            
+            conn.execute(
+                'UPDATE users SET password = ? WHERE username = ?', 
+                (new_password, username)
+            )
+            conn.commit()
+            
+            if send_reset_email(email, username, new_password):
+                flash('A reset email has been sent to your email address.', 'success')
+            else:
+                flash('Failed to send reset email.', 'error')
+        else:
+            flash('No account found with the provided username or email.', 'error')
+        
+        conn.close()
+    
+    return render_template('auth/forgot_password.html')
+
+# Logout route
+@auth_bp.route('/logout')
+def logout():
+    session.pop('authenticated', None)
+    session.pop('username', None)
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('auth.login'))

@@ -1,0 +1,53 @@
+{% extends "layout.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block header %}User Profile{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>Account Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <strong>Username:</strong>
+                    </div>
+                    <div class="col-md-8">
+                        {{ user.username }}
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <strong>Email:</strong>
+                    </div>
+                    <div class="col-md-8">
+                        {{ user.email }}
+                    </div>
+                </div>
+                <hr>
+                <div class="row mt-4">
+                    <div class="col-md-4">
+                        <a href="{{ url_for('account.change_username') }}" class="btn btn-outline-primary btn-block">
+                            Change Username
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="{{ url_for('account.change_email') }}" class="btn btn-outline-primary btn-block">
+                            Change Email
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="{{ url_for('account.change_password') }}" class="btn btn-outline-primary btn-block">
+                            Change Password
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

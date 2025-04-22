@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+
+{% block title %}Change Email{% endblock %}
+
+{% block header %}Change Email{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Update Your Email</h5>
+                <form method="POST" action="{{ url_for('account.change_email') }}">
+                    <div class="mb-3">
+                        <label for="new_email" class="form-label">New Email</label>
+                        <input type="email" class="form-control" id="new_email" name="new_email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirm_new_email" class="form-label">Confirm New Email</label>
+                        <input type="email" class="form-control" id="confirm_new_email" name="confirm_new_email" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update Email</button>
+                    <a href="{{ url_for('account.profile') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

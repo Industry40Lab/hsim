@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+
+{% block title %}Change Username{% endblock %}
+
+{% block header %}Change Username{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Update Your Username</h5>
+                <form method="POST" action="{{ url_for('account.change_username') }}">
+                    <div class="mb-3">
+                        <label for="new_username" class="form-label">New Username</label>
+                        <input type="text" class="form-control" id="new_username" name="new_username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirm_new_username" class="form-label">Confirm New Username</label>
+                        <input type="text" class="form-control" id="confirm_new_username" name="confirm_new_username" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update Username</button>
+                    <a href="{{ url_for('account.profile') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

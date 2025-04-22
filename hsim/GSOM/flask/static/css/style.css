@@ -1,0 +1,81 @@
+/* Custom CSS for Flask Simulation App */
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f5f5;
+}
+
+.sidebar {
+    min-height: 100vh;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    padding-top: 20px;
+}
+
+.sidebar-heading {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1rem;
+    padding-left: 1rem;
+}
+
+.nav-link {
+    color: #333;
+    transition: all 0.3s ease;
+}
+
+.nav-link:hover {
+    background-color: #f0f0f0;
+    padding-left: 1.5rem;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-secondary:hover {
+    background-color: #5c636a;
+    border-color: #565e64;
+}
+
+.btn-success {
+    background-color: #198754;
+    border-color: #198754;
+}
+
+.btn-success:hover {
+    background-color: #157347;
+    border-color: #146c43;
+}
+
+.alert {
+    margin-bottom: 1rem;
+}
+
+.table {
+    margin-bottom: 0;
+}
+
+.table th {
+    background-color: #f8f9fa;
+}
