@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+
+{% block title %}Workspace{% endblock %}
+
+{% block header %}My Workspace{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h5>
+            Saved Results for {{ username }}
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if files %}
+        <table class="table table-sm table-bordered align-middle" style="width:auto;">
+            <tbody>
+                {% for file in files %}
+                <tr>
+                    <td style="padding: 0.25rem 0.5rem;">
+                        <form method="POST" action="{{ url_for('main.workspace_rename', filename=file) }}" class="d-flex align-items-center" style="gap: 0.25rem;">
+                            <input type="text" name="new_name" value="{{ file[:-5] }}" class="form-control form-control-sm" style="max-width: 140px; height:28px; padding:2px 6px;" required>
+                            <button type="submit" class="btn btn-outline-secondary btn-sm px-2 py-1" title="Rename" style="height:28px;">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </form>
+                    </td>
+                    <td style="white-space:nowrap; padding: 0.25rem 0.5rem;">
+                        <a href="{{ url_for('main.workspace_download', filename=file) }}" class="btn btn-success btn-sm px-2 py-1 me-1" title="Download" style="height:28px;">
+                            <i class="bi bi-download"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('main.workspace_delete', filename=file) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-danger btn-sm px-2 py-1" title="Delete" style="height:28px;" onclick="return confirm('Delete {{ file }}?');">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="alert alert-info">No saved results found.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

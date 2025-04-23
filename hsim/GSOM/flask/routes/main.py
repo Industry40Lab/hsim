@@ -4,7 +4,7 @@ if __name__ == '__main__' or 'routes.main':
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
 from unittest import result
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file, jsonify, send_from_directory
 import sqlite3
 import pandas as pd
 import os
@@ -227,3 +227,144 @@ def set_session_var():
     # Example: set a session variable named 'simulation_running'
     session['simulation_success'] = data.get('simulation_success', True)
     return jsonify({'success': True})
+
+@main_bp.route('/save_results', methods=['POST'])
+def save_results():
+    if not session.get('authenticated'):
+        return redirect(url_for('auth.login'))
+    if not session.get('simulation_success') or not session.get('result_filename'):
+        flash('No simulation results available to save', 'error')
+        return redirect(url_for('main.dashboard'))
+
+    save_name = request.form.get('save_name', '').strip()
+    if not save_name:
+        flash('Please provide a name to save the results.', 'error')
+        return redirect(url_for('main.dashboard'))
+
+    username = session.get('username')
+    result_path = os.path.join(TEMP_FOLDER, session.get('result_filename'))
+    if not os.path.exists(result_path):
+        flash('Result file not found', 'error')
+        return redirect(url_for('main.dashboard'))
+
+    # Save to user-specific folder
+    user_results_folder = os.path.join('hsim', 'GSOM', 'flask', 'static', 'user_results', username)
+    os.makedirs(user_results_folder, exist_ok=True)
+    safe_name = "".join(c for c in save_name if c.isalnum() or c in (' ', '_', '-')).rstrip()
+    dest_path = os.path.join(user_results_folder, f"{safe_name}.xlsx")
+    try:
+        import shutil
+        shutil.copyfile(result_path, dest_path)
+        flash('Results saved to your personal space!', 'success')
+    except Exception as e:
+        flash(f'Failed to save results: {e}', 'error')
+
+    return redirect(url_for('main.dashboard'))
+
+@main_bp.route('/workspace')
+def workspace():
+    if not session.get('authenticated'):
+        return redirect(url_for('auth.login'))
+    username = session.get('username')
+    user_results_folder = os.path.join('hsim', 'GSOM', 'flask', 'static', 'user_results', username)
+    files = []
+    if os.path.exists(user_results_folder):
+        for fname in os.listdir(user_results_folder):
+            if fname.endswith('.xlsx'):
+                files.append(fname)
+    is_admin = username == 'admin'
+    all_user_files = {}
+    if is_admin:
+        base_folder = os.path.join('hsim', 'GSOM', 'flask', 'static', 'user_results')
+        if os.path.exists(base_folder):
+            for user in os.listdir(base_folder):
+                user_folder = os.path.join(base_folder, user)
+                if os.path.isdir(user_folder):
+                    user_files = [f for f in os.listdir(user_folder) if f.endswith('.xlsx')]
+                    if user_files:
+                        all_user_files[user] = user_files
+    return render_template('main/workspace.html', files=files, username=username, is_admin=is_admin, all_user_files=all_user_files)
+
+@main_bp.route('/workspace/download/<filename>')
+def workspace_download(filename):
+    if not session.get('authenticated'):
+        return redirect(url_for('auth.login'))
+    username = session.get('username')
+    user_results_folder = os.path.join('hsim', 'GSOM', 'flask', 'static', 'user_results', username)
+    return send_from_directory(user_results_folder, filename, as_attachment=True)
+
+@main_bp.route('/workspace/delete/<filename>', methods=['POST'])
+def workspace_delete(filename):
+    if not session.get('authenticated'):
+        return redirect(url_for('auth.login'))
+    username = session.get('username')
+    user_results_folder = os.path.join('hsim', 'GSOM', 'flask', 'static', 'user_results', username)
+    file_path = os.path.join(user_results_folder, filename)
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        flash(f"Deleted '{filename}'", "success")
+    else:
+        flash("File not found.", "error")
+    return redirect(url_for('main.workspace'))
+
+@main_bp.route('/workspace/rename/<filename>', methods=['POST'])
+def workspace_rename(filename):
+    if not session.get('authenticated'):
+        return redirect(url_for('auth.login'))
+    username = session.get('username')
+    new_name = request.form.get('new_name', '').strip()
+    if not new_name:
+        flash("New name cannot be empty.", "error")
+        return redirect(url_for('main.workspace'))
+    user_results_folder = os.path.join('hsim', 'GSOM', 'flask', 'static', 'user_results', username)
+    old_path = os.path.join(user_results_folder, filename)
+    safe_new_name = "".join(c for c in new_name if c.isalnum() or c in (' ', '_', '-')).rstrip() + '.xlsx'
+    new_path = os.path.join(user_results_folder, safe_new_name)
+    if os.path.exists(old_path):
+        os.rename(old_path, new_path)
+        flash(f"Renamed to '{safe_new_name}'", "success")
+    else:
+        flash("File not found.", "error")
+    return redirect(url_for('main.workspace'))
+
+# Admin: download any user's file
+@main_bp.route('/workspace/admin/download/<user>/<filename>')
+def admin_workspace_download(user, filename):
+    if session.get('username') != 'admin':
+        return redirect(url_for('main.dashboard'))
+    user_results_folder = os.path.join('hsim', 'GSOM', 'flask', 'static', 'user_results', user)
+    return send_from_directory(user_results_folder, filename, as_attachment=True)
+
+# Admin: delete any user's file
+@main_bp.route('/workspace/admin/delete/<user>/<filename>', methods=['POST'])
+def admin_workspace_delete(user, filename):
+    if session.get('username') != 'admin':
+        return redirect(url_for('main.dashboard'))
+    user_results_folder = os.path.join('hsim', 'GSOM', 'flask', 'static', 'user_results', user)
+    file_path = os.path.join(user_results_folder, filename)
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        flash(f"Deleted '{filename}' for user '{user}'", "success")
+    else:
+        flash("File not found.", "error")
+    return redirect(url_for('main.workspace'))
+
+# Admin: rename any user's file
+@main_bp.route('/workspace/admin/rename/<user>/<filename>', methods=['POST'])
+def admin_workspace_rename(user, filename):
+    if session.get('username') != 'admin':
+        return redirect(url_for('main.dashboard'))
+    new_name = request.form.get('new_name', '').strip()
+    if not new_name:
+        flash("New name cannot be empty.", "error")
+        return redirect(url_for('main.workspace'))
+    user_results_folder = os.path.join('hsim', 'GSOM', 'flask', 'static', 'user_results', user)
+    old_path = os.path.join(user_results_folder, filename)
+    safe_new_name = "".join(c for c in new_name if c.isalnum() or c in (' ', '_', '-')).rstrip() + '.xlsx'
+    new_path = os.path.join(user_results_folder, safe_new_name)
+    if os.path.exists(old_path):
+        os.rename(old_path, new_path)
+        flash(f"Renamed '{filename}' to '{safe_new_name}' for user '{user}'", "success")
+    else:
+        flash("File not found.", "error")
+    return redirect(url_for('main.workspace'))

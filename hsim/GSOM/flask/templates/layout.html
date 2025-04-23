@@ -80,6 +80,12 @@
                                 Leaderboard
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.workspace') }}">
+                                <i class="bi bi-folder me-2"></i>
+                                Workspace
+                            </a>
+                        </li>
                         {% if session.username == 'admin' %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('admin.admin_page') }}">
