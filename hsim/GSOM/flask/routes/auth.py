@@ -11,6 +11,7 @@ import smtplib
 from email.mime.text import MIMEText
 import random
 import string
+from werkzeug.security import generate_password_hash, check_password_hash
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -99,12 +100,12 @@ def login():
         
         conn = get_db_connection()
         user = conn.execute(
-            'SELECT * FROM users WHERE username = ? AND password = ?', 
-            (username, password)
+            'SELECT * FROM users WHERE username = ?', 
+            (username,)
         ).fetchone()
         conn.close()
         
-        if user:
+        if user and check_password_hash(user['password'], password):
             session['authenticated'] = True
             session['username'] = username
             flash('Login successful!', 'success')
@@ -131,9 +132,10 @@ def register():
         else:
             conn = get_db_connection()
             try:
+                hashed_password = generate_password_hash(password)
                 conn.execute(
                     'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
-                    (username, email, password)
+                    (username, email, hashed_password)
                 )
                 conn.commit()
                 flash('Registration successful! Please log in.', 'success')
@@ -161,10 +163,11 @@ def forgot_password():
             username, email = user['username'], user['email']
             # Generate a random password
             new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
+            hashed_password = generate_password_hash(new_password)
             
             conn.execute(
                 'UPDATE users SET password = ? WHERE username = ?', 
-                (new_password, username)
+                (hashed_password, username)
             )
             conn.commit()
             

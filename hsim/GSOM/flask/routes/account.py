@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 import sqlite3
 import re
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from hsim.GSOM.flask.config import USERS_DB
 
@@ -54,13 +55,15 @@ def change_password():
             (session.get('username'),)
         ).fetchone()
         
-        if user and user['password'] == old_password:
+        if user and check_password_hash(user['password'], old_password):
+            hashed_new_password = generate_password_hash(new_password)
             conn.execute(
                 'UPDATE users SET password = ? WHERE username = ?', 
-                (new_password, session.get('username'))
+                (hashed_new_password, session.get('username'))
             )
             conn.commit()
             flash('Password updated successfully!', 'success')
+            conn.close()
             return redirect(url_for('account.profile'))
         else:
             flash('Old password is incorrect. Please try again.', 'error')

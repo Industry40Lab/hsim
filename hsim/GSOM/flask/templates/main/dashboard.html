@@ -18,8 +18,17 @@
                         <label for="file" class="form-label">Upload your simulation file (.xlsx only)</label>
                         <input type="file" class="form-control" id="file" name="file" accept=".xlsx" required>
                     </div>
-                    <button type="submit" class="btn btn-primary">Run Simulation</button>
+                    <button type="submit" id="simulate" class="btn btn-primary" disabled>Run Simulation</button>
                 </form>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const fileInput = document.getElementById('file');
+                        const simulateBtn = document.getElementById('simulate');
+                        fileInput.addEventListener('change', function() {
+                            simulateBtn.disabled = !fileInput.value;
+                        });
+                    });
+                </script>
                 
                 {% if simulation_success %}
                 <div class="mt-4">
