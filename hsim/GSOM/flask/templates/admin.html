@@ -39,13 +39,20 @@
                         <button type="submit" class="btn btn-primary btn-sm">Update</button>
                     </td>
                     <td>
+                        {% if user['username'] == session['username'] %}
+                        <button type="button" class="btn btn-danger btn-sm" disabled title="Cannot delete current user">
+                            Delete
+                        </button>
+                        {% else %}
                         <button type="submit"
                                 formaction="{{ url_for('admin.admin_delete_user', username=user['username']) }}"
                                 formmethod="post"
                                 class="btn btn-danger btn-sm"
-                                onclick="return confirm('Delete user {{ user['username'] }}?');">
+                                onclick="return confirm('Delete user {{ user['username'] }}?');" 
+                                >
                             Delete
                         </button>
+                        {% endif %}
                     </td>
                 </form>
             </tr>

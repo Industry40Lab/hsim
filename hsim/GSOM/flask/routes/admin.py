@@ -35,12 +35,6 @@ def delete_user(username):
     conn.commit()
     conn.close()
 
-def delete_all_users():
-    conn = get_db_connection()
-    conn.execute("DELETE FROM users")
-    conn.commit()
-    conn.close()
-
 def get_results():
     if os.path.exists(RESULTS_CSV):
         df = pd.read_csv(RESULTS_CSV)
@@ -70,6 +64,10 @@ def admin_page():
 def admin_delete_user(username):
     if session.get('username') != 'admin':
         return redirect(url_for('main.dashboard'))
+    # Prevent deleting current user
+    if username == session.get('username'):
+        flash("You cannot delete your own account while logged in.", "warning")
+        return redirect(url_for('admin.admin_page'))
     delete_user(username)
     flash(f"User '{username}' deleted.", "success")
     return redirect(url_for('admin.admin_page'))
@@ -78,8 +76,10 @@ def admin_delete_user(username):
 def admin_delete_all_users():
     if session.get('username') != 'admin':
         return redirect(url_for('main.dashboard'))
-    delete_all_users()
-    flash("All users deleted.", "success")
+    # Prevent deleting current user
+    deleted_count = len(get_all_users()) - 1  # Exclude current user
+    [delete_user(user['username']) for user in get_all_users() if user['username'] != session.get('username')]
+    flash(f"Deleted {deleted_count} user(s). Current user was not deleted.", "success")
     return redirect(url_for('admin.admin_page'))
 
 @admin_bp.route('/update_user/<username>', methods=['POST'])
