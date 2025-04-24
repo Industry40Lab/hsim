@@ -88,7 +88,6 @@ python-decouple==3.8
 pytiled_parser==2.2.9
 pytz==2025.1
 pyvis==0.3.2
-pywin32==309
 PyYAML==6.0.2
 pyzmq==26.3.0
 referencing==0.36.2
