@@ -14,5 +14,5 @@
     "python-envs.defaultPackageManager": "ms-python.python:conda",
     "python-envs.pythonProjects": [],
     "appService.defaultWebAppToDeploy": "/subscriptions/a7b47574-e298-4d75-88e8-6c834a9af0f3/resourceGroups/i40g/providers/Microsoft.Web/sites/i4-0game",
-    "appService.deploySubpath": ".",
+    "appService.deploySubpath": "",
 }
