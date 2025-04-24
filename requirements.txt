@@ -5,6 +5,7 @@ azure-core
 azure-mgmt-core
 dill==0.3.9
 Django==5.2
+flask
 gunicorn
 gevent>=1.4
 images2gif==1.0.1
