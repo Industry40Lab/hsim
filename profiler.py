@@ -4,11 +4,11 @@ from hsim.GSOM.GSOMGame import main
 import pandas as pd
 
 
-
+filename = r"C:\Users\Lorenzo\DIG Dropbox\Lorenzo Ragazzini\Didattica\MIP-GSOM Game\20230323 GSOM MBA 2023 INDUSTRY40 SIMULATION CASE\GSOM_original.xlsx"
 
 profiler = cProfile.Profile()
 try:
-    profiler.runcall(main, "", app=False, pa=True)
+    profiler.runcall(main, filename=filename, app=True)
 except Exception as e:
     print(f"Error: {e}")
 # Save profiler stats to an Excel file using pandas
