@@ -128,3 +128,5 @@ wrapt==1.17.2
 XlsxWriter==3.2.3
 xyzservices==2025.1.0
 zipp==3.21.0
+gunicorn
+gevent
