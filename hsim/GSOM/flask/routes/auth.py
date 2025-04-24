@@ -20,6 +20,7 @@ from email.mime.text import MIMEText
 import random
 import string
 from werkzeug.security import generate_password_hash, check_password_hash
+from azure.communication.email import EmailClient
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -27,7 +28,7 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 EMAIL_REGEX = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
 AZURE = True
 
-from hsim.GSOM.flask.config import USERS_DB
+from hsim.GSOM.flask.config import USERS_DB, AZURE_CONNECTION_STRING, POLLER_WAIT_TIME
 
 # Database connection helper
 def get_db_connection():
@@ -63,8 +64,6 @@ def send_reset_email(email, username, new_password):
         return False
     
 def azure_reset_email(email, username, new_password):
-    from azure.communication.email import EmailClient
-    from hsim.GSOM.flask.config import AZURE_CONNECTION_STRING, POLLER_WAIT_TIME
     try:
         email_client = EmailClient.from_connection_string(AZURE_CONNECTION_STRING)  # Replace with your Azure connection string
         
