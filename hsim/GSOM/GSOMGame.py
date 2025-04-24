@@ -288,39 +288,6 @@ def main(filename, folder='', fullpath='',app=True):
     for i in range(1,26,2):
         glob = globals()   
         glob['ele_line'+str(i)] = Buffer(env,'ele_line'+str(i),capacity=4)
-    # ele_line1 = Buffer(env)
-    # # ele_line2 = ManualStation(env,serviceTime=d.loc[d.index==11].values,serviceTimeFunction=normal_dist_bounded)
-    # ele_line3 = Buffer(env)
-    # # ele_line4 = ManualStation(env,serviceTime=d.loc[d.index==12].values,serviceTimeFunction=normal_dist_bounded)
-    # ele_line5 = Buffer(env)
-    # # ele_line6 = ManualStation(env,serviceTime=d.loc[d.index==13].values,serviceTimeFunction=normal_dist_bounded)
-    # ele_line7 = Buffer(env)
-    # # ele_line8 = ManualStation(env,serviceTime=d.loc[d.index==14].values,serviceTimeFunction=normal_dist_bounded)
-    # ele_line9 = Buffer(env)
-    # # ele_line10 = ManualStation(env,serviceTime=d.loc[d.index==15].values,serviceTimeFunction=normal_dist_bounded)
-    # ele_line11 = Buffer(env)
-    # # ele_line12 = ManualStation(env,serviceTime=d.loc[d.index==16].values,serviceTimeFunction=normal_dist_bounded)
-    # ele_line13 = Buffer(env)
-    # # ele_line14 = ManualStation(env,serviceTime=d.loc[d.index==17].values,serviceTimeFunction=normal_dist_bounded)
-    # ele_line15= Buffer(env)
-    # # ele_line16= ManualStation(env,serviceTime=d.loc[d.index==18].values,serviceTimeFunction=normal_dist_bounded)
-    # ele_line17= Buffer(env)
-    # # ele_line18 = ManualStation(env,serviceTime=d.loc[d.index==19].values,serviceTimeFunction=normal_dist_bounded)
-    # ele_line19 = Buffer(env)
-    # # ele_line20= ManualStation(env,serviceTime=d.loc[d.index==20].values,serviceTimeFunction=normal_dist_bounded)
-    # ele_line21= Buffer(env)
-    # # ele_line22 = ManualStation(env,serviceTime=d.loc[d.index==21].values,serviceTimeFunction=normal_dist_bounded)
-    # ele_line23 = Buffer(env)
-    # # ele_line24 = ManualStation(env,serviceTime=d.loc[d.index==22].values,serviceTimeFunction=normal_dist_bounded)
-    # ele_line25 = Buffer(env)
-    
-    """ele_line26in = Queue(env)
-    ele_line26 = Server(env,'ele_line26',serviceTime=d.loc[d.index==23].values,serviceTimeFunction=normal_dist_bounded)
-    ele_line26out = Queue(env)
-    
-    ele_quality = SwitchQualityMIP(env)
-    ele_quality.var.quality_rate = Q_ele
-    ele_scrap = Store(env)"""
     ele_line26 = QualityServerDoubleBuffer(env, "ele_line26", serviceTime=d.loc[d.index == 23].values, serviceTimeFunction=normal_dist_bounded, inputBufferCapacity=4, outputBufferCapacity=4, qualityThreshold=1-Q_ele)
     
     # %% final
@@ -397,30 +364,8 @@ def main(filename, folder='', fullpath='',app=True):
     ele2queueIn.connections["next"] = ele2
     ele2.connections["next"] = ele2queueOut
     ele2queueOut.connections["next"] = ele_line1 # type: ignore
-    ele_line1.connections["next"] = ele_line2 # type: ignore
-    ele_line2.connections["next"] = ele_line3 # type: ignore
-    ele_line3.connections["next"] = ele_line4 # type: ignore
-    ele_line4.connections["next"] = ele_line5 # type: ignore
-    ele_line5.connections["next"] = ele_line6 # type: ignore
-    ele_line6.connections["next"] = ele_line7 # type: ignore
-    ele_line7.connections["next"] = ele_line8 # type: ignore
-    ele_line8.connections["next"] = ele_line9 # type: ignore
-    ele_line9.connections["next"] = ele_line10 # type: ignore
-    ele_line10.connections["next"] = ele_line11 # type: ignore
-    ele_line11.connections["next"] = ele_line12 # type: ignore
-    ele_line12.connections["next"] = ele_line13 # type: ignore
-    ele_line13.connections["next"] = ele_line14 # type: ignore
-    ele_line14.connections["next"] = ele_line15 # type: ignore
-    ele_line15.connections["next"] = ele_line16 # type: ignore
-    ele_line16.connections["next"] = ele_line17 # type: ignore
-    ele_line17.connections["next"] = ele_line18 # type: ignore
-    ele_line18.connections["next"] = ele_line19 # type: ignore
-    ele_line19.connections["next"] = ele_line20 # type: ignore
-    ele_line20.connections["next"] = ele_line21 # type: ignore
-    ele_line21.connections["next"] = ele_line22 # type: ignore
-    ele_line22.connections["next"] = ele_line23 # type: ignore
-    ele_line23.connections["next"] = ele_line24 # type: ignore
-    ele_line24.connections["next"] = ele_line25 # type: ignore
+    for i in range(1, 25):
+        globals()[f'ele_line{i}'].connections["next"] = globals()[f'ele_line{i+1}']  # type: ignore
     ele_line25.connections["next"] = ele_line26.input_ports[0] # type: ignore
     
     ele_line26.output_ports[0].connections["next"] = final1ele
@@ -479,7 +424,7 @@ def main(filename, folder='', fullpath='',app=True):
     
     import time
     step = 600
-    time_end = 1*3600
+    time_end = 24*3600
     prod_parts = list()
     time_start = time.time()
     print('Good luck!')
