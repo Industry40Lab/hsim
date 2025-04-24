@@ -6,7 +6,7 @@ if __name__ == "__main__":
 
 from typing import Iterable, List, Union
 from hsim.core.agent.agent import Agent
-from hsim.core.core.event import AnyEvent, ConditionEvent
+from hsim.core.core.event import AnyEvent
 from hsim.core.des.pymulate import Server, Generator, Terminator
 from hsim.core.core.env import Environment
 from hsim.core.des.des import DESLocked

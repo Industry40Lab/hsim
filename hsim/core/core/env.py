@@ -11,7 +11,7 @@ from typing import Any, Callable, Optional, Union
 from collections import OrderedDict, deque
 
 import numpy as np
-from hsim.core.core.event import BaseEvent as Event, ConditionEvent, Status
+from hsim.core.core.event import BaseEvent as Event, Status
 from hsim.core.core.event import TimedEvent
 
 DEBUG = False

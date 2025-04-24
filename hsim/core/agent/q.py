@@ -15,6 +15,7 @@ class Queue(MessageQueue):
     def __init__(self, env, capacity=None):
         super().__init__(env)
         self.capacity = capacity if capacity > 0 else np.inf
+        self._inbound_messages = list()
         
     def take(self, agent:Agent) -> tuple[ConditionEvent, Message]:
         msg:Message = Message(self.env, content=agent, receiver=self, wait=True)
@@ -29,6 +30,15 @@ class Queue(MessageQueue):
         # heappush(self.queue, msg)
         msg.receive()
         self._trigger()
+        
+    def get(self, msg=None) -> Message:
+        if msg:
+            self.queue.remove(msg)
+            self._log_out(msg)
+            return msg
+        else:
+            msg = super().get()
+        return msg
     
     def _capacity_condition(self):
         return len(self.queue) < self.capacity

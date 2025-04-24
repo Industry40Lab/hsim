@@ -5,14 +5,9 @@ if __name__ == "__main__":
 
     
 from abc import abstractmethod
-from collections import OrderedDict
-from typing import Any, Callable, Iterable, List, Type, Union
+from typing import Any, Iterable, Type
 import numpy as np
 import logging
-
-from hsim.core.core.event import ConditionEvent, BaseEvent, TimedEvent
-from hsim.core.core.env import Environment
-from hsim.core.core.msg import Message, MessageQueue
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -101,7 +96,4 @@ class Pseudostate:
             except AttributeError as e2:
                 raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'") from e2
 
-
-
-from hsim.core.fsm.transitions import Transition, MessageTransition
 from hsim.core.fsm.FSM import FSM

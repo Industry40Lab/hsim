@@ -4,14 +4,10 @@ if __name__ == "__main__":
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
 
-from collections import OrderedDict
-from copy import deepcopy
-from typing import Any, Callable, Iterable, List, Union
+from typing import Any, Callable, Union
 import numpy as np
 import logging
 from hsim.core.core.event import ConditionEvent, BaseEvent, DelayEvent, TimedEvent
-from hsim.core.core.env import Environment
-from hsim.core.core.msg import Message, MessageQueue
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -118,4 +114,3 @@ class ConditionTransition(Transition):
 
         
 from .states import State
-from .FSM import FSM
