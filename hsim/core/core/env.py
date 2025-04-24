@@ -18,8 +18,6 @@ DEBUG = False
 
 
 
-
-
 class Scheduler(sched.scheduler):
     def __init__(self, timefunc: Callable[[], float], delayfunc: Callable[[float], None], env:'Environment'):
         super().__init__(timefunc, delayfunc)
@@ -27,6 +25,7 @@ class Scheduler(sched.scheduler):
         self._past = list()
         self._env = env
         self._queue = SortedList(key=lambda event: (event.time, event.priority, event.sequence))
+        self._conditions = SortedList(key=lambda event: (event.time, event.priority, event.sequence))
     def enter(self, event: 'Event') -> 'Event':
         self._queue.add(event)
         return event
@@ -60,11 +59,12 @@ class Scheduler(sched.scheduler):
                 delayfunc(0)
                 past.append(event)
                 event.process()
-            for event in self._queue:
-                if event._conditioned:
-                    result = event.verify()
-                    if result:
-                        break
+            # Only check conditioned events in the queue
+            self.check_conditioned_events()
+    def check_conditioned_events(self):
+        for cond_event in self._conditions:
+            if cond_event.verify():
+                break
     def execute(self,event):
         if callable(event.action):
             try:

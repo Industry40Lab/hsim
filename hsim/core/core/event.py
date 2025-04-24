@@ -72,8 +72,6 @@ class BaseEvent():
             self.time = self.env.now
             self.priority = 0
             self.env.scheduler._queue.add(self)
-            # self.env.scheduler.heapify()
-            # self.env.scheduler.enter(self)
     def process(self) -> None:
         self._status = Status.PROCESSED
     @property
@@ -133,6 +131,18 @@ class ConditionEvent(BaseEvent):
         self.condition = condition
         self._status : Status = Status.CONDITIONED
         self._conditioned = True
+        
+    def add(self) -> BaseEvent:
+        self.env.scheduler._conditions.add(self)
+        return self
+    
+    def trigger(self) -> None:
+        self._status = Status.TRIGGERED
+        if self.time == np.inf:
+            self.env.scheduler._conditions.remove(self)
+            self.time = self.env.now
+            self.priority = 0
+            self.env.scheduler._queue.add(self)
 
     def verify(self) -> bool:
         if self.condition():
