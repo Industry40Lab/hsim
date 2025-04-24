@@ -9,22 +9,24 @@ from typing import Any, Callable, Tuple, Union
 import numpy as np
 from hsim.core.agent.agent import Agent
 from hsim.core.core.msg import MessageQueue, Message, PriorityMessageQueue
-from hsim.core.core.event import ConditionEvent
+from hsim.core.core.event import ConditionEvent, VerifiableEvent
 
 class Queue(MessageQueue):
     def __init__(self, env, capacity=None):
         super().__init__(env)
         self.capacity = capacity if capacity > 0 else np.inf
-        self._inbound_messages = list()
+        self._inbound = dict()
         
     def take(self, agent:Agent) -> tuple[ConditionEvent, Message]:
         msg:Message = Message(self.env, content=agent, receiver=self, wait=True)
-        event = ConditionEvent(self.env, action=self._put, condition=self._capacity_condition, arguments=(msg,)).add()
+        event = VerifiableEvent(self.env, action=self._put, condition=self._capacity_condition, arguments=(msg,)).add()
+        self._inbound[msg] = event
         event.verify()
         return event, msg
         
     def _put(self, msg:Message):
         agent:Agent = msg.content
+        self._inbound.pop(msg, None)
         msg.reset()
         super()._put(msg)
         # heappush(self.queue, msg)
@@ -38,6 +40,8 @@ class Queue(MessageQueue):
             return msg
         else:
             msg = super().get()
+        for e in self._inbound.values():
+            e.verify()
         return msg
     
     def _capacity_condition(self):
@@ -59,13 +63,17 @@ class Queue(MessageQueue):
                 raise ValueError("Agent not in queue")
         else:
             msg = other
-        self.queue.remove(msg)
+        self.get(msg)
         
     def post(self, agent:Agent, decisor:Callable=lambda *args:None) -> tuple[ConditionEvent, Message]:
         msg:Message = Message(self.env, content=agent, receiver=self, wait=True)
         event = ConditionEvent(self.env, action=decisor, condition=self._capacity_condition, arguments=(msg,)).add()
         event.verify()
         return event, msg
+    
+    def cancel(self, message):
+        raise NotImplementedError("Queue does not support cancel method")
+        return super().cancel(message)
         
 class LockedQueue(Queue):
     def _put(self, msg:Message):

@@ -131,6 +131,7 @@ class ConditionEvent(BaseEvent):
         self.condition = condition
         self._status : Status = Status.CONDITIONED
         self._conditioned = True
+        self.verifiable = True
         
     def add(self) -> BaseEvent:
         self.env.scheduler._conditions.add(self)
@@ -150,6 +151,32 @@ class ConditionEvent(BaseEvent):
             return True
         else:
             return False
+        
+class VerifiableEvent(ConditionEvent):
+    def __init__(self, env: 'Environment', condition: Callable[[], bool], priority: Union[float,int] = 1, action:Union[Iterable[Callable[..., Any]], Callable[..., Any]]=object, arguments: Any = [], **kwargs: Any): # type: ignore
+        super().__init__(env, condition, priority, action, arguments, **kwargs)
+        self.verifiable = True
+        
+    def verify(self) -> bool:
+        if self.condition():
+            self.trigger()
+            return True
+        else:
+            self.verifiable = False
+            return False
+        
+    def add(self) -> BaseEvent:
+        self.env.scheduler.enter(self)
+        return self
+    
+    def trigger(self) -> None:
+        self._status = Status.TRIGGERED
+        if self.time == np.inf:
+            self.env.scheduler._queue.remove(self)
+            self.time = self.env.now
+            self.priority = 0
+            self.env.scheduler._queue.add(self)
+
             
 class RecurringEvent(BaseEvent):
     def __init__(self, env: 'Environment', priority: float | int = 1, action: Iterable[Callable[..., Any]] | Callable[..., Any] = object, arguments: Any = [], **kwargs: Any): # type: ignore

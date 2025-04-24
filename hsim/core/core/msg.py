@@ -88,7 +88,7 @@ class MessageQueue:
     def cancel(self, message: Message):
         try:
             self.queue.remove(message)
-            heapify(self.queue)
+            # heapify(self.queue) heap maintained anyway?
         except ValueError:
             print("Message not found in receiver, just deleting it")
             message.reset()
