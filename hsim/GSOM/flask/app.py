@@ -9,12 +9,10 @@ from threading import Thread
 import atexit
 
 # Import route modules
-from routes.auth import auth_bp
-from routes.main import main_bp
-from routes.account import account_bp
-
-# Add import for admin blueprint
-from routes.admin import admin_bp
+from .routes.auth import auth_bp
+from .routes.main import main_bp
+from .routes.account import account_bp
+from .routes.admin import admin_bp
 
 # Create Flask app
 app = Flask(__name__)
