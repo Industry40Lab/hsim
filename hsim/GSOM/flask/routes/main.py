@@ -155,6 +155,7 @@ def run_simulation():
             start_time = time.time()
             while not task.done() and (time.time() - start_time) < timeout:
                 time.sleep(0.5)
+                print(task.done())
             if not task.done():
                 raise TimeoutError("Simulation timed out.")
         except TimeoutError as e:
