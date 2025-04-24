@@ -1,7 +1,15 @@
 if __name__ == '__main__' or 'routes.main':
     import sys
     import os
-    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+    # Fix: Cross-platform way to add the "hsim" directory to sys.path
+    abs_path = os.path.abspath(__file__)
+    parts = abs_path.split(os.sep)
+    if "hsim" in parts:
+        hsim_index = parts.index("hsim")
+        hsim_path = os.sep.join(parts[:hsim_index + 1])
+        if hsim_path not in sys.path:
+            sys.path.append(hsim_path)
+
 import time
 from django.db import connection
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session

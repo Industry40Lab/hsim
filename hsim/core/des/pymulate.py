@@ -1,5 +1,4 @@
 from math import e
-from tkinter import X
 from warnings import warn
 from typing import Callable, Union
 import numpy as np

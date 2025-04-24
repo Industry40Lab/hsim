@@ -1,3 +1,15 @@
+if __name__ == '__main__':
+    import sys
+    import os
+    # Fix: Cross-platform way to add the "hsim" directory to sys.path
+    abs_path = os.path.abspath(__file__)
+    parts = abs_path.split(os.sep)
+    if "hsim" in parts:
+        hsim_index = parts.index("hsim")
+        hsim_path = os.sep.join(parts[:hsim_index + 1])
+        if hsim_path not in sys.path:
+            sys.path.append(hsim_path)
+            
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
 import sqlite3
 import os
@@ -9,10 +21,10 @@ from threading import Thread
 import atexit
 
 # Import route modules
-from .routes.auth import auth_bp
-from .routes.main import main_bp
-from .routes.account import account_bp
-from .routes.admin import admin_bp
+from hsim.GSOM.flask.routes.auth import auth_bp
+from hsim.GSOM.flask.routes.main import main_bp
+from hsim.GSOM.flask.routes.account import account_bp
+from hsim.GSOM.flask.routes.admin import admin_bp
 
 # Create Flask app
 app = Flask(__name__)
