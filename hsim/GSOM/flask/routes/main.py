@@ -13,13 +13,14 @@ import uuid
 import tempfile
 from werkzeug.utils import secure_filename
 from concurrent.futures import ThreadPoolExecutor
+
 from hsim.GSOM.backend import runner
 from hsim.GSOM.flask.config import USERS_DB  # Import the same backend used in the Streamlit app
 
 main_bp = Blueprint('main', __name__)
 
 # Configure upload settings
-from hsim.GSOM.flask.config import UPLOAD_FOLDER, RESULTS_FOLDER as FOLDER, TEMP_FOLDER_NAME
+from hsim.GSOM.flask.config import RESULTS_FOLDER as FOLDER, TEMP_FOLDER_NAME
 TEMP_FOLDER = os.path.join(tempfile.gettempdir(), TEMP_FOLDER_NAME)
 ALLOWED_EXTENSIONS = {'xlsx'}
 
@@ -28,7 +29,6 @@ os.makedirs(TEMP_FOLDER, exist_ok=True)
 
 # Global executor for running simulations asynchronously
 executor = ThreadPoolExecutor(max_workers=3)
-simulation_tasks = {}
 
 # Check if file extension is allowed
 def allowed_file(filename):
@@ -89,29 +89,9 @@ def dashboard():
     # Debug current session state
     print(f"Session state: simulation_success={session.get('simulation_success')}, result_filename={session.get('result_filename')}")
     
-    # Check if there's a completed simulation task
-    task_id = session.get('task_id')
-    if task_id and task_id in simulation_tasks:
-        if simulation_tasks[task_id].done():
-            result = simulation_tasks[task_id].result()
-            print(f"Task completed with result: {result}")  # Debug log
-            
-            if result.get('success', False):
-                flash('Simulation completed successfully!', 'success')
-                # Set session variables
-                session['simulation_success'] = True
-                session['result_filename'] = result.get('result_filename')
-                # Force session save
-                session.modified = True
-                print(f"Updated session: simulation_success={session.get('simulation_success')}, result_filename={session.get('result_filename')}")
-            else:
-                flash(f"An error occurred: {result.get('error', 'Unknown error')}", 'error')
-                session['simulation_success'] = False
-                session.modified = True
-            
-            # Remove the task from our dictionary to avoid checking it again
-            simulation_tasks.pop(task_id)
-            session.pop('task_id', None)
+    if session.get('simulation_failed',False):
+        flash('Simulation failed!', 'error')
+        session.pop('simulation_failed', None)
     
     # Try to load leaderboard data
     try:
@@ -151,11 +131,15 @@ def run_simulation():
         session['simulation_success'] = False
         if 'result_filename' in session:
             session.pop('result_filename', None)
+        if 'uploaded_filename' in session:
+            session.pop('uploaded_filename', None)
         
-        # Save the uploaded file
+        # Save the uploaded file to TEMP_FOLDER with a unique name
         filename = secure_filename(file.filename)
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        unique_filename = f"{username}_{uuid.uuid4().hex}_{filename}"
+        file_path = os.path.join(TEMP_FOLDER, unique_filename)
         file.save(file_path)
+        session['uploaded_filename'] = unique_filename  # Store in session
         
         task = executor.submit(run_simulation_task, file_path, username)
                   
@@ -170,10 +154,10 @@ def run_simulation():
         except TimeoutError as e:
             flash(str(e), 'error')
             # Optionally, cancel the task if possible
-            session.pop('task_id', None)
             return redirect(url_for('main.dashboard'))
         finally:
-            session["simulation_success"] = task.done()
+            session["simulation_success"] = task.done() and task.result().get('success', False)
+            session["simulation_failed"] = "error" in task.result() and not session["simulation_success"]
             session["result_filename"] = task.result().get('result_filename')
 
         return redirect(url_for('main.dashboard'))
@@ -251,7 +235,40 @@ def save_results():
     user_results_folder = os.path.join('hsim', 'GSOM', 'flask', 'static', 'user_results', username)
     os.makedirs(user_results_folder, exist_ok=True)
     safe_name = "".join(c for c in save_name if c.isalnum() or c in (' ', '_', '-')).rstrip()
+
+    # Versioning logic
+    base_name = safe_name
+    version = 1
+    import re
+    def get_next_version(fname, folder):
+        # Find all files with the same base name and vNUMBER
+        pattern = re.compile(rf"^{re.escape(base_name)}(?: v(\d+))?\.xlsx$")
+        max_v = 0
+        for f in os.listdir(folder):
+            m = pattern.match(f)
+            if m:
+                v = m.group(1)
+                if v:
+                    max_v = max(max_v, int(v))
+                else:
+                    max_v = max(max_v, 0)
+        return max_v + 1
+
     dest_path = os.path.join(user_results_folder, f"{safe_name}.xlsx")
+    if os.path.exists(dest_path):
+        # Check if already has vNUMBER
+        v_match = re.match(r"^(.*) v(\d+)$", safe_name)
+        if v_match:
+            base_name = v_match.group(1)
+            version = int(v_match.group(2)) + 1
+        else:
+            version = get_next_version(safe_name, user_results_folder)
+        safe_name_versioned = f"{base_name} v{version}"
+        dest_path = os.path.join(user_results_folder, f"{safe_name_versioned}.xlsx")
+        while os.path.exists(dest_path):
+            version += 1
+            safe_name_versioned = f"{base_name} v{version}"
+            dest_path = os.path.join(user_results_folder, f"{safe_name_versioned}.xlsx")
     try:
         import shutil
         shutil.copyfile(result_path, dest_path)

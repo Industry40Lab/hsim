@@ -4,7 +4,7 @@ RESULTS_CSV = RESULTS_FOLDER + RESULTS_FILENAME
 
 USERS_DB = "hsim/GSOM/flask/static/db/users.db"
 
-UPLOAD_FOLDER = 'hsim/GSOM/flask/static/uploads'
+# UPLOAD_FOLDER removed, uploads now use TEMP_FOLDER
 ALLOWED_EXTENSIONS = {'xlsx'}
 
 TEMP_FOLDER_NAME = 'simulation_results'

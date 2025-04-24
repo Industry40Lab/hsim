@@ -21,12 +21,11 @@ app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'  # Change this to a secure key in production
 
 # Configure upload folder
-from hsim.GSOM.flask.config import UPLOAD_FOLDER, TEMP_FOLDER_NAME, USERS_DB
+from hsim.GSOM.flask.config import TEMP_FOLDER_NAME, USERS_DB
 TEMP_FOLDER = os.path.join(tempfile.gettempdir(), TEMP_FOLDER_NAME)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER  # No longer needed
 
-# Ensure upload and temp directories exist
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# Ensure temp directory exists
 os.makedirs(TEMP_FOLDER, exist_ok=True)
 
 # Initialize SQLite database for user authentication

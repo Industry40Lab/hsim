@@ -187,5 +187,8 @@ def forgot_password():
 def logout():
     session.pop('authenticated', None)
     session.pop('username', None)
+    session.pop('result_filename', None)
+    session.pop('simulation_success', None)
+    session.pop('task_id', None)
     flash('You have been logged out.', 'info')
     return redirect(url_for('auth.login'))

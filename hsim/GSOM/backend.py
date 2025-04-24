@@ -6,6 +6,7 @@ import pandas as pd
 from io import BytesIO
 import hsim.GSOM.GSOMGame
 
+from hsim.GSOM.flask.config import RESULTS_FOLDER
 ADD_TO_FILE = True
 
 def scores_server(throughput, excel, folder, player='myself'):
@@ -22,25 +23,21 @@ def scores_server(throughput, excel, folder, player='myself'):
     
 def runner(file, username):
     processed_data: dict = hsim.GSOM.GSOMGame.main(file)
-    scores_server(processed_data['TH']["mean"], file, "", username)
+    scores_server(processed_data['TH']["mean"], file, RESULTS_FOLDER, username)
+    output = BytesIO()
     
     if ADD_TO_FILE:
-        # Append sheets to the input file
-        with pd.ExcelWriter(file, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
-            for sheet_name, sheet_df in processed_data.items():
-                try:
-                    sheet_df.to_excel(writer, sheet_name=sheet_name, index=False)
-                except:
-                    pass
         file.seek(0)
-        return processed_data, file
-    else:
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            for sheet_name, sheet_df in processed_data.items():
-                try:
-                    sheet_df.to_excel(writer, sheet_name=sheet_name, index=False)
-                except:
-                    pass
+        file = BytesIO(file.read())
+        file.seek(0)
+        output.write(file.read())
         output.seek(0)
-        return processed_data, output
+        
+    with pd.ExcelWriter(output, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
+        for sheet_name, sheet_df in processed_data.items():
+            try:
+                sheet_df.to_excel(writer, sheet_name=sheet_name, index=False)
+            except Exception:
+                pass
+    output.seek(0)
+    return processed_data, output
