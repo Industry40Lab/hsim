@@ -5,7 +5,7 @@ if __name__ == "__main__":
 
 
 from abc import abstractmethod
-from heapq import heappop, heappush
+from heapq import heappop, heappush, heapify
 import heapq
 import types
 from typing import Any, Callable, Iterable, OrderedDict, Tuple
@@ -88,6 +88,7 @@ class MessageQueue:
     def cancel(self, message: Message):
         try:
             self.queue.remove(message)
+            heapify(self.queue)
         except ValueError:
             print("Message not found in receiver, just deleting it")
             message.reset()
