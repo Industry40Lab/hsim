@@ -6,6 +6,7 @@ if __name__ == "__main__":
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
 
+from ast import arg
 from enum import Enum, auto
 from typing import Any, Callable, Iterable, List, Optional, Union
 from warnings import warn
@@ -20,14 +21,15 @@ class Status(Enum):
     CONDITIONED = auto()
     
 class BaseEvent():
-    def __init__(self, env: 'Environment', priority: Union[float,int]=1, action: Union[Iterable[Callable[..., Any]], Callable[..., Any]] = object, arguments: Any = [], **kwargs: Any): # type: ignore
+    __slots__ = ('env', 'sequence', 'time', 'priority', '_status', 'action', 'arguments', 'kwargs', '_conditioned', '_canceled')
+    def __init__(self, env: 'Environment', priority: Union[float,int]=1, action: Union[Iterable[Callable[..., Any]], Callable[..., Any]] = object, arguments: Any = None, **kwargs: Any): # type: ignore
         self.env = env
         self.sequence = next(env.scheduler._sequence_generator)
         self.time = np.inf
         self.priority = priority
         self._status : Status = Status.PENDING
         self.action = action
-        self.arguments = arguments
+        self.arguments = [] if arguments is None else arguments
         # self.action = attachAction(action, arguments, **kwargs)
         self.kwargs = kwargs
         self._conditioned = False

@@ -12,6 +12,7 @@ from typing import Any, Callable, Iterable, OrderedDict, Tuple
 from hsim.core.core.event import BaseEvent, RecurringEvent, Status
 
 class Message():
+    # __slots__ = ('env', 'content', 'receiver', 'sender', 'status', 'receipts')
     def __init__(self, env, content:Any=None, receiver:'MessageQueue'=None, sender=None, wait=False):
         self.env = env
         self.content = content
