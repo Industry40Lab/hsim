@@ -116,24 +116,14 @@ class Counter():
     def __repr__(self) -> str:
         return "Counter({self.val})".format(self._value)
     
-class Environment:
+class BaseEnvironment:
     def __init__(self, real_time: Union[float,int,bool] = False, current_time: bool = False):
         self._now = 0.0 if not current_time else time.time()
-        self._real_time = real_time if real_time is not True else 1.0
         self.scheduler = Scheduler(self._time, self._sleep, self)
         self._objects = list()
         self._agents = OrderedDict()
         self.counter = Counter()
         self._debug = DEBUG
-
-    def _time(self) -> float:
-        return time.time() if self._real_time else self._now
-
-    def _sleep(self, delay: float) -> None:
-        if self._real_time:
-            time.sleep(delay/self._real_time)
-        else:
-            self._now += delay
     
     def add_agent(self, obj: Any) -> None:
         count = self.counter()
@@ -165,4 +155,24 @@ class Environment:
     def _stop_simulation(self) -> None:
         self.scheduler.queue.clear()
 
-# Circular import to resolve type hinting
+class RealTimeEnvironment(BaseEnvironment):
+    def __init__(self, real_time: Union[float,int] = 1, current_time: bool = False):
+        super().__init__(current_time=current_time)
+        self._real_time = real_time if real_time is not True else 1.0
+        
+    def _time(self) -> float:
+        return time.time()
+
+    def _sleep(self, delay: float) -> None:
+        time.sleep(delay/self._real_time)
+
+        
+class Environment(BaseEnvironment):
+    def __init__(self, current_time: bool = False):
+        super().__init__(current_time=current_time)
+        
+    def _time(self) -> float:
+        return self._now
+
+    def _sleep(self, delay: float) -> None:
+        self._now += delay
