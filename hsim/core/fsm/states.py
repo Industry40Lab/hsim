@@ -18,6 +18,7 @@ class State:
         self.name = name
         self._fsm = fsm
         self._env = fsm._env
+        self._transitions = list()
         self.initial_state = initial_state
         self._active = False
     def _on_enter(self):
@@ -50,7 +51,7 @@ class State:
         return self._fsm
     @property
     def transitions(self):
-        return [t for t in self.fsm.transitions if t.source == self]
+        return self._transitions
     @property
     def active(self):
         return self._active
