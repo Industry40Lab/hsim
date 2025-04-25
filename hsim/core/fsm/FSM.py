@@ -50,6 +50,7 @@ class FSM:
             elif issubclass(element, Transition):
                 source, target = self.statesps[element._sourceStateClass.__name__], self.statesps[element._targetStateClass.__name__]
                 self.add_element(element(self, source, target).__override__())
+                source._transitions.append(self._transitions[-1])
             elif issubclass(element, Pseudostate):
                 self.add_element(element(element.__name__, self))
                 
