@@ -29,8 +29,6 @@ class Transition:
             self.event = TimedEvent(env, time=guard, action=self)
         elif isinstance(guard, Callable):
             self.event = ConditionEvent(env, condition=guard, action=self)
-        elif guard is not None:
-            self.event = BaseEvent(env, action=self)
         else:
             self.event = BaseEvent(env, action=self)
     def stop(self):
