@@ -19,9 +19,14 @@ class Queue(MessageQueue):
         
     def take(self, agent:Agent) -> tuple[ConditionEvent, Message]:
         msg:Message = Message(self.env, content=agent, receiver=self, wait=True)
-        event = VerifiableEvent(self.env, action=self._put, condition=self._capacity_condition, arguments=(msg,)).add()
-        self._inbound[msg] = event
-        event.verify()
+        if self._capacity_condition():
+            event = VerifiableEvent(self.env, condition=self._capacity_condition).add()
+            event.trigger()
+            self._put(msg)
+        else:
+            event = VerifiableEvent(self.env, action=self._put, condition=self._capacity_condition, arguments=(msg,)).add()
+            self._inbound[msg] = event
+            # event.verify()
         return event, msg
         
     def _put(self, msg:Message):

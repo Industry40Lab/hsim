@@ -88,11 +88,10 @@ class MessageQueue:
     def cancel(self, message: Message):
         try:
             self.queue.remove(message)
-            # heapify(self.queue) heap maintained anyway?
         except ValueError:
             print("Message not found in receiver, just deleting it")
-            message.reset()
-            [self.env.scheduler._queue.remove(message.receipts[key]) for key in message.receipts]
+            for event in message.receipts.values():
+                event.cancel()
             del message
         
     def get(self)->Message:
