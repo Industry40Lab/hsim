@@ -31,8 +31,12 @@ class BaseEvent():
         # self.action = attachAction(action, arguments, **kwargs)
         self.kwargs = kwargs
         self._conditioned = False
+        self._canceled = False  # Add canceled flag
     def add(self) -> BaseEvent:
-        self.env.scheduler.enter(self)
+        # If event is still in the queue, just unflag canceled
+        self._canceled = False
+        if self not in self.env.scheduler._queue:
+           self.env.scheduler.enter(self)
         return self
     def reset(self) -> BaseEvent:
         self.cancel(safe=False)
@@ -40,11 +44,7 @@ class BaseEvent():
         self._status = Status.PENDING
         return self.add()
     def cancel(self, safe=True) -> None:
-        try:
-            self.env.scheduler.cancel(self)
-        except ValueError as e:
-            if self.triggered and safe:
-                raise ValueError("Cannot cancel processed event")
+        self._canceled = True  # Just flag as canceled
     def add_action(self, action:Callable, arguments: Any = []) -> None:
         if action is object:
             self.action, self.arguments = list(), list()
@@ -89,6 +89,9 @@ class BaseEvent():
     @property
     def processed(self) -> bool:
         return self.status == Status.PROCESSED
+    @property
+    def canceled(self) -> bool:
+        return self._canceled
     def __lt__(self, other: BaseEvent) -> bool:
         return (self.time, self.priority, self.sequence) < (other.time, other.priority, other.sequence)
     def __le__(self, other: BaseEvent) -> bool:
@@ -131,7 +134,6 @@ class ConditionEvent(BaseEvent):
         self.condition = condition
         self._status : Status = Status.CONDITIONED
         self._conditioned = True
-        self.verifiable = True
         
     def add(self) -> BaseEvent:
         self.env.scheduler._conditions.add(self)

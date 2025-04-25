@@ -41,6 +41,8 @@ class Scheduler(sched.scheduler):
         delayfunc, timefunc, lock, past = self.delayfunc, self.timefunc, self._lock, self._past
         while self._queue:
             event = self._queue.pop(0)
+            if getattr(event, "_canceled", False):
+                continue
             delayfunc(event.time - timefunc())
             if event.pending:
                 event.time = np.inf
@@ -56,14 +58,14 @@ class Scheduler(sched.scheduler):
                         continue
                 event.trigger()
                 self.execute(event)
-                delayfunc(0)
+                # delayfunc(0)
                 past.append(event)
                 event.process()
             # Only check conditioned events in the queue
             self.check_conditioned_events()
     def check_conditioned_events(self):
         for cond_event in self._conditions:
-            if cond_event.verify():
+            if not getattr(cond_event, "_canceled", False) and cond_event.verify():
                 break
     def execute(self,event):
         if callable(event.action):
@@ -89,7 +91,13 @@ class Scheduler(sched.scheduler):
                     else:
                         raise e 
     def cancel(self, event):
-        self._queue.remove(event)
+        # Just flag as canceled, do not remove from queue
+        event.cancel()
+
+    def cleaner(self):
+        # Remove all canceled events from the queue
+        self._queue = type(self._queue)([e for e in self._queue if not getattr(e, "_canceled", False)], key=self._queue.key)
+        self._conditions = type(self._conditions)([e for e in self._conditions if not getattr(e, "_canceled", False)], key=self._conditions.key)
         
 class Context:
     def __enter__(self):
