@@ -4,11 +4,10 @@ if __name__ == "__main__":
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
     
-import sched
 from sortedcontainers import SortedList
 import time
 from typing import Any, Callable, Optional, Union
-from collections import OrderedDict, deque
+from collections import OrderedDict
 
 import numpy as np
 from hsim.core.core.event import BaseEvent as Event, Status
@@ -18,24 +17,24 @@ DEBUG = False
 
 
 
-class Scheduler(sched.scheduler):
+class Scheduler():
     def __init__(self, timefunc: Callable[[], float], delayfunc: Callable[[float], None], env:'Environment'):
-        super().__init__(timefunc, delayfunc)
         self._lock = Context()
         self._past = list()
         self._env = env
         self._queue = SortedList(key=lambda event: (event.time, event.priority, event.sequence))
         self._conditions = SortedList(key=lambda event: (event.time, event.priority, event.sequence))
+        self._sequence_generator = Counter()
+        self.timefunc = timefunc
+        self.delayfunc = delayfunc
     def enter(self, event: 'Event') -> 'Event':
         self._queue.add(event)
         return event
-    def enterabs(self, time, priority, action=object, argument=(), kwargs=sched._sentinel) -> 'Event':
-        if kwargs is sched._sentinel:
-            kwargs = {}
+    def enterabs(self, time, priority, action=object, argument=(), kwargs={}) -> 'Event':
         return self.enter(TimedEvent(self._env, time, priority, action, argument, **kwargs))
-    def delay(self, delay, priority, action=object, argument=(), kwargs=sched._sentinel) -> 'Event':
+    def delay(self, delay, priority, action=object, argument=(), kwargs={}) -> 'Event':
         return self.enterabs(self.timefunc() + delay, priority, action, argument, kwargs)
-    def late(self, priority, action, argument=(), kwargs=sched._sentinel):
+    def late(self, priority, action, argument=(), kwargs={}):
         return self.enterabs(np.inf, priority, action, argument, kwargs)
     def run(self, blocking=True):
         delayfunc, timefunc, lock, past = self.delayfunc, self.timefunc, self._lock, self._past
@@ -149,10 +148,10 @@ class Environment:
     def now(self) -> float:
         return self._time()
 
-    def schedule(self, delay: float, priority: int, action: Callable[..., Any], *args: Any, **kwargs: Any) -> sched.Event:
+    def schedule(self, delay: float, priority: int, action: Callable[..., Any], *args: Any, **kwargs: Any) -> Event:
         return self.scheduler.enter(delay, priority, action, args, kwargs)
 
-    def schedule_absolute(self, time: float, priority: int, action: Callable[..., Any], *args: Any, **kwargs: Any) -> sched.Event:
+    def schedule_absolute(self, time: float, priority: int, action: Callable[..., Any], *args: Any, **kwargs: Any) -> Event:
         return self.scheduler.enterabs(time, priority, action, args, kwargs)
 
     def run(self, until: Optional[float] = None) -> None:
