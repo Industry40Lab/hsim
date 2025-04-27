@@ -36,7 +36,7 @@ def runner(file, username):
     with pd.ExcelWriter(output, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
         for sheet_name, sheet_df in processed_data.items():
             try:
-                sheet_df.to_excel(writer, sheet_name=sheet_name, index=False)
+                sheet_df.to_excel(writer, sheet_name=sheet_name)
             except Exception:
                 pass
     output.seek(0)
