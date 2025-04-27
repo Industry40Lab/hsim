@@ -170,6 +170,10 @@ class RealTimeEnvironment(BaseEnvironment):
 class Environment(BaseEnvironment):
     def __init__(self, current_time: bool = False):
         super().__init__(current_time=current_time)
+    
+    @property
+    def now(self) -> float:
+        return self._now
         
     def _time(self) -> float:
         return self._now

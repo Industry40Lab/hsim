@@ -12,7 +12,7 @@ from hsim.core.fsm.states import State
 from hsim.core.fsm.FSM import FSM
 from hsim.core.core.msg import Message
 from hsim.core.core.event import ConditionEvent
-from hsim.core.agent.agent import Agent, FSM
+from hsim.core.agent.agent import Agent
 
 def createQueue(env,capacity:int=1,queueType="standard"):
     if type(capacity) != int and capacity != np.inf:

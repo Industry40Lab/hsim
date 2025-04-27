@@ -4,6 +4,7 @@ if __name__ == "__main__":
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
 
+from operator import le
 from typing import Iterable, List, Union
 from hsim.core.agent.agent import Agent
 from hsim.core.core.event import AnyEvent
@@ -53,7 +54,7 @@ def test1():
     b.connections["next"] = s
     s.connections["next"] = [c1,c2]
     env.run(10)
-    print(1)
+    assert len(c1.store) == 9 and len(c2.store) == 0, f"c1: {len(c1.store)}, c2: {len(c2.store)}"
 
 if __name__ == "__main__":
     test1()
