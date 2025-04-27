@@ -1,15 +1,10 @@
 import pandas as pd
-from hsim.core.des.des import TimedBlock, DESBlock, DESMulti
+from hsim.core.des.des import TimedBlock
 from hsim.core.des.frame import Frame
 from hsim.core.core.env import Environment
 
-import plotly.express as px
 
-import networkx as nx
-from pyvis.network import Network
-import matplotlib.pyplot as plt
 
-from hsim.core.des.manual import Operator
 
 
 def create_connection_chart(objects, output_file="graph.html",remove_operators=True):
@@ -21,6 +16,7 @@ def create_connection_chart(objects, output_file="graph.html",remove_operators=T
     :param objects: A list of objects, each having a `connections` dictionary.
     :param output_file: The name of the HTML file to save the interactive graph.
     """
+    from pyvis.network import Network
     # Create a PyVis network
     net = Network(height="750px", width="100%", directed=True)
 
@@ -30,6 +26,7 @@ def create_connection_chart(objects, output_file="graph.html",remove_operators=T
         if isinstance(obj, Frame):
             objects += obj._agents #+ list(obj.input_ports.values()) + list(obj.output_ports.values())
     if remove_operators:
+        from hsim.core.des.manual import Operator
         objects_to_remove = [obj for obj in objects if isinstance(obj, Operator) or type(obj) is Operator]
         for obj in objects_to_remove:
             objects.remove(obj)
@@ -132,6 +129,7 @@ def queueChart(data_dict, output_file="staircase_plots.html"):
 
 
 def createGantt(df):
+    import plotly.express as px
     now=pd.Timestamp.today()
     now._hour=8
     now._minute=0

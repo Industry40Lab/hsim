@@ -4,19 +4,23 @@ if __name__ == "__main__":
     import os
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
+import time
+from hsim.core.utils.utils import log2, statelog
+from scipy.stats import t as t_dist
+
 
 from hsim.core.des.pymulate import Store, Environment, Generator, Server, Buffer, Terminator
 from hsim.core.des.manual import Operator, ManualStation
 
 from hsim.core.des.resources import ManualAssembly, UnreliableMachine as MachineMIP
 from hsim.core.des.resources import SUMachine as AutomatedMIP
-from hsim.core.des.resources import ServerDoubleBuffer, QualityServerDoubleBuffer, Assembly
+from hsim.core.des.resources import ServerDoubleBuffer, QualityServerDoubleBuffer
 
 
 import pandas as pd
 import numpy as np
-from collections.abc import Iterable
 
+MONITORING = False
 
 def normal_dist_bounded(val):
     mean = val[0]
@@ -422,20 +426,18 @@ def main(filename, folder='', fullpath='',app=True):
     
     # %% run
     
-    import time
     step = 600
     time_end = 24*3600
     prod_parts = list()
     time_start = time.time()
     print('Good luck!')
    
-    from hsim.core.utils import utils
-    utils.create_connection_chart(list(env._agents.values()))
+    # utils.create_connection_chart(list(env._agents.values()))
     
     for i in range(step,time_end,step):
         env.run(i)
         prod_parts.append(len(T.store))
-        if True: # monitoring
+        if MONITORING: # monitoring
             print('Time elapsed: %d [s]' %i)
             if len(T.store)==0:
                 print('Warning - no output')
@@ -443,13 +445,14 @@ def main(filename, folder='', fullpath='',app=True):
 
                 print(len(T.store))
             elapsed = time.time()-time_start
-            utils.log2(env)
+            log2(env)
             if elapsed>180:
                 print('timeout')
                 break
             else:
                 print(elapsed)
     print('Done!')
+    print('Wall clock time: %f [s]' %(time.time()-time_start))
     
     prod_parts=prod_parts[round(len(prod_parts)/10):]
     print(prod_parts)
@@ -459,7 +462,7 @@ def main(filename, folder='', fullpath='',app=True):
     # th[1] = th[1].round()
     th.rename('Throughput [products/day]',inplace=True)
     
-    from scipy.stats import t as t_dist
+
     th[5]=th[1]+t_dist.ppf(0.05,th[0])*th[2]/th[0]**(1/2)
     th[6]=th[1]+t_dist.ppf(0.95,th[0])*th[2]/th[0]**(1/2)
     th[4]=th[7]
@@ -467,13 +470,12 @@ def main(filename, folder='', fullpath='',app=True):
     th=th[1:-1]
     
     
-    from hsim.core.utils import utils
-    states = utils.statelog(env, astable=True)
+    states = statelog(env, astable=True)
     states = states.iloc[:-2]
     states.index = list(range(1,1+len(states.index)))
     states.index.name = "index"
     
-    states_op = utils.statelog(env, astable=True, filter=lambda x: isinstance(x._agent, Operator))
+    states_op = statelog(env, astable=True, filter=lambda x: isinstance(x._agent, Operator))
     states_op.rename(columns={"Sleep": "Idle"}, inplace=True)
     states_op.index = list(range(1,1+len(states_op.index)))
     states_op.index.name = "index"
@@ -498,14 +500,5 @@ def main(filename, folder='', fullpath='',app=True):
 
 
 if __name__ == '__main__':
-    main("",app=False)
-    
-# if __name__ == '__main__':
-#     main('',app=True,pa=True)
-
-
-
-    
-    
-
-
+    filename = r"C:\Users\Lorenzo\DIG Dropbox\Lorenzo Ragazzini\Didattica\MIP-GSOM Game\20230323 GSOM MBA 2023 INDUSTRY40 SIMULATION CASE\GSOM_original.xlsx"
+    main(filename,app=True)

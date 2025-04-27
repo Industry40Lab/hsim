@@ -1,4 +1,3 @@
-from math import e
 from warnings import warn
 from typing import Callable, Union
 import numpy as np
@@ -9,11 +8,11 @@ if __name__ == "__main__":
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 from hsim.core.agent.q import Queue
 from hsim.core.fsm.transitions import MessageTransition, TimeoutTransition, EventTransition
-from hsim.core.fsm.states import Pseudostate, State
+from hsim.core.fsm.states import State
 from hsim.core.fsm.FSM import FSM
 from hsim.core.core.env import Environment
 from hsim.core.agent.agent import Agent, FSM
-from hsim.core.des.des import DESBlock, DESLocked, TimedBlock
+from hsim.core.des.des import DESBlock, TimedBlock
 
 
 def forwardItemB2S(self,item):
