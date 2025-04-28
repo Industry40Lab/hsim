@@ -11,7 +11,7 @@ try:
     profiler.runcall(main, filename=filename, app=True)
 except Exception as e:
     print(f"Error: {e}")
-# Save profiler stats to an Excel file using pandas
+profiler.dump_stats("output.prof")
 
 stats = pstats.Stats(profiler)
 stats.sort_stats("cumtime")
