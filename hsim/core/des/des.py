@@ -4,7 +4,7 @@ if __name__ == "__main__":
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
 
-from typing import Iterable, Union
+from typing import Iterable, Tuple, Union
 
 import numpy as np
 from hsim.core.agent.q import LockedQueue, PriorityQueue, Queue
@@ -41,6 +41,16 @@ class DESBase(Agent):
     class FSM(FSM):
         class Empty(State):
             initial_state=True
+    @property
+    def store_var(self) -> Tuple:
+        if hasattr(self,"store"):
+            return self.store,
+        elif hasattr(self,"stores"):
+            return self.stores
+        elif hasattr(self,'_agents'):
+            return tuple(store for agent in self._agents if not hasattr(agent, "_alwaysEmpty") for store in agent.store_var)
+        else:
+            raise AttributeError("No store attribute found.")
     
 class DESBlock(DESBase):
     __queueType = "standard" # "priority", "locked"

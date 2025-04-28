@@ -58,8 +58,6 @@ class Ports(OrderedDict[Port]):
 class Frame(Agent):
     def __init__(self, env, name, inputPorts = 1, outputPorts = 1, inputStoreNames="",outputStoreNames=""):
         super().__init__(env, name)
-        # self.input_ports = DESMulti(env, name, inputPorts, queueType="locked", storeNames=inputStoreNames)
-        # self.output_ports = DESMulti(env, name, outputPorts, queueType="locked", storeNames=outputStoreNames)
         self.input_ports = Ports(env,name="input")
         self.output_ports = Ports(env,name="output")
         for i in range(inputPorts):

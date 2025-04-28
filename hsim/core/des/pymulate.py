@@ -98,6 +98,7 @@ def forwardItemEmpty(self):
 
 
 class EmptyBuffer(DESBlock):
+    _alwaysEmpty = True
     def __init__(self,env,name=None,capacity=np.inf):
         super().__init__(env,name,capacity,queueType="locked")
     def on_receive(self):
@@ -114,6 +115,7 @@ class EmptyBuffer(DESBlock):
         T1.on_transition = lambda self: forwardItemEmpty(self)
         T2.on_transition = lambda self: self._fsm._agent.store.get()
 
+    
 
 
 class Generator(DESBlock, TimedBlock):
