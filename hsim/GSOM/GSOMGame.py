@@ -21,6 +21,7 @@ import pandas as pd
 import numpy as np
 
 MONITORING = False
+GANTT = True
 
 def normal_dist_bounded(val):
     mean = val[0]
@@ -481,8 +482,17 @@ def main(filename, folder='', fullpath='',app=True):
     states_op.index.name = "index"
 
         
-    # scores(path,th[0])
-    
+    if GANTT:
+        from hsim.core.utils.utils import test2
+        res = test2(env)
+        res["agent"] = res["agent"].apply(lambda x:repr(x))
+        res["content"] = res["content"].apply(lambda x:repr(x))
+        now=pd.Timestamp.today()
+        res.timeIn=pd.to_timedelta(res.timeIn,'s')+now
+        res.timeOut=pd.to_timedelta(res.timeOut,'s')+now
+
+        import plotly.express as px
+        gantt = px.timeline(res, x_start="timeIn", x_end="timeOut", y="agent", color="state", hover_data="content").to_html()
     if folder == '':
         string = 'result.xlsx'
     else:
@@ -496,6 +506,8 @@ def main(filename, folder='', fullpath='',app=True):
         writer.save()
     else:
         result = {'TH':th,'U':states,'Uop':states_op,'T':T}
+        if GANTT:
+            result['GANTT'] = gantt
         return result
 
 

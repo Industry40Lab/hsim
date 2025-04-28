@@ -71,11 +71,22 @@ def run_simulation_task(file_path, username):
             with open(result_path, 'wb') as f:
                 f.write(output.getvalue())
             
-            return {
+            res = {
                 'success': True,
                 'processed_data': processed_data,
                 'result_filename': result_filename
             }
+                
+            if "GANTT" in processed_data:
+                gantt_filename = f"{username}_{uuid.uuid4().hex}.html"
+                gantt_path = os.path.join(TEMP_FOLDER, gantt_filename)
+                gantt_data = processed_data["GANTT"]
+                with open(gantt_path, 'w', encoding="utf-8") as f:
+                    f.write(gantt_data)
+                    
+                res['gantt_filename'] = gantt_filename
+            
+            return res
     except Exception as e:
         print(f"Simulation error: {e}")  # Log the error for debugging
         return {
@@ -151,11 +162,10 @@ def run_simulation():
                   
         import time
         try:
-            timeout = 30  # seconds
+            timeout = 60  # seconds
             start_time = time.time()
             while not task.done() and (time.time() - start_time) < timeout:
-                time.sleep(0.5)
-                print(task.done())
+                time.sleep(1)
             if not task.done():
                 raise TimeoutError("Simulation timed out.")
         except TimeoutError as e:
