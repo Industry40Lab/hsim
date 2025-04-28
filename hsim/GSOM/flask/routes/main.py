@@ -10,7 +10,7 @@ if __name__ == '__main__' or 'routes.main':
             sys.path.append(hsim_path)
 
 from unittest import result
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file, jsonify, send_from_directory
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file, jsonify, send_from_directory, abort
 import sqlite3
 import pandas as pd
 import os
@@ -176,6 +176,7 @@ def run_simulation():
             session["simulation_success"] = task.done() and task.result().get('success', False)
             session["simulation_failed"] = "error" in task.result() and not session["simulation_success"]
             session["result_filename"] = task.result().get('result_filename')
+            session["gantt_filename"] = task.result().get('gantt_filename',None)
 
         return redirect(url_for('main.dashboard'))
     
@@ -402,3 +403,25 @@ def admin_workspace_rename(user, filename):
     else:
         flash("File not found.", "error")
     return redirect(url_for('main.workspace'))
+
+@main_bp.route('/gantt')    
+def gantt():
+    if not session.get('authenticated'):
+        return redirect(url_for('auth.login'))
+    gantt_file = session.get('gantt_filename')
+    if not gantt_file:
+        flash("No Gantt chart available.", "error")
+        return redirect(url_for('main.dashboard'))
+    return render_template('main/gantt.html', gantt_file=gantt_file)
+
+@main_bp.route('/gantt_file')
+def gantt_file():
+    if not session.get('authenticated'):
+        return redirect(url_for('auth.login'))
+    gantt_file = session.get('gantt_filename')
+    if not gantt_file:
+        abort(404)
+    gantt_path = os.path.join(TEMP_FOLDER, gantt_file)
+    if not os.path.exists(gantt_path):
+        abort(404)
+    return send_file(gantt_path, mimetype='text/html')

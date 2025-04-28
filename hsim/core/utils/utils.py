@@ -122,6 +122,7 @@ def log2(env:Environment):
                     
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import plotly.express as px
 
 def queueChart(data_dict, output_file="staircase_plots.html"):
     # Filter out empty queues
@@ -166,17 +167,23 @@ def joiner(df1,df2,colnames1,colnames2):
     res = res[colnames1+colnames2+["timeIn","timeOut"]]
     return res
 
+def merger(agent):
+    data1 = reconstruct_states(agent, agent.stateMachine._state_history)
+    data2 = reconstruct_messages(agent, agent.store._message_history)
+    df1 = pd.DataFrame(data1, columns=["agent", "state", "timeIn", "timeOut"])
+    df2 = pd.DataFrame(data2, columns=["agent", "content", "timeIn", "timeOut"])
+    res = joiner(df1, df2, ["state"], ["content"])
+    res.insert(0, "agent", agent)
+    return res
+
 def test2(env):
     res_res = pd.DataFrame()
     for agent in env._agents.values():
         if isinstance(agent, TimedBlock) and hasattr(agent, "store"):
-            data1 = reconstruct_states(agent, agent.stateMachine._state_history)
-            data2 = reconstruct_messages(agent, agent.store._message_history)
-            df1 = pd.DataFrame(data1, columns=["agent", "state", "timeIn", "timeOut"])
-            df2 = pd.DataFrame(data2, columns=["agent", "content", "timeIn", "timeOut"])
-            res = joiner(df1, df2, ["state"], ["content"])
-            res.insert(0, "agent", agent)
-            res_res = pd.concat([res_res, res.copy()], ignore_index=True)
+            res = merger(agent)
+        elif isinstance(agent, Frame) and len([a for a in agent._agents if isinstance(a,TimedBlock)]):
+            res = merger(next(a for a in agent._agents if isinstance(a,TimedBlock)))
+        res_res = pd.concat([res_res, res.copy()], ignore_index=True)
     return res_res
 
 def createGantt(df):
@@ -191,4 +198,22 @@ def createGantt(df):
     fig = px.timeline(df, x_start="timeIn", x_end="timeOut", y="agent", color="state")
     return fig
 
-
+def GSOMGantt(env, agentList=None, html=False):
+    res = test2(env)
+    res["agent"] = res["agent"].apply(lambda x:repr(x))
+    res["content"] = res["content"].apply(lambda x:id(x))
+    now=pd.Timestamp.today()
+    res.timeIn=pd.to_timedelta(res.timeIn,'s')+now
+    res.timeOut=pd.to_timedelta(res.timeOut,'s')+now
+    reprlist = list()
+    for a in agentList:
+        if isinstance(a, TimedBlock) and hasattr(a, "store"):
+            reprlist.append(repr(a))
+        elif isinstance(a, Frame) and len([a for a in a._agents if isinstance(a,TimedBlock)]):
+            reprlist.append(repr(next(a for a in a._agents if isinstance(a,TimedBlock))))
+    res["agent"] = res["agent"].apply(lambda x: pd.NA if x not in reprlist else reprlist.index(x)+1)
+    res.dropna(inplace=True)
+    if html:
+        return px.timeline(res, x_start="timeIn", x_end="timeOut", y="agent", color="state", hover_data="content").to_html()
+    else: 
+        px.timeline(res, x_start="timeIn", x_end="timeOut", y="agent", color="state", hover_data="content").show()

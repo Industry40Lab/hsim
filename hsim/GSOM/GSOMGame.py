@@ -483,16 +483,8 @@ def main(filename, folder='', fullpath='',app=True):
 
         
     if GANTT:
-        from hsim.core.utils.utils import test2
-        res = test2(env)
-        res["agent"] = res["agent"].apply(lambda x:repr(x))
-        res["content"] = res["content"].apply(lambda x:repr(x))
-        now=pd.Timestamp.today()
-        res.timeIn=pd.to_timedelta(res.timeIn,'s')+now
-        res.timeOut=pd.to_timedelta(res.timeOut,'s')+now
-
-        import plotly.express as px
-        gantt = px.timeline(res, x_start="timeIn", x_end="timeOut", y="agent", color="state", hover_data="content").to_html()
+        from hsim.core.utils.utils import GSOMGantt
+        gantt = GSOMGantt(env,agentList=list_stations,html=True)
     if folder == '':
         string = 'result.xlsx'
     else:
