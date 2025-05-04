@@ -176,7 +176,7 @@ def merger(agent):
     res.insert(0, "agent", agent)
     return res
 
-def test2(env):
+def test2(env) -> pd.DataFrame:
     res_res = pd.DataFrame()
     for agent in env._agents.values():
         if isinstance(agent, TimedBlock) and hasattr(agent, "store"):
@@ -202,6 +202,7 @@ def GSOMGantt(env, agentList=None, html=False):
     res = test2(env)
     res["agent"] = res["agent"].apply(lambda x:repr(x))
     res["content"] = res["content"].apply(lambda x:id(x))
+    res.rename(columns={"agent":"Station"}, inplace=True)
     now=pd.Timestamp.today()
     res.timeIn=pd.to_timedelta(res.timeIn,'s')+now
     res.timeOut=pd.to_timedelta(res.timeOut,'s')+now
