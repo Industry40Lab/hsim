@@ -12,3 +12,5 @@ TEMP_FOLDER_NAME = 'simulation_results'
 AZURE_CONNECTION_STRING = "endpoint=https://co-service.france.communication.azure.com/;accesskey=F2Ak856tysHa1vOGwxzeee8Lt8V0G64fMeNEYLuxzADw0qAUlVMBJQQJ99BDACULyCpC87VsAAAAAZCSZ8cL"  # Replace with your Azure connection string  
 
 POLLER_WAIT_TIME = 15 # seconds
+
+USE_GANTT = True

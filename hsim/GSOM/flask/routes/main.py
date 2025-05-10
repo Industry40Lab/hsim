@@ -10,7 +10,7 @@ if __name__ == '__main__' or 'routes.main':
             sys.path.append(hsim_path)
 
 from unittest import result
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file, jsonify, send_from_directory
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file, jsonify, send_from_directory, abort
 import sqlite3
 import pandas as pd
 import os
@@ -26,7 +26,7 @@ from hsim.GSOM.flask.config import USERS_DB  # Import the same backend used in t
 main_bp = Blueprint('main', __name__)
 
 # Configure upload settings
-from hsim.GSOM.flask.config import RESULTS_FOLDER as FOLDER, TEMP_FOLDER_NAME
+from hsim.GSOM.flask.config import RESULTS_FOLDER as FOLDER, TEMP_FOLDER_NAME, USE_GANTT
 TEMP_FOLDER = os.path.join(tempfile.gettempdir(), TEMP_FOLDER_NAME)
 ALLOWED_EXTENSIONS = {'xlsx'}
 
@@ -71,11 +71,22 @@ def run_simulation_task(file_path, username):
             with open(result_path, 'wb') as f:
                 f.write(output.getvalue())
             
-            return {
+            res = {
                 'success': True,
                 'processed_data': processed_data,
                 'result_filename': result_filename
             }
+                
+            if USE_GANTT and "GANTT" in processed_data:
+                gantt_filename = f"{username}_{uuid.uuid4().hex}.html"
+                gantt_path = os.path.join(TEMP_FOLDER, gantt_filename)
+                gantt_data = processed_data["GANTT"]
+                with open(gantt_path, 'w', encoding="utf-8") as f:
+                    f.write(gantt_data)
+                    
+                res['gantt_filename'] = gantt_filename
+            
+            return res
     except Exception as e:
         print(f"Simulation error: {e}")  # Log the error for debugging
         return {
@@ -151,11 +162,10 @@ def run_simulation():
                   
         import time
         try:
-            timeout = 30  # seconds
+            timeout = 60  # seconds
             start_time = time.time()
             while not task.done() and (time.time() - start_time) < timeout:
-                time.sleep(0.5)
-                print(task.done())
+                time.sleep(1)
             if not task.done():
                 raise TimeoutError("Simulation timed out.")
         except TimeoutError as e:
@@ -166,6 +176,7 @@ def run_simulation():
             session["simulation_success"] = task.done() and task.result().get('success', False)
             session["simulation_failed"] = "error" in task.result() and not session["simulation_success"]
             session["result_filename"] = task.result().get('result_filename')
+            session["gantt_filename"] = task.result().get('gantt_filename',None)
 
         return redirect(url_for('main.dashboard'))
     
@@ -392,3 +403,25 @@ def admin_workspace_rename(user, filename):
     else:
         flash("File not found.", "error")
     return redirect(url_for('main.workspace'))
+
+@main_bp.route('/gantt')    
+def gantt():
+    if not session.get('authenticated'):
+        return redirect(url_for('auth.login'))
+    gantt_file = session.get('gantt_filename')
+    if not gantt_file:
+        flash("No Gantt chart available.", "error")
+        return redirect(url_for('main.dashboard'))
+    return render_template('main/gantt.html', gantt_file=gantt_file)
+
+@main_bp.route('/gantt_file')
+def gantt_file():
+    if not session.get('authenticated'):
+        return redirect(url_for('auth.login'))
+    gantt_file = session.get('gantt_filename')
+    if not gantt_file:
+        abort(404)
+    gantt_path = os.path.join(TEMP_FOLDER, gantt_file)
+    if not os.path.exists(gantt_path):
+        abort(404)
+    return send_file(gantt_path, mimetype='text/html')

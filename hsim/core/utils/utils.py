@@ -1,4 +1,6 @@
+from typing import Iterable
 import pandas as pd
+from hsim.core.agent.agent import Agent
 from hsim.core.des.des import TimedBlock
 from hsim.core.des.frame import Frame
 from hsim.core.core.env import Environment
@@ -57,6 +59,30 @@ def create_connection_chart(objects, output_file="graph.html",remove_operators=T
     net.save_graph(output_file)
     print(f"Graph saved to {output_file}. Open it in a browser to view and edit.")
 
+def reconstruct_states(agent:Agent, input:Iterable):
+    data = list()
+    state_times = dict()
+    for state, in_out, time in input:
+        if in_out:  # True means entering
+            state_times[state] = time
+        else:  # False means exiting
+            time_in = state_times.pop(state, None)
+            if time_in is not None and time_in != time:  # Discard where timeIn == timeOut
+                data.append((agent, state, time_in, time))
+    return data
+    
+def reconstruct_messages(agent, input:Iterable):
+    data = list()
+    state_times = dict()
+    for message, content, in_out, time in input:
+        if in_out:  # True means entering
+            state_times[message] = time
+        else:  # False means exiting
+            time_in = state_times.pop(message, None)
+            if time_in is not None and time_in != time:  # Discard where timeIn == timeOut
+                data.append((agent, content, time_in, time))
+    return data
+    
 def log(env:Environment, filter:callable = lambda x: issubclass(type(x._agent),TimedBlock)):
 # Reconstruct states to get agent, state, timeIn, timeOut
     data = []
@@ -64,18 +90,10 @@ def log(env:Environment, filter:callable = lambda x: issubclass(type(x._agent),T
         if not filter(x):
             continue
         agent = repr(x._agent)
-        state_times = {}
-        for state, in_out, time in x.state_history:
-            if in_out:  # True means entering the state
-                state_times[state] = time
-            else:  # False means exiting the state
-                time_in = state_times.pop(state, None)
-                if time_in is not None and time_in != time:  # Discard where timeIn == timeOut
-                    data.append((agent, state, time_in, time))
-
+        data.append(reconstruct_states(agent, x.state_history))
+    data = [item for sublist in data for item in sublist]  # Flatten the list of lists
     df = pd.DataFrame(data, columns=["agent", "state", "timeIn", "timeOut"])
     return df
-
 
 def statelog(env:Environment, metric="percentage", astable=False, filter:callable = lambda x: issubclass(type(x._agent),TimedBlock)):
     df = log(env, filter)
@@ -104,6 +122,7 @@ def log2(env:Environment):
                     
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import plotly.express as px
 
 def queueChart(data_dict, output_file="staircase_plots.html"):
     # Filter out empty queues
@@ -127,6 +146,45 @@ def queueChart(data_dict, output_file="staircase_plots.html"):
     fig.write_html(output_file)
     return fig
 
+def testlog(agent):
+    if not isinstance(agent, Frame):
+        agent.stateMachine._state_history
+        for store in agent.store_var:
+            agent.store._message_history
+    else:
+        for agent in agent._agents:
+            agent.stateMachine._state_history
+            for store in agent.store_var:
+                agent.store._message_history
+
+def joiner(df1,df2,colnames1,colnames2):
+    res = pd.concat([df1[colnames1 + ["timeIn"]], df2[colnames2 + ["timeIn"]]], ignore_index=True).sort_values('timeIn').reset_index(drop=True)
+    for col in colnames1+colnames2:
+        res[col] = res[col].ffill()
+    res['timeOut'] = res['timeIn'].shift(-1)
+    res.fillna({"timeOut":max(df1['timeOut'].max(), df2['timeOut'].max())},inplace=True)
+    res[colnames1+colnames2].fillna("",inplace=True)
+    res = res[colnames1+colnames2+["timeIn","timeOut"]]
+    return res
+
+def merger(agent):
+    data1 = reconstruct_states(agent, agent.stateMachine._state_history)
+    data2 = reconstruct_messages(agent, agent.store._message_history)
+    df1 = pd.DataFrame(data1, columns=["agent", "state", "timeIn", "timeOut"])
+    df2 = pd.DataFrame(data2, columns=["agent", "content", "timeIn", "timeOut"])
+    res = joiner(df1, df2, ["state"], ["content"])
+    res.insert(0, "agent", agent)
+    return res
+
+def test2(env) -> pd.DataFrame:
+    res_res = pd.DataFrame()
+    for agent in env._agents.values():
+        if isinstance(agent, TimedBlock) and hasattr(agent, "store"):
+            res = merger(agent)
+        elif isinstance(agent, Frame) and len([a for a in agent._agents if isinstance(a,TimedBlock)]):
+            res = merger(next(a for a in agent._agents if isinstance(a,TimedBlock)))
+        res_res = pd.concat([res_res, res.copy()], ignore_index=True)
+    return res_res
 
 def createGantt(df):
     import plotly.express as px
@@ -140,4 +198,23 @@ def createGantt(df):
     fig = px.timeline(df, x_start="timeIn", x_end="timeOut", y="agent", color="state")
     return fig
 
-
+def GSOMGantt(env, agentList=None, html=False):
+    res = test2(env)
+    res["agent"] = res["agent"].apply(lambda x:repr(x))
+    res["content"] = res["content"].apply(lambda x:id(x))
+    res.rename(columns={"agent":"Station"}, inplace=True)
+    now=pd.Timestamp.today()
+    res.timeIn=pd.to_timedelta(res.timeIn,'s')+now
+    res.timeOut=pd.to_timedelta(res.timeOut,'s')+now
+    reprlist = list()
+    for a in agentList:
+        if isinstance(a, TimedBlock) and hasattr(a, "store"):
+            reprlist.append(repr(a))
+        elif isinstance(a, Frame) and len([a for a in a._agents if isinstance(a,TimedBlock)]):
+            reprlist.append(repr(next(a for a in a._agents if isinstance(a,TimedBlock))))
+    res["Station"] = res["Station"].apply(lambda x: pd.NA if x not in reprlist else reprlist.index(x)+1)
+    res.dropna(inplace=True)
+    if html:
+        return px.timeline(res, x_start="timeIn", x_end="timeOut", y="Station", color="state", hover_data="content").to_html()
+    else: 
+        px.timeline(res, x_start="timeIn", x_end="timeOut", y="Station", color="state", hover_data="content").show()

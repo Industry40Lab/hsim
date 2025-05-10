@@ -21,6 +21,7 @@ import pandas as pd
 import numpy as np
 
 MONITORING = False
+GANTT = True
 
 def normal_dist_bounded(val):
     mean = val[0]
@@ -481,8 +482,9 @@ def main(filename, folder='', fullpath='',app=True):
     states_op.index.name = "index"
 
         
-    # scores(path,th[0])
-    
+    if GANTT:
+        from hsim.core.utils.utils import GSOMGantt
+        gantt = GSOMGantt(env,agentList=list_stations,html=True)
     if folder == '':
         string = 'result.xlsx'
     else:
@@ -496,6 +498,8 @@ def main(filename, folder='', fullpath='',app=True):
         writer.save()
     else:
         result = {'TH':th,'U':states,'Uop':states_op,'T':T}
+        if GANTT:
+            result['GANTT'] = gantt
         return result
 
 
