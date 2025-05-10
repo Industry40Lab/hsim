@@ -116,7 +116,6 @@ def admin_delete_selected_results():
     if selected:
         import pandas as pd
         import os
-        RESULTS_CSV = "results.csv"
         if os.path.exists(RESULTS_CSV):
             df = pd.read_csv(RESULTS_CSV)
             # Convert selected indices to int and sort descending to avoid index shift
