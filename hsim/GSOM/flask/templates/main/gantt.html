@@ -19,6 +19,9 @@
         border: none;
         min-height: 600px;
     }
+    .gantt-download-btn {
+        margin-bottom: 1rem;
+    }
 </style>
 <div class="card">
     <div class="card-header">
@@ -26,6 +29,9 @@
     </div>
     <div class="card-body gantt-iframe-container">
         {% if gantt_file %}
+            <a href="{{ url_for('main.gantt_file') }}" class="btn btn-primary gantt-download-btn" download="gantt_chart.html">
+                Download Gantt Chart
+            </a>
             <iframe src="{{ url_for('main.gantt_file') }}" class="gantt-iframe"></iframe>
         {% else %}
             <div class="alert alert-info">No Gantt chart available.</div>
