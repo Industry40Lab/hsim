@@ -212,9 +212,9 @@ def GSOMGantt(env, agentList=None, html=False):
             reprlist.append(repr(a))
         elif isinstance(a, Frame) and len([a for a in a._agents if isinstance(a,TimedBlock)]):
             reprlist.append(repr(next(a for a in a._agents if isinstance(a,TimedBlock))))
-    res["agent"] = res["agent"].apply(lambda x: pd.NA if x not in reprlist else reprlist.index(x)+1)
+    res["Station"] = res["Station"].apply(lambda x: pd.NA if x not in reprlist else reprlist.index(x)+1)
     res.dropna(inplace=True)
     if html:
-        return px.timeline(res, x_start="timeIn", x_end="timeOut", y="agent", color="state", hover_data="content").to_html()
+        return px.timeline(res, x_start="timeIn", x_end="timeOut", y="Station", color="state", hover_data="content").to_html()
     else: 
-        px.timeline(res, x_start="timeIn", x_end="timeOut", y="agent", color="state", hover_data="content").show()
+        px.timeline(res, x_start="timeIn", x_end="timeOut", y="Station", color="state", hover_data="content").show()
