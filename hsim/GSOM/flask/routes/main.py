@@ -26,7 +26,7 @@ from hsim.GSOM.flask.config import USERS_DB  # Import the same backend used in t
 main_bp = Blueprint('main', __name__)
 
 # Configure upload settings
-from hsim.GSOM.flask.config import RESULTS_FOLDER as FOLDER, TEMP_FOLDER_NAME
+from hsim.GSOM.flask.config import RESULTS_FOLDER as FOLDER, TEMP_FOLDER_NAME, USE_GANTT
 TEMP_FOLDER = os.path.join(tempfile.gettempdir(), TEMP_FOLDER_NAME)
 ALLOWED_EXTENSIONS = {'xlsx'}
 
@@ -77,7 +77,7 @@ def run_simulation_task(file_path, username):
                 'result_filename': result_filename
             }
                 
-            if "GANTT" in processed_data:
+            if USE_GANTT and "GANTT" in processed_data:
                 gantt_filename = f"{username}_{uuid.uuid4().hex}.html"
                 gantt_path = os.path.join(TEMP_FOLDER, gantt_filename)
                 gantt_data = processed_data["GANTT"]
