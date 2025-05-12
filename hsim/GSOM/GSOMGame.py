@@ -4,6 +4,7 @@ if __name__ == "__main__":
     import os
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
+from re import DEBUG
 import time
 from hsim.core.utils.utils import log2, statelog
 from scipy.stats import t as t_dist
@@ -481,10 +482,12 @@ def main(filename, folder='', fullpath='',app=True):
     states_op.index = list(range(1,1+len(states_op.index)))
     states_op.index.name = "index"
 
-        
     if GANTT:
         from hsim.core.utils.utils import GSOMGantt
         gantt = GSOMGantt(env,agentList=list_stations,html=True)
+        if DEBUG:
+            from hsim.core.utils.utils import GSOMGanttOp
+            gantt = GSOMGanttOp(env,agentList=op_list,html=False)
     if folder == '':
         string = 'result.xlsx'
     else:

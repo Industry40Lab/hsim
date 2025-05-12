@@ -218,3 +218,19 @@ def GSOMGantt(env, agentList=None, html=False):
         return px.timeline(res, x_start="timeIn", x_end="timeOut", y="Station", color="state", hover_data="content").to_html()
     else: 
         px.timeline(res, x_start="timeIn", x_end="timeOut", y="Station", color="state", hover_data="content").show()
+
+
+def GSOMGanttOp(env, agentList=None, html=False):
+    res = list()
+    for agent in agentList:
+        res += reconstruct_states(agent, agent.stateMachine._state_history)
+    res = pd.DataFrame(res,columns=["agent","state","timeIn","timeOut"])
+    res["agent"] = res["agent"].apply(lambda x:repr(x))
+    now=pd.Timestamp.today()
+    res.timeIn=pd.to_timedelta(res.timeIn,'s')+now
+    res.timeOut=pd.to_timedelta(res.timeOut,'s')+now
+    # res.dropna(inplace=True)
+    if html:
+        return px.timeline(res, x_start="timeIn", x_end="timeOut", y="agent", color="state").to_html()
+    else: 
+        px.timeline(res, x_start="timeIn", x_end="timeOut", y="agent", color="state").show()
