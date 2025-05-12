@@ -67,14 +67,14 @@ class Operator(Agent):
             pass
         
         S2W=ConditionTransition.define(Sleep, Working)
-        S2W._condition = lambda self: self.pick() and any(s.stateMachine.current_state[0].name == "Idle" for s in self._agent.connections["stations"])
+        S2W._condition = lambda self: self.pick() and any(s.stateMachine.current_state[0].name == "Idle" and s.connections["operator"] is None for s in self._agent.connections["stations"])
         S2W.on_transition = lambda self: self.pick().add_operator(self._agent)
         W2I=MessageTransition.define(Working, Sleep)
         W2I._message = "free"
         
     def pick(self) -> Union[ManualStation,None]:
         return next(
-            (s for s in reversed(self.connections["stations"]) if s.stateMachine.current_state[0].name == "Idle"),
+            (s for s in reversed(self.connections["stations"]) if s.stateMachine.current_state[0].name == "Idle" and s.connections["operator"] is None),
             None
         )
         
