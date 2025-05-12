@@ -21,7 +21,7 @@ from werkzeug.utils import secure_filename
 from concurrent.futures import ThreadPoolExecutor
 
 from hsim.GSOM.backend import runner
-from hsim.GSOM.flask.config import USERS_DB  # Import the same backend used in the Streamlit app
+from hsim.GSOM.flask.config import USERS_DB, TIMEOUT  # Import the same backend used in the Streamlit app
 
 main_bp = Blueprint('main', __name__)
 
@@ -162,9 +162,8 @@ def run_simulation():
                   
         import time
         try:
-            timeout = 60  # seconds
             start_time = time.time()
-            while not task.done() and (time.time() - start_time) < timeout:
+            while not task.done() and (time.time() - start_time) < TIMEOUT:
                 time.sleep(1)
             if not task.done():
                 raise TimeoutError("Simulation timed out.")

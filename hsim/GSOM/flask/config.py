@@ -14,3 +14,4 @@ AZURE_CONNECTION_STRING = "endpoint=https://co-service.france.communication.azur
 POLLER_WAIT_TIME = 15 # seconds
 
 USE_GANTT = True
+TIMEOUT = 180 # seconds, max sim time
