@@ -23,6 +23,7 @@ import numpy as np
 
 MONITORING = False
 GANTT = True
+DEBUG = True
 
 def normal_dist_bounded(val):
     mean = val[0]
@@ -493,12 +494,12 @@ def main(filename, folder='', fullpath='',app=True):
     else:
         string = folder+'result.xlsx'
 
-    if app==False:
+    if app==False or DEBUG:
         writer = pd.ExcelWriter(string, engine = 'xlsxwriter')
         states.to_excel(writer, sheet_name = 'U')
         states_op.to_excel(writer, sheet_name = 'U (operators)')
         th.to_excel(writer, sheet_name = 'TH')
-        writer.save()
+        writer.close()
     else:
         result = {'TH':th,'U':states,'Uop':states_op,'T':T}
         if GANTT:
