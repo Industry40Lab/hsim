@@ -97,6 +97,7 @@ def log(env:Environment, filter:callable = lambda x: issubclass(type(x._agent),T
 
 def statelog(env:Environment, metric="percentage", astable=False, filter:callable = lambda x: issubclass(type(x._agent),TimedBlock)):
     df = log(env, filter)
+    names = [name for name in df.agent.unique() if not "Generator" in name]
     df['time'] = df['timeOut'] - df['timeIn']
     result = df.groupby(['agent', 'state'])['time'].sum().reset_index().set_index(['agent', 'state'])
     
@@ -106,7 +107,7 @@ def statelog(env:Environment, metric="percentage", astable=False, filter:callabl
     if astable:
         result = result.pivot_table(index='agent', columns='state', values='time', aggfunc='sum', fill_value=0)
 
-    return result
+    return result.loc[names]
 
 def log2(env:Environment):
     data = dict()

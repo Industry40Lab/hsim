@@ -464,7 +464,7 @@ def main(filename, folder='', fullpath='',app=True):
     th = th2.describe()
     # th[1] = th[1].round()
     th.rename('Throughput [products/day]',inplace=True)
-    
+    th["std"] *= step/3600
 
     th[5]=th[1]+t_dist.ppf(0.05,th[0])*th[2]/th[0]**(1/2)
     th[6]=th[1]+t_dist.ppf(0.95,th[0])*th[2]/th[0]**(1/2)
@@ -474,7 +474,6 @@ def main(filename, folder='', fullpath='',app=True):
     
     
     states = statelog(env, astable=True)
-    states = states.iloc[:-2]
     states.index = list(range(1,1+len(states.index)))
     states.index.name = "index"
     
@@ -485,8 +484,10 @@ def main(filename, folder='', fullpath='',app=True):
 
     if GANTT:
         from hsim.core.utils.utils import GSOMGantt
-        gantt = GSOMGantt(env,agentList=list_stations,html=True)
-        if DEBUG:
+        if not DEBUG:
+            gantt = GSOMGantt(env,agentList=list_stations,html=True)
+        elif DEBUG:
+            gantt = GSOMGantt(env,agentList=list_stations,html=False)
             from hsim.core.utils.utils import GSOMGanttOp
             gantt = GSOMGanttOp(env,agentList=op_list,html=False)
     if folder == '':
