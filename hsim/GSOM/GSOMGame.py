@@ -4,7 +4,6 @@ if __name__ == "__main__":
     import os
     sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
-from re import DEBUG
 import time
 from hsim.core.utils.utils import log2, statelog
 from scipy.stats import t as t_dist
@@ -23,7 +22,7 @@ import numpy as np
 
 MONITORING = False
 GANTT = True
-DEBUG = True
+DEBUG = False
 
 def normal_dist_bounded(val):
     mean = val[0]
@@ -443,9 +442,9 @@ def main(filename, folder='', fullpath='',app=True):
     th = th2.describe()
     th.rename('Throughput [products/day]', inplace=True)
     th.loc["std"] *= step / 3600
-    th.loc[5] = th.loc[1] + t_dist.ppf(0.05, th.loc[0]) * th.loc[2] / th.loc[0] ** (1 / 2)
-    th.loc[6] = th.loc[1] + t_dist.ppf(0.95, th.loc[0]) * th.loc[2] / th.loc[0] ** (1 / 2)
-    th.loc[4] = th.loc[7]
+    th.iloc[5] = th.iloc[1] + t_dist.ppf(0.05, th.iloc[0]) * th.iloc[2] / th.iloc[0] ** (1 / 2)
+    th.iloc[6] = th.iloc[1] + t_dist.ppf(0.95, th.iloc[0]) * th.iloc[2] / th.iloc[0] ** (1 / 2)
+    th.iloc[4] = th.iloc[7]
     th.rename({th.index[4]: 'max', th.index[5]: 'lower bound - 95% confidence interval', th.index[6]: 'upper bound - 95% confidence interval'}, inplace=True)
     th = th[1:-1]
     
