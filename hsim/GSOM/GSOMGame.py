@@ -412,7 +412,6 @@ def main(filename, folder='', fullpath='',app=True):
     
     
     # %% run
-    
     step = 600
     time_end = 24*3600
     prod_parts = list()
@@ -426,7 +425,6 @@ def main(filename, folder='', fullpath='',app=True):
             if len(T.store)==0:
                 print('Warning - no output')
             else:
-
                 print(len(T.store))
             elapsed = time.time()-time_start
             log2(env)
@@ -440,18 +438,16 @@ def main(filename, folder='', fullpath='',app=True):
     
     prod_parts=prod_parts[round(len(prod_parts)/10):]
     print(prod_parts)
-    th2=pd.Series(prod_parts).diff().dropna()
-    th2 = th2*3600*24/step
+    th2 = pd.Series(prod_parts).diff().dropna()
+    th2 = th2 * 3600 * 24 / step
     th = th2.describe()
-    # th[1] = th[1].round()
-    th.rename('Throughput [products/day]',inplace=True)
-    th["std"] *= step/3600
-
-    th[5]=th[1]+t_dist.ppf(0.05,th[0])*th[2]/th[0]**(1/2)
-    th[6]=th[1]+t_dist.ppf(0.95,th[0])*th[2]/th[0]**(1/2)
-    th[4]=th[7]
-    th.rename({th.index[4]:'max',th.index[5]:'lower bound - 95% confidence interval',th.index[6]:'upper bound - 95% confidence interval'},inplace=True)
-    th=th[1:-1]
+    th.rename('Throughput [products/day]', inplace=True)
+    th.loc["std"] *= step / 3600
+    th.loc[5] = th.loc[1] + t_dist.ppf(0.05, th.loc[0]) * th.loc[2] / th.loc[0] ** (1 / 2)
+    th.loc[6] = th.loc[1] + t_dist.ppf(0.95, th.loc[0]) * th.loc[2] / th.loc[0] ** (1 / 2)
+    th.loc[4] = th.loc[7]
+    th.rename({th.index[4]: 'max', th.index[5]: 'lower bound - 95% confidence interval', th.index[6]: 'upper bound - 95% confidence interval'}, inplace=True)
+    th = th[1:-1]
     
     states = statelog(env, astable=True)
     states.index = list(range(1,1+len(states.index)))
