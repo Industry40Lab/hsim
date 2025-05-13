@@ -106,6 +106,7 @@ class Entity():
             
     
 def main(filename, folder='', fullpath='',app=True):
+    # %% read data
     if not app:
         with open('target.txt') as f:
             fullpath = f.read()
@@ -135,7 +136,7 @@ def main(filename, folder='', fullpath='',app=True):
     
     agv_num = e['# of AGVs (if any)'].values[0]
     agv_sat = a['Material handling'].sum()/4
-    
+   
     for index in range(1,3):
         if a.loc[a.index.values==index,'Material handling'].values > 0:
             remove_load_case = 1
@@ -186,10 +187,8 @@ def main(filename, folder='', fullpath='',app=True):
         elif a.loc[a.index.values==index,'Material handling'].values == 3 and agv_num>0:
             d.loc[d.index==index,'Time'] = d.loc[d.index==index,'Time']*(1-0.1)/(4*np.arctan(agv_num/agv_sat)/np.pi)
     
-    
     Q_case = (15-a['AI-augmented quality'][2:4].sum()*5/6)/100
     Q_ele = (15-6*np.arctan(a['AI-augmented quality'][11:22].sum()*np.random.uniform()*0.25)/np.pi)/100
-    
     
     M=dict()
     for index in c.index:
@@ -235,11 +234,7 @@ def main(filename, folder='', fullpath='',app=True):
     elif c.loc[c.index==4]['M/A/T'].values == 'C':
         case3 = ManualStation(env,"case3",serviceTime=d.loc[d.index==4].values*0.25,serviceTimeFunction=normal_dist_bounded)
     case3queueOut = Buffer(env,capacity = 4)
-    
-    """case4 = ServerDoubleBuffer(env,serviceTime=d.loc[d.index==5].values,serviceTimeFunction=normal_dist_bounded)
-    case4quality = SwitchQualityMIP(env)
-    case4quality.var.quality_rate = Q_case
-    case4scrap = Store(env)"""
+
     case4 = QualityServerDoubleBuffer(env,"case4",serviceTime=d.loc[d.index==5].values,serviceTimeFunction=normal_dist_bounded,inputBufferCapacity = 4, outputBufferCapacity = 4,qualityThreshold=1-Q_case)
     
     case5queueIn = Buffer(env,"case5queueIn",capacity = 4)
@@ -252,7 +247,6 @@ def main(filename, folder='', fullpath='',app=True):
     elif c.loc[c.index==6]['M/A/T'].values == 'C':
         case5 = ManualStation(env,"case5",serviceTime=d.loc[d.index==6].values*0.25,serviceTimeFunction=normal_dist_bounded)
     case5queueOut = Buffer(env,"case5queueOut",capacity = 4)
-    
     
     case6queueIn = Buffer(env,"case6queueIn",capacity = 4)
     if c.loc[c.index==7]['M/A/T'].values == 'M':
@@ -277,9 +271,7 @@ def main(filename, folder='', fullpath='',app=True):
     ele2queueIn = Buffer(env,"ele2queueIn",capacity=4)
     ele2 = MachineMIP(env,'ele2',serviceTime=d.loc[d.index==10].values,serviceTimeFunction=normal_dist_bounded)
     ele2queueOut = Buffer(env,'ele2queueOut',capacity=4)
-    
-    
-    
+
     for i in range(2,25,2):
         j = int(i/2+10)
         glob = globals()
@@ -320,15 +312,11 @@ def main(filename, folder='', fullpath='',app=True):
     
     T = Terminator(env)
     
-    # %% connect
-    Q=Store(env)
-    
+    # %% connect  
     g_case.connections["next"] = case0
-    
     case0.connections["next"] = case1.input_ports[0]
-    
     case1.output_ports[0].connections["next"] = case2queueIn
-    
+
     if c.loc[c.index==3]['M/A/T'].values == 'M':
         case2queueIn.connections["next"] = case2
         case2.connections["next"] = case2queueOut
@@ -346,7 +334,6 @@ def main(filename, folder='', fullpath='',app=True):
     case3queueOut.connections["next"] = case4.input_ports[0]
     
     case4.output_ports[0].connections["next"] = case5queueIn
-    
    
     if c.loc[c.index==6]['M/A/T'].values == 'M':
         case5queueIn.connections["next"] = case5
@@ -374,12 +361,10 @@ def main(filename, folder='', fullpath='',app=True):
     for i in range(1, 25):
         globals()[f'ele_line{i}'].connections["next"] = globals()[f'ele_line{i+1}']  # type: ignore
     ele_line25.connections["next"] = ele_line26.input_ports[0] # type: ignore
-    
     ele_line26.output_ports[0].connections["next"] = final1ele
     
     final1ele.connections["next"] = final2assebly.toStore(0)
     final1case.connections["next"] = final2assebly.toStore(1)
-    
     final2assebly.connections["next"] = final2inspect
     final2inspect.connections["next"] = final3
     final3.connections["next"] = final4pack
@@ -407,15 +392,14 @@ def main(filename, folder='', fullpath='',app=True):
             # del(op)
             if len(op_list)==n_lim:
                 break
-     
-    # raise BaseException
-            
+                 
     # %% maintenance
     TTR = 300 #300
+    M[25] = 0.97
     std_machines = [9,10,25]
     for index in std_machines:
         A = M[index]
-        list_stations[index-1].var.TTR["value"] = TTR/50
+        list_stations[index-1].var.TTR["value"] = TTR/2
         list_stations[index-1].var.failure_rate = 1/(TTR+TTR*(A/(1-A)))*100 #100
         
         # A = M[index]
@@ -433,10 +417,7 @@ def main(filename, folder='', fullpath='',app=True):
     time_end = 24*3600
     prod_parts = list()
     time_start = time.time()
-    print('Good luck!')
-   
-    # utils.create_connection_chart(list(env._agents.values()))
-    
+    print('Good luck!') 
     for i in range(step,time_end,step):
         env.run(i)
         prod_parts.append(len(T.store))
@@ -471,7 +452,6 @@ def main(filename, folder='', fullpath='',app=True):
     th[4]=th[7]
     th.rename({th.index[4]:'max',th.index[5]:'lower bound - 95% confidence interval',th.index[6]:'upper bound - 95% confidence interval'},inplace=True)
     th=th[1:-1]
-    
     
     states = statelog(env, astable=True)
     states.index = list(range(1,1+len(states.index)))
