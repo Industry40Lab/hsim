@@ -10,8 +10,8 @@
     "pylint.severity": {
         "warning": "Hint"
     },
-    "python-envs.defaultEnvManager": "ms-python.python:conda",
-    "python-envs.defaultPackageManager": "ms-python.python:conda",
+    "python-envs.defaultEnvManager": "ms-python.python:venv",
+    "python-envs.defaultPackageManager": "ms-python.python:pip",
     "python-envs.pythonProjects": [],
     "appService.defaultWebAppToDeploy": "/subscriptions/a7b47574-e298-4d75-88e8-6c834a9af0f3/resourceGroups/i40g/providers/Microsoft.Web/sites/i40game",
 }
