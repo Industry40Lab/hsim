@@ -1,30 +1,43 @@
-from abc import abstractmethod
-from typing import Any, Callable
+from abc import ABC, abstractmethod
+from typing import Any, Callable, Optional
+
 from hsim.core.core.event import BaseEvent
 from hsim.core.core.env import Environment
 import operator
+import functools
 
 
-class Observable:
+
+
+
+# "change" wrapper that triggers notify after the execution of the method
+def change(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        result = func(self, *args, **kwargs)
+        self.notify()
+        return result
+    return wrapper
+
+
+class Observable(ABC):
+    """Abstract base class for all observable types"""
     
-    def __init__(self, value: Any = None):
-        self._value = value
+    def __init__(self, env: Environment):
+        """Initialize shared observable infrastructure"""
+        self._env = env
+        self._event = BaseEvent(env).add()
     
     @property
-    def value(self) -> Any:
-        return self._value
-    
-    @value.setter
-    def value(self, new_value: Any):
-        if new_value != self._value:
-            self._value = new_value
-            self.notify()
-            
     @abstractmethod
-    def notify(self):
-        """Notify observers of a change in value."""
-        print("Observable: notify method not implemented.")
+    def value(self) -> Any:
+        """Get the current value - must be implemented by subclasses"""
         pass
+    
+    def notify(self):
+        """Notify observers of value change"""
+        self._event.trigger()
+        self._event.reset()
     
     def __repr__(self):
         return f"{self.value} (O: {id(self)})"
@@ -34,19 +47,16 @@ class Observable:
     
     def __eq__(self, other):
         if isinstance(other, Observable):
-            return self._value == other._value
+            return self.value == other.value
         else:
-            return self._value == other
+            return self.value == other
     
+    def __hash__(self):
+        return hash(id(self))
+    
+    # Mathematical operators that return ObservableExpression
     def __add__(self, other: Any):
         return ObservableExpression(operator.add, self, other)
-            
-    def __iadd__(self, other: Any):
-        if isinstance(other, Observable):
-            return ObservableExpression(operator.add, self, other)
-        else:
-            self.value += other
-            return self
     
     def __radd__(self, other: Any):
         return self + other
@@ -55,14 +65,7 @@ class Observable:
         return ObservableExpression(operator.sub, self, other)
     
     def __rsub__(self, other: Any):
-        return self - other
-    
-    def __isub__(self, other: Any):
-        if isinstance(other, Observable):
-            return ObservableExpression(operator.sub, self, other)
-        else:
-            self.value -= other
-            return self
+        return ObservableExpression(operator.sub, other, self)
     
     def __mul__(self, other: Any):
         return ObservableExpression(operator.mul, self, other)
@@ -70,25 +73,11 @@ class Observable:
     def __rmul__(self, other: Any):
         return self * other
     
-    def __imul__(self, other: Any):
-        if isinstance(other, Observable):
-            return ObservableExpression(operator.mul, self, other)
-        else:
-            self.value *= other
-            return self
-    
     def __truediv__(self, other: Any):
         return ObservableExpression(operator.truediv, self, other)
     
     def __rtruediv__(self, other: Any):
         return ObservableExpression(operator.truediv, other, self)
-    
-    def __itruediv__(self, other: Any):
-        if isinstance(other, Observable):
-            return ObservableExpression(operator.truediv, self, other)
-        else:
-            self.value /= other
-            return self
     
     def __floordiv__(self, other: Any):
         return ObservableExpression(operator.floordiv, self, other)
@@ -96,25 +85,11 @@ class Observable:
     def __rfloordiv__(self, other: Any):
         return ObservableExpression(operator.floordiv, other, self)
     
-    def __ifloordiv__(self, other: Any):
-        if isinstance(other, Observable):
-            return ObservableExpression(operator.floordiv, self, other)
-        else:
-            self.value //= other
-            return self
-    
     def __mod__(self, other: Any):
         return ObservableExpression(operator.mod, self, other)
     
     def __rmod__(self, other: Any):
         return ObservableExpression(operator.mod, other, self)
-    
-    def __imod__(self, other: Any):
-        if isinstance(other, Observable):
-            return ObservableExpression(operator.mod, self, other)
-        else:
-            self.value %= other
-            return self
     
     def __pow__(self, other: Any):
         return ObservableExpression(operator.pow, self, other)
@@ -122,14 +97,7 @@ class Observable:
     def __rpow__(self, other: Any):
         return ObservableExpression(operator.pow, other, self)
     
-    def __ipow__(self, other: Any):
-        if isinstance(other, Observable):
-            return ObservableExpression(operator.pow, self, other)
-        else:
-            self.value **= other
-            return self
-    
-    
+    # Comparison operators
     def __ne__(self, other: Any):
         return ObservableExpression(operator.ne, self, other)
     
@@ -145,6 +113,7 @@ class Observable:
     def __ge__(self, other: Any):
         return ObservableExpression(operator.ge, self, other)
     
+    # Unary operators
     def __neg__(self):
         return ObservableExpression(operator.neg, self)
     
@@ -153,13 +122,87 @@ class Observable:
     
     def __abs__(self):
         return ObservableExpression(operator.abs, self)
-    
-    def __hash__(self):
-        return hash(id(self))
-    
 
 
-class ObservableExpression:
+class ObservableVariable(Observable):
+    def __init__(self, value: Any = None, env: Optional[Environment] = None):
+        if env is None:
+            raise ValueError("Environment must be provided to Observable")
+        super().__init__(env)
+        self._value = value
+    
+    @property
+    def value(self) -> Any:
+        return self._value
+    
+    @value.setter
+    def value(self, new_value: Any):
+        if new_value != self._value:
+            self._value = new_value
+            self.notify()
+            
+    @change       
+    def __iadd__(self, other: Any):
+        self.value += other
+        return self
+    
+    @change       
+    def __isub__(self, other: Any):
+        self.value -= other
+        return self
+    
+    @change
+    def __imul__(self, other: Any):
+        self.value *= other
+        return self
+    
+    @change
+    def __itruediv__(self, other: Any):
+        self.value /= other
+        return self
+    
+    @change
+    def __ifloordiv__(self, other: Any):
+        self.value //= other
+        return self
+    
+    @change
+    def __imod__(self, other: Any):
+        self.value %= other
+        return self
+    
+    @change
+    def __ipow__(self, other: Any):
+        self.value **= other
+        return self
+    
+    def __len__(self):
+        if not hasattr(self._value, "__len__"):
+            raise TypeError(f"object of type '{type(self._value).__name__}' has no len()")
+        return len(self._value)
+    
+    def length(self):
+        assert hasattr(self._value, "__len__"), TypeError(f"object of type '{type(self._value).__name__}' has no len()")
+        return ObservableExpression(len, self)
+         
+    @change
+    def append(self, item):
+        self._value.append(item)
+    
+    @change
+    def remove(self, item):
+        self._value.remove(item)
+    
+    @change
+    def pop(self, idx: Optional[int] = None):
+        return self._value.pop() if idx is None else self._value.pop(idx)
+
+    @change
+    def update(self, key:str, value: Any):
+        self._value[key] = value
+        
+
+class ObservableExpression(Observable):
     
     # Operator symbol mapping for mathematical notation
     _OP_SYMBOLS = {
@@ -179,22 +222,41 @@ class ObservableExpression:
         operator.neg: '-',
         operator.pos: '+',
         operator.abs: 'abs',
+        len: 'len'
     }
     
     def __init__(self, op: Callable, *operands: Observable):
+        # Find environment from operands first
+        env = None
+        for operand in operands:
+            if hasattr(operand, '_env') and operand._env is not None:
+                if env is None:
+                    env = operand._env
+                else:
+                    assert operand._env is env, f"All operands must share the same environment"
+        
+        assert env is not None, "ObservableExpression must have an environment"
+        super().__init__(env)
+        
         self.op = op
         self.operands = operands
         self._dependencies = set()
         self._collect_dependencies()
-    
+        
+        # Connect to operand events for reactivity
+        for operand in operands:
+            if isinstance(operand, Observable) or isinstance(operand, ObservableExpression):
+                if hasattr(operand, '_event'):
+                    operand._event.add_action(self._event.trigger)
+
     def _collect_dependencies(self):
         """Collect all observable dependencies recursively."""
         for operand in self.operands:
             if isinstance(operand, Observable):
                 self._dependencies.add(operand)
             elif isinstance(operand, ObservableExpression):
-                self._dependencies.update(operand._dependencies)
-    
+                self._dependencies.update(operand._dependencies)   
+                    
     @property
     def value(self) -> Any:
         """Evaluate the expression using current values of operands."""
@@ -228,8 +290,8 @@ class ObservableExpression:
         if len(self.operands) == 1:
             # Unary operators
             operand_str = self._format_operand(self.operands[0])
-            if self.op == operator.abs:
-                return f"abs({operand_str})"
+            if self.op in [operator.abs, len]:
+                return f"{op_symbol}({operand_str})"
             else:
                 return f"{op_symbol}{operand_str}"
         else:
@@ -276,119 +338,42 @@ class ObservableExpression:
         
         return False
     
-    def __add__(self, other: Any):
-        return ObservableExpression(operator.add, self, other)
-    
-    def __radd__(self, other: Any):
-        return self + other
-    
-    def __iadd__(self, other: Any):
-        return self + other
-    
-    def __sub__(self, other: Any):
-        return ObservableExpression(operator.sub, self, other)
-    
-    def __rsub__(self, other: Any):
-        return self - other
-    
-    def __isub__(self, other: Any):
-        return self - other
-    
-    def __mul__(self, other: Any):
-        return ObservableExpression(operator.mul, self, other)
-    
-    def __rmul__(self, other: Any):
-        return self * other
-    
-    def __imul__(self, other: Any):
-        return self * other
-    
-    def __truediv__(self, other: Any):
-        return ObservableExpression(operator.truediv, self, other)
-    
-    def __rtruediv__(self, other: Any):
-        return ObservableExpression(operator.truediv, other, self)
-    
-    def __itruediv__(self, other: Any):
-        return self / other
-    
-    def __eq__(self, other: Any):
-        return ObservableExpression(operator.eq, self, other)
-    
-    def __ne__(self, other: Any):
-        return ObservableExpression(operator.ne, self, other)
-    
-    def __lt__(self, other: Any):
-        return ObservableExpression(operator.lt, self, other)
-    
-    def __le__(self, other: Any):
-        return ObservableExpression(operator.le, self, other)
-    
-    def __gt__(self, other: Any):
-        return ObservableExpression(operator.gt, self, other)
-    
-    def __ge__(self, other: Any):
-        return ObservableExpression(operator.ge, self, other)
+ObsVar = obsvar = ObservableVariable
+ObsExpr = obsexpr = ObservableExpression
         
         
 if __name__ == "__main__":
     print("=== Mathematical Programming Style Observable Expressions ===")
     
-    # Named variables like in optimization models
-    x = Observable(10)
-    y = Observable(20) 
-    z = Observable(5)
+    # Create an environment for testing
+    env = Environment()
     
+    # Named variables like in optimization models
+    x = ObservableVariable(10, env)
+    y = ObservableVariable(20, env) 
+    z = ObservableVariable(5, env)
+    
+    print(env.now)
+    z_expr = 10 + x
+    print(env.now)
+    env.run(2)
+    print(env.now)
     x += 10
-    z = 10 + y
+    env.run(29)
+    
+    q = ObservableVariable([1, 2, 3], env)
     
     print(f"\nVariables: x={x.value}, y={y.value}, z={z.value}")
+    print(f"Expression z_expr: {z_expr.value}")
+    print(f"List q: {q.value}")
     
-    # Mathematical expressions display structure, not just values
-    print(f"\nExpressions:")
-    expr1 = x + y
-    print(f"  {expr1} = {expr1.value}")
+    # Test collection methods
+    q.append(4)
+    print(f"After append: {q.value}")
     
-    expr2 = x * y + z  
-    print(f"  {expr2} = {expr2.value}")
+    # Test length
+    print(f"len(q): {len(q)}")
+    q_len = q.length()
+    print(f"q.length(): {q_len.value}")
     
-    expr3 = (x + y) * z
-    print(f"  {expr3} = {expr3.value}")
-    
-    # Constraint-style expressions with observables
-    print(f"\nConstraints:")
-    const_100 = Observable(100)
-    two = Observable(2)
-    
-    constraint = x + two * y <= const_100
-    print(f"  {constraint} = {constraint.value}")
-    
-    # Mixed operations: Observable op constant returns value
-    print(f"\nMixed operations:")
-    print(f"  x + 5 = {x + 5} (returns value)")
-    print(f"  x <= 50 = {x <= 50} (returns boolean)")
-    
-    # Change values - expressions update automatically
-    print(f"\nAfter changing x to 15:")
-    x.value = 15
-    print(f"  {expr1} = {expr1.value}")
-    print(f"  {constraint} = {constraint.value}")
-    
-    # Unnamed variables get auto-generated IDs
-    print(f"\nUnnamed variables:")
-    var1 = Observable(42)
-    var2 = Observable(7)
-    expr4 = var1 / var2
-    print(f"  {expr4} = {expr4.value}")
-    
-    # Observable equality: same values are equal, but different objects
-    print(f"\nEquality semantics:")
-    a = Observable(10) 
-    b = Observable(10)
-    print(f"  a == b: {a == b} (value equality)")
-    print(f"  a is b: {a is b} (object identity)")
-    
-    print(f"\nDependency tracking:")
-    complex_expr = (x + y) * z + two
-    print(f"  Expression: {complex_expr}")
-    print(f"  Dependencies: {[str(dep) for dep in complex_expr.dependencies]}")
+    env.run()

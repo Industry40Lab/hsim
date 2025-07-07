@@ -42,13 +42,15 @@ class Scheduler():
             event = self._queue.pop(0)
             if getattr(event, "_canceled", False):
                 continue
+            elif event.time == np.inf:
+                continue
             delayfunc(event.time - timefunc())
             if event.pending:
                 event.time = np.inf
                 event.schedule()
-                self.enterevent(event)
+                self.enter(event)
             elif "StopSimulation" in event.kwargs:
-                break
+                return
             else:
                 if event._conditioned:
                     if not event.verify():
