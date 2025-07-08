@@ -1,7 +1,10 @@
 if __name__ == "__main__":
     import sys
     import os
-    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+    try:
+        sys.path.append("/".join(os.path.abspath(__file__).split("/")[:os.path.abspath(__file__).split("/").index("hsim")+1]))
+    except:
+        sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
 from typing import Iterable, Union
 from hsim.core.core.env import Environment
@@ -113,9 +116,7 @@ def test4():
     
 if __name__ == "__main__":
     from hsim.core.des.pymulate import Generator
-    # test1()
-    # print("\n\n\n\n")
-    # test2()
-    # print("\n\n\n\n")
+    test1()
+    test2()
+    test3()
     test4()
-    print("\n\n\n\n")
