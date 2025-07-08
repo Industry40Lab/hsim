@@ -238,6 +238,7 @@ def test1():
     env.run(20)
     a.take(Agent(env,"test"))
     env.run(30)
+    assert len(q) == 2
     
 def test2():
     env = Environment()
@@ -250,6 +251,7 @@ def test2():
     env.run(20)
     a.take(Agent(env,"test"))
     env.run(30)
+    assert len(q) == 0, "Quality threshold already very low, just try again"
     
 def test3():
     env = Environment()
@@ -287,6 +289,7 @@ def test5():
     op.connections["stations"].append(a)
     env.run(10)
     env.run(30)
+    assert len(t.store) == 13
     
 def test6():
     env = Environment()
@@ -304,6 +307,7 @@ def test6():
     op.connections["stations"].append(a)
     env.run(100)
     env.run(50)
+    assert len(t.store) == 0
     
 if __name__ == "__main__":
     from hsim.core.des.pymulate import Generator
