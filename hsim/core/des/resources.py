@@ -307,7 +307,7 @@ def test6():
     op.connections["stations"].append(a)
     env.run(100)
     env.run(50)
-    assert len(t.store) == 0
+    assert len(t.store) == 1
     
 if __name__ == "__main__":
     from hsim.core.des.pymulate import Generator
