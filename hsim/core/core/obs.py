@@ -154,6 +154,20 @@ class Observable(ABC):
     
     def __abs__(self):
         return ObservableExpression(operator.abs, self)
+    
+    @staticmethod
+    def any(*predicate: 'Observable') -> 'ObservableExpression':
+        """
+        Returns an ObservableExpression that is True if any element of the value is true (or satisfies the predicate).
+        """
+        return ObservableExpression(any,*predicate)
+    
+    @staticmethod    
+    def all(*predicate: 'Observable') -> 'ObservableExpression':
+        """
+        Returns an ObservableExpression that is True if all elements of the value are true (or satisfy the predicate).
+        """
+        return ObservableExpression(all, *predicate)
 
 
 class ObservableVariable(Observable):
@@ -271,7 +285,9 @@ class ObservableExpression(Observable):
         operator.neg: '-',
         operator.pos: '+',
         operator.abs: 'abs',
-        len: 'len'
+        len: 'len',
+        any: 'any',
+        all: 'all',
     }
     
     def __init__(self, op: Callable, *operands: Observable):
@@ -323,10 +339,14 @@ class ObservableExpression(Observable):
             else:
                 values.append(operand)
         
-        if len(values) == 1:
+        if self.op in [any, all]:
+            return self.op(values)
+        elif len(values) == 1:
             return self.op(values[0])
-        else:
+        elif len(values) == 2:
             return self.op(values[0], values[1])
+        else:
+            return self.op(*values)
     
     @property
     def dependencies(self) -> set:
@@ -343,7 +363,10 @@ class ObservableExpression(Observable):
         """Format the expression in mathematical notation."""
         op_symbol = self._OP_SYMBOLS.get(self.op, str(self.op))
         
-        if len(self.operands) == 1:
+        if self.op in [any, all] or len(self.operands) > 2:
+            operands_str = ', '.join(self._format_operand(op) for op in self.operands)
+            return f"{op_symbol}({operands_str})"
+        elif len(self.operands) == 1:
             # Unary operators
             operand_str = self._format_operand(self.operands[0])
             if self.op in [operator.abs, len]:
@@ -421,6 +444,8 @@ if __name__ == "__main__":
     ev = z_expr <= 100
     ev.add_environment(env)
     
+    obs.any(ev,False)
+    print(obs.any(ev,False))
     q = ObservableVariable([1, 2, 3], env)
     
     print(f"\nVariables: x={x.value}, y={y.value}, z={z.value}")
