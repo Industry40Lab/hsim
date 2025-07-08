@@ -5,11 +5,12 @@ if __name__ == "__main__":
 
 
 from abc import abstractmethod
-from heapq import heappop, heappush, heapify
-import heapq
 import types
 from typing import Any, Callable, Iterable, OrderedDict, Tuple
+
+from sortedcontainers import SortedList
 from hsim.core.core.event import BaseEvent, RecurringEvent, Status
+from hsim.core.core.obs import ObservableVariable, ObservableExpression
 
 class Message():
     # __slots__ = ('env', 'content', 'receiver', 'sender', 'status', 'receipts')
@@ -57,10 +58,9 @@ class Message():
 
 
 class MessageQueue:
-    put, get = heappush, heappop
     def __init__(self, env):
         self.env = env
-        self.queue = list()
+        self.queue = ObservableVariable(SortedList(),env=env)
         self.event = BaseEvent(env, action=self._on_receive).add()
         self._message_history = list()
         self._queue_history = list()
@@ -73,7 +73,7 @@ class MessageQueue:
         self.event.reset()
         
     def _put(self, message):
-        heappush(self.queue, message)
+        self.queue.add(message)
         self._log_in(message)
 
     def receiveContent(self, content:Any, sender=None) -> Message:
@@ -96,7 +96,7 @@ class MessageQueue:
             del message
         
     def get(self)->Message:
-        message = heappop(self.queue)
+        message = self.queue.pop(0)
         message.read()
         self._log_out(message)
         return message
@@ -137,7 +137,7 @@ class PriorityMessageQueue(MessageQueue):
 
     def _put(self, msg:Message):
         msg.__lt__ = types.MethodType(self.priorityFcn, msg)
-        heappush(self.queue, msg)
+        self.queue.add(msg)
         msg.receive()
         self._trigger()
     @property
@@ -147,7 +147,6 @@ class PriorityMessageQueue(MessageQueue):
         self._priorityFcn = fcn
         for msg in self.queue:
             msg.__lt__ = types.MethodType(fcn, msg)
-        heapq.heapify(self.queue)
         
 class CallableList(list):
     def __init__(self, *args):

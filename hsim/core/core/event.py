@@ -1,15 +1,14 @@
 from __future__ import annotations
-import heapq
 
 if __name__ == "__main__":
     import sys
     import os
-    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
-
-
+    try:
+        sys.path.append("/".join(os.path.abspath(__file__).split("/")[:os.path.abspath(__file__).split("/").index("hsim")+1]))
+    except:
+        sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 from enum import Enum, auto
 from typing import Any, Callable, Iterable, List, Optional, Union
-
 import numpy as np
 
 class Status(Enum):
@@ -179,6 +178,13 @@ class VerifiableEvent(ConditionEvent):
             self.time = self.env.now
             self.priority = 0
             self.env.scheduler._queue.add(self)
+
+
+class ConditionedEvent(BaseEvent):
+    def __init__(self, env: 'Environment', condition: 'ObservableExpression[[], bool]', priority: Union[float,int] = 1, action:Union[Iterable[Callable[..., Any]], Callable[..., Any]]=object, arguments: Any = [], **kwargs: Any): # type: ignore
+        super().__init__(env, priority, action, arguments, **kwargs)
+        self.condition = condition
+        self.condition._event = self
 
             
 class RecurringEvent(BaseEvent):

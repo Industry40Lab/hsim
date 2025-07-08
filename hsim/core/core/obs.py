@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from hmac import new
 from typing import Any, Callable, Optional
 
+from numpy import add
+
 from hsim.core.core.event import BaseEvent
 from hsim.core.core.env import Environment
 import operator
@@ -31,7 +33,7 @@ class Observable(ABC):
         if env is not None:
             self._event = BaseEvent(env).add()
 
-    def add(self, expr: 'Observable'):
+    def add_dependency(self, expr: 'Observable'):
         """Add an expression that depends on this observable"""
         if isinstance(expr, Observable):
             self._expressions.add(expr)
@@ -57,15 +59,17 @@ class Observable(ABC):
         """Get the current value - must be implemented by subclasses"""
         pass
     
-    def notify(self):
+    def notify(self,reset=False):
         """Notify observers of value change"""
         # Notify all expressions that depend on this observable
         for expr in self._expressions:
             expr.recalc()
         # Trigger the event if it exists
         if self.watchable:
-            self._event.trigger()
-            self._event.reset()
+            if reset == None or reset == True:
+                self._event.trigger()
+            if reset == None or reset == False:
+                self._event.reset() if reset else None
     
     def __repr__(self):
         return f"{self.value} (O: {id(self)})"
@@ -217,10 +221,22 @@ class ObservableVariable(Observable):
     def length(self):
         assert hasattr(self._value, "__len__"), TypeError(f"object of type '{type(self._value).__name__}' has no len()")
         return ObservableExpression(len, self)
-         
+    
+    @change
+    def __setitem__(self, index, value):
+        self._value.__setitem__(index, value)  # Call the original __setitem__ method
+     
     @change
     def append(self, item):
         self._value.append(item)
+    
+    @change
+    def add(self, item):
+        """Add an item to the observable variable."""
+        if hasattr(self._value, "add"):
+            self._value.add(item)
+        else:
+            raise TypeError(f"object of type '{type(self._value).__name__}' does not support 'add' method")
     
     @change
     def remove(self, item):
@@ -275,15 +291,12 @@ class ObservableExpression(Observable):
         self._dependencies = set()
         self._collect_dependencies()
         self._stored_value = self.value
-        
-        # Connect to operand events for reactivity
+        if self.value is True:
+            self._stored_value = False
+            self.recalc()
+               
         for operand in operands:
-            if isinstance(operand, Observable) or isinstance(operand, ObservableExpression):
-                if hasattr(operand, '_event'):
-                    operand._event.add_action(self._event.trigger)
-        
-        for operand in operands:
-            operand._expressions.add(self) if isinstance(operand, Observable) else None
+            operand.add_dependency(self) if isinstance(operand, Observable) else None
 
     def _collect_dependencies(self):
         """Collect all observable dependencies recursively."""
@@ -297,7 +310,8 @@ class ObservableExpression(Observable):
         old, new = self._stored_value, self.value
         self._stored_value = new
         if old != new:
-            self.notify()
+            reset = new if type(old) == type(new) == bool else None
+            self.notify(reset)
                     
     @property
     def value(self) -> Any:
