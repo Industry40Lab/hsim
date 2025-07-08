@@ -1,8 +1,17 @@
 from abc import ABC, abstractmethod
 from hmac import new
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 from numpy import add
+
+if __name__ == "__main__":
+    import sys
+    import os
+    try:
+        sys.path.append("/".join(os.path.abspath(__file__).split("/")[:os.path.abspath(__file__).split("/").index("hsim")+1]))
+    except:
+        sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+
 
 from hsim.core.core.event import BaseEvent
 from hsim.core.core.env import Environment
@@ -154,6 +163,10 @@ class Observable(ABC):
     
     def __abs__(self):
         return ObservableExpression(operator.abs, self)
+    
+    def __bool__(self):
+        """Return True if the observable's value is truthy, False otherwise."""
+        return bool(self.value)
     
     @staticmethod
     def any(*predicate: 'Observable') -> 'ObservableExpression':
@@ -417,9 +430,139 @@ class ObservableExpression(Observable):
         
         return False
 
+
+class ObservableCollection(ObservableExpression):
+    def __init__(self, *elements, filter_func: Callable = None):
+        """
+        Create an observable collection that filters elements based on a predicate.
+        
+        Args:
+            *elements: Observable variables, expressions, or regular values
+            filter_func: Function to filter elements (like f in [x for x in list if f(x)])
+        """
+        # Create a filter operation that will be evaluated by the parent class
+        self.elements = list(elements)
+        self.filter_func = filter_func if filter_func is not None else lambda val: True
+        
+        # Create a custom operation that filters the elements
+        def filter_operation(*operands):
+            result = []
+            for i, operand in enumerate(operands):
+                if self.filter_func(operand):
+                    result.append(operand)
+            return result
+        
+        # Initialize with the filter operation and all elements as operands
+        super().__init__(filter_operation, *elements)
+    
+    def _update_operands(self):
+        """Update operands tuple and recalculate after list operations."""
+        self.operands = tuple(self.elements)
+        self.recalc()
+    
+    def _register_observable(self, element):
+        """Register an observable element as a dependency."""
+        if isinstance(element, Observable):
+            element.add_dependency(self)
+            self._collect_dependencies()
+    
+    def _unregister_observable(self, element):
+        """Unregister an observable element from dependencies."""
+        if isinstance(element, Observable):
+            element._expressions.discard(self)
+            if hasattr(self, '_dependencies'):
+                self._dependencies.discard(element)
+    
+    @change
+    def append(self, element):
+        """Append an element to the collection."""
+        self.elements.append(element)
+        self._register_observable(element)
+        self._update_operands()
+    
+    @change
+    def insert(self, index, element):
+        """Insert an element at the specified index."""
+        self.elements.insert(index, element)
+        self._register_observable(element)
+        self._update_operands()
+    
+    @change
+    def pop(self, index=-1):
+        """Remove and return element at index (default last)."""
+        if self.elements:
+            element = self.elements.pop(index)
+            self._unregister_observable(element)
+            self._update_operands()
+            return element
+        else:
+            raise IndexError("pop from empty collection")
+    
+    @change
+    def remove(self, element):
+        """Remove first occurrence of element."""
+        if element in self.elements:
+            self.elements.remove(element)
+            self._unregister_observable(element)
+            self._update_operands()
+        else:
+            raise ValueError("element not in collection")
+    
+    @change
+    def clear(self):
+        """Remove all elements from the collection."""
+        for element in self.elements:
+            self._unregister_observable(element)
+        self.elements.clear()
+        self._update_operands()
+    
+    @change
+    def extend(self, iterable):
+        """Extend collection with elements from iterable."""
+        for element in iterable:
+            self.elements.append(element)
+            self._register_observable(element)
+        self._update_operands()
+    
+    @change
+    def __setitem__(self, index, element):
+        """Set element at index."""
+        old_element = self.elements[index]
+        self._unregister_observable(old_element)
+        self.elements[index] = element
+        self._register_observable(element)
+        self._update_operands()
+    
+    @change
+    def __delitem__(self, index):
+        """Delete element at index."""
+        element = self.elements[index]
+        self._unregister_observable(element)
+        del self.elements[index]
+        self._update_operands()
+    
+    def __len__(self):
+        """Return the length of the filtered collection."""
+        return len(self.value)
+    
+    def __iter__(self):
+        """Iterate over the filtered collection."""
+        return iter(self.value)
+    
+    def __getitem__(self, index):
+        """Get item from the filtered collection."""
+        return self.value[index]
+    
+    def __repr__(self):
+        return f"ObservableCollection({self.value}) (filtered from {len(self.elements)} elements)"
+    
+    def __str__(self):
+        return f"[{', '.join(str(v) for v in self.value)}]"
+
 Obs = obs = Observable
 ObsVar = obsvar = ObservableVariable
 ObsExpr = obsexpr = ObservableExpression
+ObsCollection = obscollection = ObservableCollection
         
         
 if __name__ == "__main__":
@@ -447,6 +590,8 @@ if __name__ == "__main__":
     obs.any(ev,False)
     print(obs.any(ev,False))
     q = ObservableVariable([1, 2, 3], env)
+    
+    oc = ObservableCollection(z_expr, filter_func=lambda x: x > 1)
     
     print(f"\nVariables: x={x.value}, y={y.value}, z={z.value}")
     print(f"Expression z_expr: {z_expr.value}")
