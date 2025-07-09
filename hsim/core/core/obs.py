@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from hmac import new
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional, Type
 
 from numpy import add
 
@@ -402,14 +402,19 @@ class ObservableExpression(Observable):
             else:
                 values.append(operand)
         
-        if self.op in [any, all]:
-            return self.op(values)
-        elif len(values) == 1:
-            return self.op(values[0])
-        elif len(values) == 2:
-            return self.op(values[0], values[1])
-        else:
-            return self.op(*values)
+        try:
+            if self.op in [any, all]:
+                return self.op(values)
+            elif len(values) == 1:
+                return self.op(values[0])
+            elif len(values) == 2:
+                return self.op(values[0], values[1])
+            else:
+                return self.op(*values)
+        except TypeError as e:
+            return None
+            
+            
     
     @property
     def dependencies(self) -> set:
@@ -642,7 +647,7 @@ class ObservableProxy(ObservableExpression):
         
         Args:
             target: The observable object to proxy
-            accessor: Index or key for collection access (use case 1)
+            accessor: Index or key for collection access (use case 1)  
             attr_name: Attribute name for property access (use case 2)
         """
         self.target = target
@@ -691,18 +696,26 @@ class ObservableProxy(ObservableExpression):
         """Create a proxy for attribute access (e.g., obj.property)."""
         return cls(target, attr_name=attr_name)
     
+    def item(self, accessor: Any):
+        """Fluent interface: Create a chained proxy for item access."""
+        return ObservableProxy(self, accessor=accessor)
+    
+    def attr(self, attr_name: str):
+        """Fluent interface: Create a chained proxy for attribute access."""
+        return ObservableProxy(self, attr_name=attr_name)
+    
     def __getitem__(self, key):
         """Support chained indexing: proxy[key] -> ObservableProxy(proxy, key)."""
-        return ObservableProxy.item(self, key)
+        return self.item(key)
     
     def __getattr__(self, name):
         """Support chained attribute access: proxy.attr -> ObservableProxy(proxy, attr)."""
-        # Don't proxy internal attributes or methods
+        # Don't proxy internal attributes, methods, or known instance methods
         if (name.startswith('_') or 
             hasattr(ObservableExpression, name) or
-            name in ['target', 'accessor', 'attr_name', 'operation']):
+            name in ['target', 'accessor', 'attr_name', 'operation', 'item', 'attr']):
             raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
-        return ObservableProxy.attr(self, name)
+        return self.attr(name)
     
     def __repr__(self):
         if self.accessor is not None:
@@ -752,7 +765,10 @@ if __name__ == "__main__":
     coll = ObsCollection(x,y,filter_func=lambda v: v > 10)
     L = coll.length()
     x += 10
-    el = ObsProxy.item(coll, 1)
+    el = ObsProxy.item(coll, 2)
+    test = el + 1
+    
+    coll.append(30)
     
     
     
