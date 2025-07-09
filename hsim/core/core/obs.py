@@ -154,6 +154,19 @@ class Observable(ABC):
     def __ge__(self, other: Any):
         return ObservableExpression(operator.ge, self, other)
     
+    # Boolean operators
+    def __and__(self, other: Any):
+        return ObservableExpression(operator.and_, self, other)
+    
+    def __rand__(self, other: Any):
+        return ObservableExpression(operator.and_, other, self)
+    
+    def __or__(self, other: Any):
+        return ObservableExpression(operator.or_, self, other)
+    
+    def __ror__(self, other: Any):
+        return ObservableExpression(operator.or_, other, self)
+    
     # Unary operators
     def __neg__(self):
         return ObservableExpression(operator.neg, self)
@@ -181,6 +194,14 @@ class Observable(ABC):
         Returns an ObservableExpression that is True if all elements of the value are true (or satisfy the predicate).
         """
         return ObservableExpression(all, *predicate)
+    
+    def proxy_item(self, key):
+        """Create a reactive proxy for item access."""
+        return ObservableProxy.item(self, key)
+    
+    def proxy_attr(self, name):
+        """Create a reactive proxy for attribute access.""" 
+        return ObservableProxy.attr(self, name)
 
 
 class ObservableVariable(Observable):
@@ -232,6 +253,18 @@ class ObservableVariable(Observable):
     def __ipow__(self, other: Any):
         self.value **= other
         return self
+    
+    @change 
+    def __ishift__(self, other: Any):
+        """Shift operator."""
+        self.value = other
+        return self
+    
+    def __ilshift__(self, other: Any):
+        return self.__ishift__(other)
+    
+    def __irshift__(self, other: Any):
+        return self.__ishift__(other)
     
     def __getitem__(self, key: Any) -> Any:
         """Get item from the value if it supports indexing."""
@@ -295,6 +328,8 @@ class ObservableExpression(Observable):
         operator.le: '<=',
         operator.gt: '>',
         operator.ge: '>=',
+        operator.and_: 'and',
+        operator.or_: 'or',
         operator.neg: '-',
         operator.pos: '+',
         operator.abs: 'abs',
@@ -345,6 +380,21 @@ class ObservableExpression(Observable):
     @property
     def value(self) -> Any:
         """Evaluate the expression using current values of operands."""
+        # Special handling for ObservableCollection
+        if hasattr(self, 'filter_func'):
+            # Return filtered elements (not their values)
+            result = []
+            for element in self.elements:
+                if isinstance(element, Observable):
+                    element_value = element.value
+                else:
+                    element_value = element
+                
+                if self.filter_func(element_value):
+                    result.append(element)  # Return the element itself, not its value
+            return result
+        
+        # Regular expression evaluation
         values = []
         for operand in self.operands:
             if isinstance(operand, (Observable, ObservableExpression)):
@@ -408,6 +458,10 @@ class ObservableExpression(Observable):
     
     def _needs_parentheses(self, expr: 'ObservableExpression', is_left: bool) -> bool:
         """Determine if parentheses are needed for operator precedence."""
+        # Only ObservableExpressions need parentheses
+        if not isinstance(expr, ObservableExpression):
+            return False
+            
         # Operator precedence (higher number = higher precedence)
         precedence = {
             operator.pow: 6,
@@ -415,6 +469,8 @@ class ObservableExpression(Observable):
             operator.mul: 4, operator.truediv: 4, operator.floordiv: 4, operator.mod: 4,
             operator.add: 3, operator.sub: 3,
             operator.eq: 2, operator.ne: 2, operator.lt: 2, operator.le: 2, operator.gt: 2, operator.ge: 2,
+            operator.and_: 1,
+            operator.or_: 0,
         }
         
         current_prec = precedence.get(self.op, 1)
@@ -454,11 +510,21 @@ class ObservableCollection(ObservableExpression):
         
         # Initialize with the filter operation and all elements as operands
         super().__init__(filter_operation, *elements)
-    
+        
+        self._stored_value = hash(val for val in self.value)
+
     def _update_operands(self):
         """Update operands tuple and recalculate after list operations."""
         self.operands = tuple(self.elements)
         self.recalc()
+        
+    def recalc(self):
+        old, new = self._stored_value, hash(val for val in self.value)
+        self._stored_value = new
+        if old != new:
+            reset = new if type(old) == type(new) == bool else None
+            self.notify(reset)
+
     
     def _register_observable(self, element):
         """Register an observable element as a dependency."""
@@ -545,6 +611,10 @@ class ObservableCollection(ObservableExpression):
         """Return the length of the filtered collection."""
         return len(self.value)
     
+    def length(self):
+        """Return an ObservableExpression representing the length of the collection."""
+        return ObservableExpression(len, self)
+    
     def __iter__(self):
         """Iterate over the filtered collection."""
         return iter(self.value)
@@ -559,10 +629,103 @@ class ObservableCollection(ObservableExpression):
     def __str__(self):
         return f"[{', '.join(str(v) for v in self.value)}]"
 
+
+class ObservableProxy(ObservableExpression):
+    """
+    Use case 1: I get an element out of a collection, e.g., collection[0], and I want to observe changes to that element (i.e., if the element at position 0 changes, I want to be notified).
+    Use case 2: I want to observe a specific property of a watchable object, such that if the object changes, I am notified.
+    """
+    
+    def __init__(self, target: Observable, accessor: Any = None, attr_name: str = None):
+        """
+        Create a proxy that observes a specific part of an observable object.
+        
+        Args:
+            target: The observable object to proxy
+            accessor: Index or key for collection access (use case 1)
+            attr_name: Attribute name for property access (use case 2)
+        """
+        self.target = target
+        self.accessor = accessor
+        self.attr_name = attr_name
+        
+        # Create appropriate access operation
+        if accessor is not None:
+            # Use case 1: Collection element access
+            def access_element(target_value):
+                try:
+                    return target_value[accessor]
+                except (IndexError, KeyError, TypeError):
+                    return None
+            operation = access_element
+            
+        elif attr_name is not None:
+            # Use case 2: Attribute access
+            def access_attribute(target_value):
+                try:
+                    return getattr(target_value, attr_name)
+                except AttributeError:
+                    return None
+            operation = access_attribute
+            
+        else:
+            # Direct proxy - just return the target value
+            operation = lambda x: x
+        
+        self.operation = operation
+        super().__init__(operation, target)
+    
+    @property
+    def value(self) -> Any:
+        """Get the current value by applying the operation to the target."""
+        target_value = self.target.value if isinstance(self.target, Observable) else self.target
+        return self.operation(target_value)
+    
+    @classmethod
+    def item(cls, target: Observable, accessor: Any):
+        """Create a proxy for collection item access (e.g., collection[0])."""
+        return cls(target, accessor=accessor)
+    
+    @classmethod
+    def attr(cls, target: Observable, attr_name: str):
+        """Create a proxy for attribute access (e.g., obj.property)."""
+        return cls(target, attr_name=attr_name)
+    
+    def __getitem__(self, key):
+        """Support chained indexing: proxy[key] -> ObservableProxy(proxy, key)."""
+        return ObservableProxy.item(self, key)
+    
+    def __getattr__(self, name):
+        """Support chained attribute access: proxy.attr -> ObservableProxy(proxy, attr)."""
+        # Don't proxy internal attributes or methods
+        if (name.startswith('_') or 
+            hasattr(ObservableExpression, name) or
+            name in ['target', 'accessor', 'attr_name', 'operation']):
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        return ObservableProxy.attr(self, name)
+    
+    def __repr__(self):
+        if self.accessor is not None:
+            return f"{self.value} = {self.target}[{self.accessor}]"
+        elif self.attr_name is not None:
+            return f"{self.value} = {self.target}.{self.attr_name}"
+        else:
+            return f"{self.value} = proxy({self.target})"
+    
+    def __str__(self):
+        if self.accessor is not None:
+            return f"{self.target}[{self.accessor}]"
+        elif self.attr_name is not None:
+            return f"{self.target}.{self.attr_name}"
+        else:
+            return f"proxy({self.target})"
+
+
 Obs = obs = Observable
 ObsVar = obsvar = ObservableVariable
 ObsExpr = obsexpr = ObservableExpression
 ObsCollection = obscollection = ObservableCollection
+ObsProxy = obsproxy = ObservableProxy
         
         
 if __name__ == "__main__":
@@ -581,11 +744,17 @@ if __name__ == "__main__":
     print(env.now)
     env.run(2)
     print(env.now)
-    x += 10
-    env.run(29)
+
     
     ev = z_expr <= 100
     ev.add_environment(env)
+    
+    coll = ObsCollection(x,y,filter_func=lambda v: v > 10)
+    L = coll.length()
+    x += 10
+    el = ObsProxy.item(coll, 1)
+    
+    
     
     obs.any(ev,False)
     print(obs.any(ev,False))
