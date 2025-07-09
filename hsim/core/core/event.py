@@ -185,6 +185,7 @@ class ConditionedEvent(BaseEvent):
         super().__init__(env, priority, action, arguments, **kwargs)
         self.condition = condition
         self.condition._event = self
+        self.condition.add_environment(env)
 
             
 class RecurringEvent(BaseEvent):

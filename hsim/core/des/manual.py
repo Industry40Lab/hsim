@@ -16,13 +16,14 @@ from hsim.core.core.env import Environment
 from hsim.core.agent.agent import Agent, FSM
 from warnings import warn
 from hsim.core.des.pymulate import Server, Store
+from hsim.core.core.obs import ObservableVariable, ObservableCollection, ObservableExpression, ObservableProxy
 
 class ManualStation(Server):
     def __init__(self,env,name=None,serviceTime=None,serviceTimeFunction=None) -> None:
         super().__init__(env,name,serviceTime,serviceTimeFunction)
-        self.connections["operator"] = None 
+        self.connections["operator"] = ObservableVariable(None) 
     def add_operator(self,operator):
-        self.connections["operator"] = operator
+        self.connections["operator"] <<= operator
         self.receiveContent("Operator")
     class FSM(Server.FSM):
         class Starving(State):
@@ -45,7 +46,7 @@ class ManualStation(Server):
             try:
                 _, msg = self.give(self.connections["next"], self._agent.var.item)
                 self.connections["operator"].free()
-                self.connections["operator"] = None
+                self.connections["operator"] <<= None
                 msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
             except AttributeError as e:
                 warn(RuntimeWarning(e))
@@ -70,27 +71,32 @@ class Operator(Agent):
             pass
         
         S2W=ConditionTransition.define(Sleep, Working)
-        S2W._condition = lambda self: self.pick() and any(s.stateMachine.current_state[0].name == "Idle" and s.connections["operator"] is None for s in self._agent.connections["stations"])
+        S2W._condition = lambda self: ObservableExpression.any([(a.connections["operator"] == None) & (ObservableProxy(a.stateMachine.current_state).item(0).attr("name") == "Idle") for a in self._agent.connections["stations"]])
         S2W.on_transition = lambda self: self.pick().add_operator(self._agent)
         W2I=MessageTransition.define(Working, Sleep)
         W2I._message = "free"
         
     def pick(self) -> Union[ManualStation,None]:
         return next(
-            (s for s in reversed(self.connections["stations"]) if s.stateMachine.current_state[0].name == "Idle" and s.connections["operator"] is None),
+            (s for s in reversed(self.connections["stations"]) if s.stateMachine.current_state[0].name == "Idle" and s.connections["operator"] == None),
             None
         )
         
    
 def test1():
     env = Environment()
-    a = ManualStation(env)
+    a = ManualStation(env,serviceTime=10)
     b = Store(env)
     q = Queue(env,10)
-    op = Operator(env)
+    op = Operator(env)    
     a.connections["next"] = b
     b.connections["next"] = q
     op.connections["stations"].append(a)
+    c1 = (a.connections["operator"] != None)
+    c1.add_environment(env)
+    lst = [c1 | (ObservableProxy(a.stateMachine.current_state).item(0).attr("name") == "Idle") for a in op.connections["stations"]]
+    u = ObservableExpression.any(lst)
+    a.stateMachine.start()
     env.run(10)
     x1 = Agent(env,"test1")
     a.take(x1)

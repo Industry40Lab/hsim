@@ -13,6 +13,8 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+from hsim.core.core.obs import ObservableVariable
+
 class State:
     def __init__(self, name:str, fsm:'FSM', initial_state:bool=False):
         self.name = name
@@ -20,7 +22,7 @@ class State:
         self._env = fsm._env
         self._transitions = list()
         self.initial_state = initial_state
-        self._active = False
+        self._active = ObservableVariable(False, fsm._env)
     def _on_enter(self):
         print(f"{self._fsm} entering {self.name} state at {self.env.now}") if self._env._debug else None
         self.on_enter()
@@ -31,13 +33,13 @@ class State:
     def on_exit(self):
         pass
     def start(self):
-        self._active = True
+        self._active <<= True
         self._fsm.log_state_entry(self)  # Log state entry
         self._on_enter()
         for transition in self.transitions:
             transition.start()
     def stop(self):
-        self._active = False
+        self._active <<= False
         self._fsm.log_state_exit(self)  # Log state exit
         self._on_exit()
         for transition in self.transitions:

@@ -1,14 +1,17 @@
 if __name__ == "__main__":
     import sys
     import os
-    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+    try:
+        sys.path.append("/".join(os.path.abspath(__file__).split("/")[:os.path.abspath(__file__).split("/").index("hsim")+1]))
+    except:
+        sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
 
 from typing import Any, Iterable, List, Type, Union
 import pandas as pd
 
 from hsim.core.core.msg import Message, MessageQueue
-
+from hsim.core.core.obs import ObservableCollection
 
 class FSM:
     def __init__(self, env):
@@ -24,6 +27,7 @@ class FSM:
         self.add_element(get_class_dict(self, Pseudostate))
         self.add_element(get_class_dict(self, Transition))
         self.active, self.startable, self.stoppable = False, True, True
+        self._current_state = ObservableCollection(*self._states, filter_func=lambda x: x.active)
     def start(self):
         for state in self._states:
             state.start() if state.initial_state else None
@@ -76,7 +80,7 @@ class FSM:
         return self._transitions
     @property
     def current_state(self):
-        return [state for state in self._states if state.active]
+        return self._current_state
     @property
     def states(self):
         return {state.name: state for state in self._states}

@@ -39,8 +39,7 @@ class Observable(ABC):
         """Initialize shared observable infrastructure"""
         self._expressions = set()  # Track expressions that depend on this variable
         self._env = env
-        if env is not None:
-            self._event = BaseEvent(env).add()
+        self._event = BaseEvent(env).add() if env is not None else None
 
     def add_dependency(self, expr: 'Observable'):
         """Add an expression that depends on this observable"""
@@ -53,10 +52,10 @@ class Observable(ABC):
     def add_environment(self, env: Environment):
         """Add an environment to this observable"""
         assert isinstance(env, Environment), "env must be an instance of Environment"
-        if self._env is not None:
-            raise ValueError("Observable already has an environment")
+        if self._env is not None and self._env is not env:
+            raise ValueError("Observable already has a different environment")
         self._env = env
-        self._event = BaseEvent(env).add()
+        self._event = BaseEvent(env).add() if self._event is None else self._event
     
     @property
     def watchable(self) -> bool:
@@ -199,6 +198,14 @@ class Observable(ABC):
     def proxy_attr(self, name):
         """Create a reactive proxy for attribute access.""" 
         return ObservableProxy.attr(self, name)
+    
+    def item(self, key):
+        """Create a reactive proxy for item access. More convenient than proxy_item()."""
+        return ObservableProxy(self).item(key)
+    
+    def attr(self, name):
+        """Create a reactive proxy for attribute access. More convenient than proxy_attr()."""
+        return ObservableProxy(self).attr(name)
 
 
 class ObservableVariable(Observable):
@@ -338,6 +345,12 @@ class ObservableExpression(Observable):
     def __init__(self, op: Callable, *operands: Observable):
         # Find environment from operands first
         env = None
+        operands = list(operands)  # Convert to list to allow modifications
+        for el in [idx for idx, operand in enumerate(operands) if isinstance(operand, Iterable) and not isinstance(operand, Observable) and not isinstance(operand, str)][::-1]:
+            operands.extend(operands[el])
+            operands.pop(el)
+        operands = tuple(operands)  # Convert back to tuple after modifications
+        
         for operand in operands:
             if isinstance(operand,Observable) and operand.watchable:
                 if env is None:
@@ -364,7 +377,7 @@ class ObservableExpression(Observable):
         for operand in self.operands:
             if isinstance(operand, ObservableVariable):
                 self._dependencies.add(operand)
-            elif isinstance(operand, ObservableExpression):
+            elif isinstance(operand, ObservableExpression) or isinstance(operand, ObservableProxy):
                 self._dependencies.update(operand._dependencies)
     
     def recalc(self):
@@ -396,6 +409,10 @@ class ObservableExpression(Observable):
         for operand in self.operands:
             if isinstance(operand, (Observable, ObservableExpression)):
                 values.append(operand.value)
+            elif isinstance(operand,Iterable) and len(self.operands) == 1:
+                "If there's only one operand and it's iterable, use it directly"
+                values = operand
+                break
             else:
                 values.append(operand)
         
@@ -514,6 +531,13 @@ class ObservableCollection(ObservableExpression):
         super().__init__(filter_operation, *elements)
         
         self._stored_value = hash(val for val in self.value)
+        for operand in self.operands:
+            if not isinstance(operand, Observable):
+                for value in operand.__dict__.values():
+                    if isinstance(value, Observable):
+                        self._register_observable(value)
+                        break
+            
 
     def _update_operands(self):
         """Update operands tuple and recalculate after list operations."""
@@ -677,6 +701,16 @@ class ObservableProxy(ObservableExpression):
         self.operation = operation
         super().__init__(operation, target)
     
+    def recalc(self):
+        """Recalculate the value and notify observers."""
+        old_value = self._stored_value
+        new_value = self.value
+        self._stored_value = new_value
+        
+        if old_value != new_value:
+            reset = new_value if type(old_value) == type(new_value) == bool else None
+            self.notify(reset)
+    
     @property
     def value(self) -> Any:
         """Get the current value by applying the operation to the target."""
@@ -730,6 +764,21 @@ class ObservableProxy(ObservableExpression):
         else:
             return f"proxy({self.target})"
 
+
+# Simple functions for any() and all() - no need to use ObservableExpression.any()
+def obs_any(*args) -> 'ObservableExpression':
+    """
+    Create an ObservableExpression that returns True if any of the arguments is true.
+    More convenient than ObservableExpression.any(*args).
+    """
+    return ObservableExpression.any(*args)
+
+def obs_all(*args) -> 'ObservableExpression':
+    """
+    Create an ObservableExpression that returns True if all of the arguments are true.
+    More convenient than ObservableExpression.all(*args).
+    """
+    return ObservableExpression.all(*args)
 
 Obs = obs = Observable
 ObsVar = obsvar = ObservableVariable

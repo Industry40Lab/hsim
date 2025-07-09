@@ -1,7 +1,10 @@
 if __name__ == "__main__":
     import sys
     import os
-    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+    try:
+        sys.path.append("/".join(os.path.abspath(__file__).split("/")[:os.path.abspath(__file__).split("/").index("hsim")+1]))
+    except:
+        sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
 
 from typing import Iterable, Tuple, Union
@@ -11,7 +14,7 @@ from hsim.core.agent.q import LockedQueue, PriorityQueue, Queue
 from hsim.core.fsm.states import State
 from hsim.core.fsm.FSM import FSM
 from hsim.core.core.msg import Message
-from hsim.core.core.event import ConditionEvent
+from hsim.core.core.event import ConditionedEvent
 from hsim.core.agent.agent import Agent
 
 def createQueue(env,capacity:int=1,queueType="standard"):
@@ -30,11 +33,11 @@ def createQueue(env,capacity:int=1,queueType="standard"):
     
 class DESBase(Agent):
     Next : Union[Agent,Iterable[Agent]]
-    def take(self,item) -> tuple[ConditionEvent, Message]:
+    def take(self,item) -> tuple[ConditionedEvent, Message]:
         return self.store.take(item)
-    def give(self, other:Agent, item:Agent) -> tuple[ConditionEvent, Message]:
+    def give(self, other:Agent, item:Agent) -> tuple[ConditionedEvent, Message]:
         return other.take(item)
-    def post(self, item:Agent) -> tuple[ConditionEvent, Message]:
+    def post(self, item:Agent) -> tuple[ConditionedEvent, Message]:
         return self.store.post(item)
     def on_receive(self) -> None:
         raise NotImplementedError(f"on_receive method is not implemented for {self}.")
@@ -160,10 +163,10 @@ class DESMulti(DESBase):
     @property
     def store(self):
         raise AttributeError("store is not a valid attribute for DESMulti.")
-    def take(self,item,storeIndex:int=-1) -> tuple[ConditionEvent, Message]:
+    def take(self,item,storeIndex:int=-1) -> tuple[ConditionedEvent, Message]:
         storeIndex = storeIndex if storeIndex >= 0 else self.defaultStoreIndex
         return self.stores[storeIndex].take(item)
-    def post(self, item:Agent, storeIndex:int=-1) -> tuple[ConditionEvent, Message]:
+    def post(self, item:Agent, storeIndex:int=-1) -> tuple[ConditionedEvent, Message]:
         storeIndex = storeIndex if storeIndex >= 0 else self.defaultStoreIndex
         return self.stores[storeIndex].post(item)
     def on_receive(self,storeIndex:int) -> None:
