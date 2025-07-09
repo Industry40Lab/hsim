@@ -270,6 +270,16 @@ class ObservableVariable(Observable):
     def __irshift__(self, other: Any):
         return self.__ishift__(other)
     
+    def __getattribute__(self, name: str) -> Any:
+        """Get attribute from the value if it supports attributes."""
+        try:
+            return object.__getattribute__(self, name)
+        except AttributeError as e1:
+            try:
+                return object.__getattribute__(self._value, name)
+            except AttributeError:
+                raise AttributeError(f"'{type(self._value).__name__}' object has no attribute '{name}'") from e1
+    
     def __getitem__(self, key: Any) -> Any:
         """Get item from the value if it supports indexing."""
         if hasattr(self._value, "__getitem__"):
@@ -530,7 +540,7 @@ class ObservableCollection(ObservableExpression):
         # Initialize with the filter operation and all elements as operands
         super().__init__(filter_operation, *elements)
         
-        self._stored_value = hash(val for val in self.value)
+        self._stored_value = hash(tuple(self.value))
         for operand in self.operands:
             if not isinstance(operand, Observable):
                 for value in operand.__dict__.values():
@@ -545,7 +555,7 @@ class ObservableCollection(ObservableExpression):
         self.recalc()
         
     def recalc(self):
-        old, new = self._stored_value, hash(val for val in self.value)
+        old, new = self._stored_value, hash(tuple(self.value))
         self._stored_value = new
         if old != new:
             reset = new if type(old) == type(new) == bool else None

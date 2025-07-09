@@ -106,31 +106,8 @@ class ConditionTransition(Transition):
         super().__init__(fsm,  source, target)
         self.condition = self._condition if condition is None else condition 
     def start(self):
-        self.condition = self.condition() if callable(self.condition) else self.condition
-        
-        # Fix: Ensure all observables in the condition have the environment
-        self._fix_condition_environment(self.condition, self._env)
-        
+        if callable(self.condition) or self.condition is None:
+            self.condition = self._condition() if callable(self._condition) else self._condition
         self.event = ConditionedEvent(self._env, condition=self.condition, action=self).add()
-    
-    def _fix_condition_environment(self, condition_expr, env):
-        """Recursively add environment to all observables in a condition expression."""
-        if hasattr(condition_expr, 'add_environment'):
-            try:
-                condition_expr.add_environment(env)
-            except (ValueError, AttributeError):
-                pass  # Already has environment or not applicable
-        
-        # Check for nested observables
-        if hasattr(condition_expr, 'operands'):
-            for operand in condition_expr.operands:
-                if hasattr(operand, 'add_environment') or hasattr(operand, 'operands') or hasattr(operand, 'target'):
-                    self._fix_condition_environment(operand, env)
-        
-        if hasattr(condition_expr, 'target'):
-            self._fix_condition_environment(condition_expr.target, env)
-    def verify(self) -> bool:
-        return self.event.verify()
-
         
 from .states import State

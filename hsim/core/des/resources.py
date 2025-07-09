@@ -20,6 +20,7 @@ from hsim.core.core.env import Environment
 from hsim.core.agent.agent import Agent
 from hsim.core.agent.q import Queue
 from hsim.core.des.manual import ManualStation
+from hsim.core.core.obs import ObservableVariable
 
 class UnreliableMachine(Server):
     def __init__(self, env, name=None, serviceTime=1, serviceTimeFunction=None, failure_rate=0.1, TTRfcn:Callable=lambda *args: args[0] if hasattr(args,"__len__") else args, TTRvalue:Iterable[Union[float,int]]=1):
@@ -163,7 +164,7 @@ class SUMachine(ManualStation):
 
         def onSU2W(self):
             self.connections["operator"].free()
-            self.connections["operator"] = None
+            self.connections["operator"] <<= None
         SU2W.on_transition = onSU2W
         def onW2B(self):
             try:
@@ -177,9 +178,9 @@ class SUMachine(ManualStation):
 class ManualAssembly(Assembly):
     def __init__(self,env:Environment,name=None,size=1,serviceTime=1,serviceTimeFunction=None,mainAgent:Union[int,type]=0,queueType:Union[Iterable[str],str]="standard") -> None:
         Assembly.__init__(self,env,name,size,serviceTime,serviceTimeFunction,mainAgent,queueType=queueType)
-        self.connections["operator"] = None 
+        self.connections["operator"] = ObservableVariable(None) 
     def add_operator(self,operator):
-        self.connections["operator"] = operator
+        self.connections["operator"] <<= operator
         self.receiveContent("Operator")
     def on_receive(self,i) -> None:
         if all(len(store.queue) > 0 for store in self.stores) and isinstance(self.stateMachine.current_state[0],self.FSM.Starving):
@@ -218,7 +219,7 @@ class ManualAssembly(Assembly):
             try:
                 _, msg = self.give(self.connections["next"], self._agent.var.item)
                 self.connections["operator"].free()
-                self.connections["operator"] = None
+                self.connections["operator"] <<= None
                 msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
             except AttributeError as e:
                 warn(RuntimeWarning(e))
@@ -242,7 +243,7 @@ def test1():
     
 def test2():
     env = Environment()
-    a = QualityMachine(env,serviceTime=1,quality=Quality(threshold=0.099))
+    a = QualityMachine(env,serviceTime=1,quality=Quality(threshold=0.0099))
     q = Queue(env,10)
     a.connections["next"] = q
     env.run(10)
