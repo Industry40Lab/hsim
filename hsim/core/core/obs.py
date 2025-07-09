@@ -86,12 +86,6 @@ class Observable(ABC):
     def __str__(self):
         return f"{self.value} (O)"
     
-    def __eq__(self, other):
-        if isinstance(other, Observable):
-            return self.value == other.value
-        else:
-            return self.value == other
-    
     def __hash__(self):
         return hash(id(self))
     
@@ -139,6 +133,9 @@ class Observable(ABC):
         return ObservableExpression(operator.pow, other, self)
     
     # Comparison operators
+    def __eq__(self, other):
+        return ObservableExpression(operator.eq, self, other)
+        
     def __ne__(self, other: Any):
         return ObservableExpression(operator.ne, self, other)
     
@@ -768,8 +765,8 @@ if __name__ == "__main__":
     el = ObsProxy.item(coll, 2)
     test = el + 1
     
+    t2 = test < 30
     coll.append(30)
-    
     
     
     obs.any(ev,False)
