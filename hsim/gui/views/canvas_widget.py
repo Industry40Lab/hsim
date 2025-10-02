@@ -201,7 +201,7 @@ class CanvasWidget(QGraphicsView):
         """Handle drop event (from palette)"""
         if event.mimeData().hasText():
             block_type = event.mimeData().text()
-            scene_pos = self.mapToScene(event.pos())
+            scene_pos = self.mapToScene(event.position().toPoint())
 
             self.create_block_at(block_type, scene_pos.x(), scene_pos.y())
             event.acceptProposedAction()
