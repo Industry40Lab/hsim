@@ -19,6 +19,7 @@ class BlockItemSignals(QObject):
     double_clicked = pyqtSignal(str)  # block_id
     properties_requested = pyqtSignal(object)  # block data
     deleted = pyqtSignal(str)  # block_id
+    connection_requested = pyqtSignal(str)  # block_id - start creating connection from this block
 
 
 class BlockItem(QGraphicsItemGroup):
@@ -162,20 +163,30 @@ class BlockItem(QGraphicsItemGroup):
         menu = QMenu()
 
         # Rename action
-        rename_action = menu.addAction("Rename")
+        rename_action = menu.addAction("✏️ Rename")
         rename_action.triggered.connect(self.show_rename_dialog)
 
         # Properties action
-        properties_action = menu.addAction("Properties")
+        properties_action = menu.addAction("⚙️ Properties")
         properties_action.triggered.connect(self.show_properties)
 
         menu.addSeparator()
 
+        # Create connection action
+        create_conn_action = menu.addAction("➡️ Create Connection")
+        create_conn_action.triggered.connect(self.start_connection)
+
+        menu.addSeparator()
+
         # Delete action
-        delete_action = menu.addAction("Delete")
+        delete_action = menu.addAction("🗑️ Delete")
         delete_action.triggered.connect(self.delete_block)
 
         menu.exec(event.screenPos())
+
+    def start_connection(self):
+        """Start creating a connection from this block"""
+        self.signals.connection_requested.emit(self.block.id)
 
     def show_rename_dialog(self):
         """Show rename dialog"""
