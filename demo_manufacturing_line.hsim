@@ -1,0 +1,247 @@
+{
+  "name": "Manufacturing Line Demo",
+  "version": "1.0",
+  "blocks": {
+    "e1bc2b19-b6d9-4433-89ed-cbcc520aa429": {
+      "id": "e1bc2b19-b6d9-4433-89ed-cbcc520aa429",
+      "type": "generator",
+      "name": "Raw Material Arrivals",
+      "position": {
+        "x": 100,
+        "y": 200
+      },
+      "size": {
+        "width": 120,
+        "height": 100
+      },
+      "properties": {
+        "serviceTime": 5.0,
+        "serviceTimeFunction": "exponential"
+      },
+      "fsm_id": null
+    },
+    "40d76131-5158-4712-bb3e-c96d52ee2f73": {
+      "id": "40d76131-5158-4712-bb3e-c96d52ee2f73",
+      "type": "buffer",
+      "name": "Input Queue",
+      "position": {
+        "x": 300,
+        "y": 200
+      },
+      "size": {
+        "width": 120,
+        "height": 100
+      },
+      "properties": {
+        "capacity": "10",
+        "queueType": "standard"
+      },
+      "fsm_id": null
+    },
+    "7bf6b908-ee94-486c-afdd-7f15ec27495e": {
+      "id": "7bf6b908-ee94-486c-afdd-7f15ec27495e",
+      "type": "server",
+      "name": "Processing Machine",
+      "position": {
+        "x": 500,
+        "y": 200
+      },
+      "size": {
+        "width": 120,
+        "height": 100
+      },
+      "properties": {
+        "serviceTime": 8.0,
+        "serviceTimeFunction": "normal"
+      },
+      "fsm_id": "931bdbd8-2beb-4834-aeb9-ec2f09245900"
+    },
+    "3dc9dc59-1649-468e-a057-8d3fd80b9cdc": {
+      "id": "3dc9dc59-1649-468e-a057-8d3fd80b9cdc",
+      "type": "quality_machine",
+      "name": "Quality Inspection",
+      "position": {
+        "x": 700,
+        "y": 200
+      },
+      "size": {
+        "width": 120,
+        "height": 100
+      },
+      "properties": {
+        "serviceTime": 2.0,
+        "serviceTimeFunction": "constant",
+        "quality_threshold": 0.95
+      },
+      "fsm_id": null
+    },
+    "9e303911-3cee-42c2-99aa-f205c2d98ecc": {
+      "id": "9e303911-3cee-42c2-99aa-f205c2d98ecc",
+      "type": "buffer",
+      "name": "Output Queue",
+      "position": {
+        "x": 900,
+        "y": 200
+      },
+      "size": {
+        "width": 120,
+        "height": 100
+      },
+      "properties": {
+        "capacity": "inf",
+        "queueType": "standard"
+      },
+      "fsm_id": null
+    },
+    "6567261f-3a6d-4c03-96f3-a73f43538c8f": {
+      "id": "6567261f-3a6d-4c03-96f3-a73f43538c8f",
+      "type": "terminator",
+      "name": "Finished Goods",
+      "position": {
+        "x": 1100,
+        "y": 200
+      },
+      "size": {
+        "width": 120,
+        "height": 100
+      },
+      "properties": {},
+      "fsm_id": null
+    }
+  },
+  "connections": [
+    {
+      "id": "b79e5c16-541e-4b66-a322-27b8fe10be86",
+      "from": "e1bc2b19-b6d9-4433-89ed-cbcc520aa429",
+      "to": "40d76131-5158-4712-bb3e-c96d52ee2f73",
+      "label": "",
+      "control_points": []
+    },
+    {
+      "id": "986ede8f-dca4-49a5-87b5-63e12157af89",
+      "from": "40d76131-5158-4712-bb3e-c96d52ee2f73",
+      "to": "7bf6b908-ee94-486c-afdd-7f15ec27495e",
+      "label": "",
+      "control_points": []
+    },
+    {
+      "id": "d34ab81d-288e-4d8a-b02a-b3e907448d4b",
+      "from": "7bf6b908-ee94-486c-afdd-7f15ec27495e",
+      "to": "3dc9dc59-1649-468e-a057-8d3fd80b9cdc",
+      "label": "",
+      "control_points": []
+    },
+    {
+      "id": "b218f66e-4a65-4e91-8448-4f7bdeab7e92",
+      "from": "3dc9dc59-1649-468e-a057-8d3fd80b9cdc",
+      "to": "9e303911-3cee-42c2-99aa-f205c2d98ecc",
+      "label": "pass",
+      "control_points": []
+    },
+    {
+      "id": "14594781-5d3f-4b01-b18f-13dc2bbb6157",
+      "from": "9e303911-3cee-42c2-99aa-f205c2d98ecc",
+      "to": "6567261f-3a6d-4c03-96f3-a73f43538c8f",
+      "label": "",
+      "control_points": []
+    }
+  ],
+  "fsms": {
+    "931bdbd8-2beb-4834-aeb9-ec2f09245900": {
+      "id": "931bdbd8-2beb-4834-aeb9-ec2f09245900",
+      "name": "Processing Machine FSM",
+      "owner_block_id": "7bf6b908-ee94-486c-afdd-7f15ec27495e",
+      "states": {
+        "4d2cab8b-599d-458b-82ec-a1fbcd2f7ccc": {
+          "id": "4d2cab8b-599d-458b-82ec-a1fbcd2f7ccc",
+          "name": "Starving",
+          "position": {
+            "x": 100,
+            "y": 100
+          },
+          "size": {
+            "width": 120,
+            "height": 60
+          },
+          "is_initial": true,
+          "is_final": false,
+          "parent_state_id": null,
+          "on_enter": "",
+          "on_exit": "",
+          "color": "#EF4444"
+        },
+        "dc128aa0-6c1d-447b-8e53-d555c2ab3195": {
+          "id": "dc128aa0-6c1d-447b-8e53-d555c2ab3195",
+          "name": "Working",
+          "position": {
+            "x": 300,
+            "y": 100
+          },
+          "size": {
+            "width": 120,
+            "height": 60
+          },
+          "is_initial": false,
+          "is_final": false,
+          "parent_state_id": null,
+          "on_enter": "",
+          "on_exit": "",
+          "color": "#10B981"
+        },
+        "77513a99-8b95-43f3-a51f-4faad0744a75": {
+          "id": "77513a99-8b95-43f3-a51f-4faad0744a75",
+          "name": "Blocking",
+          "position": {
+            "x": 500,
+            "y": 100
+          },
+          "size": {
+            "width": 120,
+            "height": 60
+          },
+          "is_initial": false,
+          "is_final": false,
+          "parent_state_id": null,
+          "on_enter": "",
+          "on_exit": "",
+          "color": "#F59E0B"
+        }
+      },
+      "transitions": [
+        {
+          "id": "db9cf0dc-27ff-48d7-8492-2c173b632bb5",
+          "from": "4d2cab8b-599d-458b-82ec-a1fbcd2f7ccc",
+          "to": "dc128aa0-6c1d-447b-8e53-d555c2ab3195",
+          "label": "part_arrives",
+          "type": "message",
+          "timeout": null,
+          "condition": "",
+          "on_transition": "",
+          "control_points": []
+        },
+        {
+          "id": "8a97e626-6ded-42b2-9797-0139c372cec5",
+          "from": "dc128aa0-6c1d-447b-8e53-d555c2ab3195",
+          "to": "77513a99-8b95-43f3-a51f-4faad0744a75",
+          "label": "processing_done",
+          "type": "timeout",
+          "timeout": null,
+          "condition": "",
+          "on_transition": "",
+          "control_points": []
+        },
+        {
+          "id": "3b3645fd-ac11-46d9-904a-7d62bd013f26",
+          "from": "77513a99-8b95-43f3-a51f-4faad0744a75",
+          "to": "4d2cab8b-599d-458b-82ec-a1fbcd2f7ccc",
+          "label": "part_forwarded",
+          "type": "event",
+          "timeout": null,
+          "condition": "",
+          "on_transition": "",
+          "control_points": []
+        }
+      ]
+    }
+  }
+}
