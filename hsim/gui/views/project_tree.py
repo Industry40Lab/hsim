@@ -90,16 +90,23 @@ class ProjectTree(QWidget):
 
         # Process Flow Agents
         process_category = QTreeWidgetItem(builtin_agents, ["📊 Process Flow"])
-        self._add_agent_type(process_category, "Generator", "⚙️", "Generates entities")
-        self._add_agent_type(process_category, "Buffer", "📦", "Stores entities")
-        self._add_agent_type(process_category, "Server", "🔧", "Processes entities")
-        self._add_agent_type(process_category, "Terminator", "🗑️", "Destroys entities")
+        self._add_agent_type(process_category, "generator", "⚙️", "Generates entities", display_name="Generator")
+        self._add_agent_type(process_category, "buffer", "📦", "Stores entities", display_name="Buffer")
+        self._add_agent_type(process_category, "server", "🔧", "Processes entities", display_name="Server")
+        self._add_agent_type(process_category, "store", "📥", "Storage location", display_name="Store")
+        self._add_agent_type(process_category, "terminator", "🗑️", "Destroys entities", display_name="Terminator")
 
         # Resource Agents
         resource_category = QTreeWidgetItem(builtin_agents, ["🔧 Resources"])
-        self._add_agent_type(resource_category, "UnreliableMachine", "⚠️", "Machine with failures")
-        self._add_agent_type(resource_category, "QualityMachine", "✓", "Quality control")
-        self._add_agent_type(resource_category, "SUMachine", "🔄", "Setup/operation")
+        self._add_agent_type(resource_category, "unreliable_machine", "⚠️", "Machine with failures", display_name="UnreliableMachine")
+        self._add_agent_type(resource_category, "quality_machine", "✓", "Quality control", display_name="QualityMachine")
+        self._add_agent_type(resource_category, "su_machine", "🔄", "Setup/operation", display_name="SUMachine")
+        self._add_agent_type(resource_category, "manual_station", "👷", "Manual workstation", display_name="ManualStation")
+
+        # Advanced Agents
+        advanced_category = QTreeWidgetItem(builtin_agents, ["🔀 Advanced"])
+        self._add_agent_type(advanced_category, "assembly", "🔗", "Assembly operation", display_name="Assembly")
+        self._add_agent_type(advanced_category, "agent", "🤖", "Generic agent", display_name="Agent")
 
         # Custom agents category
         self.custom_agents_node = QTreeWidgetItem(self.agents_node, ["⭐ Custom"])
@@ -112,12 +119,14 @@ class ProjectTree(QWidget):
         # Expand all
         self.tree.expandAll()
 
-    def _add_agent_type(self, parent, name, icon, description):
+    def _add_agent_type(self, parent, name, icon, description, display_name=None):
         """Add an agent type to the tree"""
-        item = QTreeWidgetItem(parent, [f"{icon} {name}"])
+        # Use display_name for UI, name for enum value
+        label = display_name if display_name else name
+        item = QTreeWidgetItem(parent, [f"{icon} {label}"])
         item.setData(0, Qt.ItemDataRole.UserRole, {
             'type': 'agent_type',
-            'name': name,
+            'name': name,  # This is the enum value (e.g., "generator")
             'description': description
         })
         item.setToolTip(0, description)
