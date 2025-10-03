@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from hsim.gui.models.block_definitions import get_block_definition, BlockType, PropertyType
+from hsim.gui.models.model import SimulationModel
 
 
 class PropertiesPanel(QWidget):
@@ -19,6 +20,7 @@ class PropertiesPanel(QWidget):
         super().__init__(parent)
         self.current_item = None
         self.property_widgets = {}
+        self.model = None  # Will be set by main window
         self.setup_ui()
 
     def setup_ui(self):
@@ -26,13 +28,60 @@ class PropertiesPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
+        # Set panel background
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #F9FAFB;
+            }
+            QGroupBox {
+                background-color: white;
+                border: 1px solid #E5E7EB;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding-top: 15px;
+                font-weight: 600;
+                font-size: 13px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+                color: #374151;
+            }
+            QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+                padding: 6px;
+                border: 1px solid #D1D5DB;
+                border-radius: 4px;
+                background-color: white;
+                min-height: 24px;
+            }
+            QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
+                border: 2px solid #3B82F6;
+            }
+            QTextEdit {
+                padding: 6px;
+                border: 1px solid #D1D5DB;
+                border-radius: 4px;
+                background-color: white;
+                font-family: 'Courier New', monospace;
+                font-size: 11px;
+            }
+            QTextEdit:focus {
+                border: 2px solid #3B82F6;
+            }
+            QLabel {
+                color: #6B7280;
+                font-size: 12px;
+            }
+        """)
+
         # Title
         title = QLabel("Properties")
         title.setStyleSheet("""
             QLabel {
                 background-color: #1F2937;
                 color: white;
-                padding: 10px;
+                padding: 12px;
                 font-size: 14px;
                 font-weight: bold;
             }
@@ -44,15 +93,23 @@ class PropertiesPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: #F9FAFB; }")
 
         # Container for property widgets
         self.properties_container = QWidget()
         self.properties_layout = QVBoxLayout(self.properties_container)
-        self.properties_layout.setContentsMargins(10, 10, 10, 10)
+        self.properties_layout.setContentsMargins(12, 12, 12, 12)
+        self.properties_layout.setSpacing(8)
 
         # Empty state label
         self.empty_label = QLabel("Select an item to view properties")
-        self.empty_label.setStyleSheet("color: #9CA3AF; padding: 20px;")
+        self.empty_label.setStyleSheet("""
+            QLabel {
+                color: #9CA3AF;
+                padding: 40px 20px;
+                font-size: 13px;
+            }
+        """)
         self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.properties_layout.addWidget(self.empty_label)
 
@@ -86,6 +143,7 @@ class PropertiesPanel(QWidget):
         # Block info group
         info_group = QGroupBox("Block Information")
         info_layout = QFormLayout(info_group)
+        info_layout.setSpacing(10)
 
         # Name
         name_edit = QLineEdit(block.name)
@@ -94,16 +152,23 @@ class PropertiesPanel(QWidget):
         self.property_widgets['name'] = name_edit
 
         # Type
-        type_label = QLabel(block.type)
+        type_label = QLabel(block.type.replace('_', ' ').title())
+        type_label.setStyleSheet("QLabel { color: #1F2937; font-weight: 500; }")
         info_layout.addRow("Type:", type_label)
+
+        # ID (read-only)
+        id_label = QLabel(block.id[:8] + "...")
+        id_label.setStyleSheet("QLabel { color: #9CA3AF; font-family: monospace; font-size: 10px; }")
+        info_layout.addRow("ID:", id_label)
 
         self.properties_layout.addWidget(info_group)
 
         # Block properties group
         block_def = get_block_definition(BlockType(block.type))
         if block_def and block_def.properties:
-            props_group = QGroupBox("Properties")
+            props_group = QGroupBox("Block Properties")
             props_layout = QFormLayout(props_group)
+            props_layout.setSpacing(10)
 
             for prop_def in block_def.properties:
                 widget = self.create_property_widget(prop_def, block)
@@ -111,6 +176,46 @@ class PropertiesPanel(QWidget):
                 self.property_widgets[prop_def.name] = widget
 
             self.properties_layout.addWidget(props_group)
+
+        # Connections group
+        if self.model:
+            conn_group = QGroupBox("Connections")
+            conn_layout = QVBoxLayout(conn_group)
+
+            # Get connections from and to this block
+            conns_from = self.model.get_connections_from(block.id)
+            conns_to = self.model.get_connections_to(block.id)
+
+            if conns_from:
+                from_label = QLabel("<b>Outgoing:</b>")
+                from_label.setStyleSheet("QLabel { color: #374151; padding: 3px; }")
+                conn_layout.addWidget(from_label)
+
+                for conn in conns_from:
+                    to_block = self.model.get_block_by_id(conn.to_block)
+                    if to_block:
+                        conn_item = QLabel(f"  → {to_block.name}")
+                        conn_item.setStyleSheet("QLabel { color: #10B981; padding: 2px 5px; }")
+                        conn_layout.addWidget(conn_item)
+
+            if conns_to:
+                to_label = QLabel("<b>Incoming:</b>")
+                to_label.setStyleSheet("QLabel { color: #374151; padding: 3px; }")
+                conn_layout.addWidget(to_label)
+
+                for conn in conns_to:
+                    from_block = self.model.get_block_by_id(conn.from_block)
+                    if from_block:
+                        conn_item = QLabel(f"  ← {from_block.name}")
+                        conn_item.setStyleSheet("QLabel { color: #3B82F6; padding: 2px 5px; }")
+                        conn_layout.addWidget(conn_item)
+
+            if not conns_from and not conns_to:
+                no_conn_label = QLabel("No connections")
+                no_conn_label.setStyleSheet("QLabel { color: #9CA3AF; padding: 5px; font-style: italic; }")
+                conn_layout.addWidget(no_conn_label)
+
+            self.properties_layout.addWidget(conn_group)
 
         self.properties_layout.addStretch()
 

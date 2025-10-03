@@ -74,6 +74,7 @@ BLOCK_DEFINITIONS = {
         icon="⚡",
         python_class="Generator",
         python_module="hsim.core.des.pymulate",
+        has_fsm=True,  # All agents have FSMs
         properties=[
             PropertyDefinition(
                 name="serviceTime",
@@ -104,6 +105,7 @@ BLOCK_DEFINITIONS = {
         icon="📦",
         python_class="Buffer",
         python_module="hsim.core.des.pymulate",
+        has_fsm=True,  # All agents have FSMs
         properties=[
             PropertyDefinition(
                 name="capacity",
@@ -164,6 +166,7 @@ BLOCK_DEFINITIONS = {
         icon="📫",
         python_class="Store",
         python_module="hsim.core.des.pymulate",
+        has_fsm=True,  # All agents have FSMs
         properties=[
             PropertyDefinition(
                 name="capacity",
@@ -185,6 +188,7 @@ BLOCK_DEFINITIONS = {
         icon="🛑",
         python_class="Terminator",
         python_module="hsim.core.des.pymulate",
+        has_fsm=True,  # All agents have FSMs
         properties=[]
     ),
 

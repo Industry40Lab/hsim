@@ -54,6 +54,9 @@ class CanvasWidget(QGraphicsView):
         self.setAcceptDrops(True)
         self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
 
+        # Connect scene selection changed signal
+        self.scene.selectionChanged.connect(self.on_selection_changed)
+
     def load_model(self):
         """Load model into canvas"""
         # Clear existing items
@@ -82,6 +85,7 @@ class CanvasWidget(QGraphicsView):
         item.signals.double_clicked.connect(self.on_block_double_clicked)
         item.signals.properties_requested.connect(self.on_block_properties_requested)
         item.signals.deleted.connect(self.on_block_deleted)
+        item.signals.connection_requested.connect(self.start_connection_mode)
 
         self.scene.addItem(item)
         self.block_items[block.id] = item
@@ -140,23 +144,114 @@ class CanvasWidget(QGraphicsView):
         # Remove from model
         self.model.remove_connection(connection_id)
 
+    def on_selection_changed(self):
+        """Handle scene selection changes"""
+        selected_items = self.scene.selectedItems()
+
+        # Find first selected block
+        for item in selected_items:
+            # Check if item is BlockItem or has BlockItem parent
+            if isinstance(item, BlockItem):
+                self.selection_changed.emit(item.block)
+                return
+            elif hasattr(item, 'parentItem') and isinstance(item.parentItem(), BlockItem):
+                self.selection_changed.emit(item.parentItem().block)
+                return
+
+        # No block selected, clear properties
+        self.selection_changed.emit(None)
+
     def set_create_mode(self, block_type: str):
         """Set mode to create a block on next click"""
         self.create_mode = block_type
         self.setCursor(Qt.CursorShape.CrossCursor)
 
+    def start_connection_mode(self, from_block_id: str):
+        """Start connection creation mode"""
+        self.connection_mode = True
+        self.connection_from = from_block_id
+        self.setCursor(Qt.CursorShape.CrossCursor)
+
+        # Show status message
+        from_block = self.model.get_block_by_id(from_block_id)
+        if from_block:
+            self.parent().statusBar().showMessage(
+                f"Creating connection from '{from_block.name}' - Click target block"
+            )
+
+    def complete_connection(self, to_block_id: str):
+        """Complete connection creation"""
+        if not self.connection_from or to_block_id == self.connection_from:
+            self.cancel_connection_mode()
+            return
+
+        # Create connection in model
+        conn = Connection(
+            id=str(uuid.uuid4()),
+            from_block=self.connection_from,
+            to_block=to_block_id,
+            label="next"
+        )
+        self.model.add_connection(conn)
+
+        # Create visual connection item
+        self.add_connection_item(conn)
+
+        # Exit connection mode
+        self.cancel_connection_mode()
+
+        # Show status
+        from_block = self.model.get_block_by_id(self.connection_from)
+        to_block = self.model.get_block_by_id(to_block_id)
+        if from_block and to_block:
+            self.parent().statusBar().showMessage(
+                f"Connected '{from_block.name}' → '{to_block.name}'"
+            )
+
+    def cancel_connection_mode(self):
+        """Cancel connection creation mode"""
+        self.connection_mode = False
+        self.connection_from = None
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        if self.parent():
+            self.parent().statusBar().showMessage("Ready")
+
     def mousePressEvent(self, event):
         """Handle mouse press"""
-        if event.button() == Qt.MouseButton.LeftButton and self.create_mode:
-            # Create new block at click position
-            scene_pos = self.mapToScene(event.pos())
-            self.create_block_at(self.create_mode, scene_pos.x(), scene_pos.y())
+        if event.button() == Qt.MouseButton.LeftButton:
+            if self.create_mode:
+                # Create new block at click position
+                scene_pos = self.mapToScene(event.pos())
+                self.create_block_at(self.create_mode, scene_pos.x(), scene_pos.y())
 
-            # Exit create mode
-            self.create_mode = None
-            self.setCursor(Qt.CursorShape.ArrowCursor)
-        else:
-            super().mousePressEvent(event)
+                # Exit create mode
+                self.create_mode = None
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+                return
+
+            elif self.connection_mode:
+                # Check if clicked on a block
+                item = self.itemAt(event.pos())
+                if item:
+                    # Find the BlockItem (might be a child item)
+                    block_item = item
+                    while block_item and not isinstance(block_item, BlockItem):
+                        block_item = block_item.parentItem()
+
+                    if block_item and isinstance(block_item, BlockItem):
+                        self.complete_connection(block_item.block.id)
+                        return
+
+                # Clicked on empty space - cancel connection
+                self.cancel_connection_mode()
+                return
+
+        elif event.button() == Qt.MouseButton.RightButton and self.connection_mode:
+            # Right-click cancels connection mode
+            self.cancel_connection_mode()
+            return
+
+        super().mousePressEvent(event)
 
     def create_block_at(self, block_type: str, x: float, y: float):
         """Create a new block at the specified position"""
@@ -172,13 +267,28 @@ class CanvasWidget(QGraphicsView):
             properties={prop.name: prop.default for prop in block_def.properties}
         )
 
-        # If block has FSM, create one
+        # All blocks are agents and have FSMs
         if block_def.has_fsm:
+            from hsim.gui.models.model import State as FSMState
             fsm = FSM(
                 id=str(uuid.uuid4()),
                 name=f"{block.name} FSM",
                 owner_block_id=block.id
             )
+
+            # Create default Empty initial state (matching core implementation)
+            empty_state = FSMState(
+                id=str(uuid.uuid4()),
+                name="Empty",
+                position=Position(50, 50),
+                size=Size(120, 60),
+                is_initial=True,
+                on_enter="",
+                on_exit="",
+                color="#3B82F6"
+            )
+            fsm.add_state(empty_state)
+
             block.fsm_id = fsm.id
             self.model.add_fsm(fsm)
 

@@ -63,6 +63,7 @@ class MainWindow(QMainWindow):
 
         # Right panel - Properties Panel
         self.properties_panel = PropertiesPanel(self)
+        self.properties_panel.model = self.model  # Set model reference
         self.properties_panel.setMinimumWidth(250)
         self.properties_panel.setMaximumWidth(400)
 
