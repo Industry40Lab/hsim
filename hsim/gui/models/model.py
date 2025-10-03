@@ -246,7 +246,7 @@ class SimulationModel:
     name: str = "New Model"
     version: str = "1.0"
     blocks: Dict[str, Block] = field(default_factory=dict)
-    connections: List[Connection] = field(default_factory=list)
+    connections: Dict[str, Connection] = field(default_factory=dict)
     fsms: Dict[str, FSM] = field(default_factory=dict)
 
     def add_block(self, block: Block):
@@ -260,8 +260,10 @@ class SimulationModel:
             del self.blocks[block_id]
 
             # Remove connections
-            self.connections = [c for c in self.connections
-                              if c.from_block != block_id and c.to_block != block_id]
+            to_remove = [cid for cid, c in self.connections.items()
+                        if c.from_block == block_id or c.to_block == block_id]
+            for cid in to_remove:
+                del self.connections[cid]
 
             # Remove associated FSM
             if block.fsm_id and block.fsm_id in self.fsms:
@@ -269,11 +271,12 @@ class SimulationModel:
 
     def add_connection(self, connection: Connection):
         """Add a connection"""
-        self.connections.append(connection)
+        self.connections[connection.id] = connection
 
     def remove_connection(self, connection_id: str):
         """Remove a connection"""
-        self.connections = [c for c in self.connections if c.id != connection_id]
+        if connection_id in self.connections:
+            del self.connections[connection_id]
 
     def add_fsm(self, fsm: FSM):
         """Add an FSM"""
@@ -283,13 +286,17 @@ class SimulationModel:
         """Get block by ID"""
         return self.blocks.get(block_id)
 
+    def get_fsm_by_id(self, fsm_id: str) -> Optional[FSM]:
+        """Get FSM by ID"""
+        return self.fsms.get(fsm_id)
+
     def get_connections_from(self, block_id: str) -> List[Connection]:
         """Get all connections from a block"""
-        return [c for c in self.connections if c.from_block == block_id]
+        return [c for c in self.connections.values() if c.from_block == block_id]
 
     def get_connections_to(self, block_id: str) -> List[Connection]:
         """Get all connections to a block"""
-        return [c for c in self.connections if c.to_block == block_id]
+        return [c for c in self.connections.values() if c.to_block == block_id]
 
     def to_dict(self) -> dict:
         """Serialize to dictionary"""
@@ -297,7 +304,7 @@ class SimulationModel:
             'name': self.name,
             'version': self.version,
             'blocks': {bid: block.to_dict() for bid, block in self.blocks.items()},
-            'connections': [c.to_dict() for c in self.connections],
+            'connections': {cid: c.to_dict() for cid, c in self.connections.items()},
             'fsms': {fid: fsm.to_dict() for fid, fsm in self.fsms.items()}
         }
 
@@ -310,8 +317,15 @@ class SimulationModel:
         )
         model.blocks = {bid: Block.from_dict(bdata)
                        for bid, bdata in data.get('blocks', {}).items()}
-        model.connections = [Connection.from_dict(cdata)
-                           for cdata in data.get('connections', [])]
+        # Handle both old list format and new dict format for connections
+        connections_data = data.get('connections', {})
+        if isinstance(connections_data, list):
+            # Old format - convert to dict
+            model.connections = {c['id']: Connection.from_dict(c) for c in connections_data}
+        else:
+            # New dict format
+            model.connections = {cid: Connection.from_dict(cdata)
+                               for cid, cdata in connections_data.items()}
         model.fsms = {fid: FSM.from_dict(fdata)
                      for fid, fdata in data.get('fsms', {}).items()}
         return model
