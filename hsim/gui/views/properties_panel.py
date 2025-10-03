@@ -1,22 +1,29 @@
 """
-Code-focused Properties Panel - Simple code editor approach
+Enhanced Properties Panel - Live form-based property editor
+Displays properties as form fields with live updates
 """
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QTextEdit,
-    QPushButton, QScrollArea, QFrame, QTabWidget
+    QPushButton, QScrollArea, QFrame, QSpinBox, QDoubleSpinBox,
+    QComboBox, QCheckBox, QGroupBox
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
+
+from hsim.gui.models.block_definitions import get_block_definition, BlockType, PropertyType
 
 
 class PropertiesPanel(QWidget):
-    """Code-focused properties panel for editing agents"""
+    """Form-based properties panel for editing agents"""
+
+    edit_fsm_clicked = pyqtSignal(str)  # Emits block ID
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.current_item = None
+        self.current_block = None
         self.model = None
+        self.property_widgets = {}  # property_name -> widget
 
         self.setup_ui()
 
@@ -35,7 +42,7 @@ class PropertiesPanel(QWidget):
                 color: #D4D4D4;
                 font-size: 12px;
             }
-            QLineEdit {
+            QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
                 background-color: #2D2D2D;
                 border: 1px solid #3E3E3E;
                 border-radius: 3px;
@@ -43,57 +50,61 @@ class PropertiesPanel(QWidget):
                 color: #D4D4D4;
                 font-size: 12px;
             }
-            QLineEdit:focus {
+            QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
                 border: 1px solid #007ACC;
             }
-            QTextEdit {
-                background-color: #1E1E1E;
+            QComboBox::drop-down {
+                border: none;
+                padding-right: 4px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 5px solid #D4D4D4;
+                margin-right: 5px;
+            }
+            QGroupBox {
                 border: 1px solid #3E3E3E;
-                border-radius: 3px;
-                padding: 8px;
-                color: #D4D4D4;
-                font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-                font-size: 11px;
-                line-height: 1.5;
-            }
-            QTextEdit:focus {
-                border: 1px solid #007ACC;
-            }
-            QTabWidget::pane {
-                border: 1px solid #3E3E3E;
-                background-color: #1E1E1E;
-            }
-            QTabBar::tab {
-                background-color: #2D2D2D;
-                color: #D4D4D4;
-                padding: 8px 16px;
-                border: 1px solid #3E3E3E;
-                border-bottom: none;
-                border-top-left-radius: 4px;
-                border-top-right-radius: 4px;
-                margin-right: 2px;
-            }
-            QTabBar::tab:selected {
-                background-color: #1E1E1E;
+                border-radius: 4px;
+                margin-top: 8px;
+                padding-top: 16px;
+                font-weight: bold;
                 color: #FFFFFF;
-                border-bottom: 2px solid #007ACC;
             }
-            QTabBar::tab:hover {
-                background-color: #3E3E3E;
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 8px;
+                padding: 0 4px;
             }
             QPushButton {
                 background-color: #0E639C;
                 color: white;
                 border: none;
                 border-radius: 3px;
-                padding: 6px 12px;
+                padding: 8px 12px;
                 font-size: 12px;
+                font-weight: bold;
             }
             QPushButton:hover {
                 background-color: #1177BB;
             }
             QPushButton:pressed {
                 background-color: #005A9E;
+            }
+            QCheckBox {
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+                border: 1px solid #3E3E3E;
+                border-radius: 3px;
+                background-color: #2D2D2D;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #007ACC;
+                border-color: #007ACC;
             }
         """)
 
@@ -110,7 +121,12 @@ class PropertiesPanel(QWidget):
 
         layout.addWidget(title_bar)
 
-        # Content area
+        # Scroll area for content
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: #1E1E1E; }")
+
         self.content_widget = QWidget()
         self.content_layout = QVBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(12, 12, 12, 12)
@@ -122,19 +138,28 @@ class PropertiesPanel(QWidget):
         self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.content_layout.addWidget(self.empty_label)
 
-        layout.addWidget(self.content_widget)
+        scroll.setWidget(self.content_widget)
+        layout.addWidget(scroll)
 
     def clear_properties(self):
         """Clear all property widgets"""
-        # Clear layout
         while self.content_layout.count():
             item = self.content_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+        self.property_widgets.clear()
 
     def show_block_properties(self, block):
-        """Show properties for a block - code-focused approach"""
-        self.current_item = block
+        """Show properties for a block with live form fields"""
+        # Handle both Block objects and block IDs
+        if isinstance(block, str):
+            # It's a block ID, get the block from model
+            if self.model:
+                block = self.model.get_block_by_id(block)
+            else:
+                return
+
+        self.current_block = block
         self.clear_properties()
 
         if block is None:
@@ -144,17 +169,19 @@ class PropertiesPanel(QWidget):
             self.content_layout.addWidget(self.empty_label)
             return
 
+        # Block header
+        header = QLabel(f"{block.type.replace('_', ' ').title()}")
+        header.setStyleSheet("font-size: 14px; font-weight: bold; color: #FFFFFF; padding-bottom: 4px;")
+        self.content_layout.addWidget(header)
+
         # Name field
         name_label = QLabel("Name:")
+        name_label.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        self.content_layout.addWidget(name_label)
+
         name_edit = QLineEdit(block.name)
         name_edit.textChanged.connect(lambda text: setattr(block, 'name', text))
-        self.content_layout.addWidget(name_label)
         self.content_layout.addWidget(name_edit)
-
-        # Type info
-        type_label = QLabel(f"Type: {block.type.replace('_', ' ').title()}")
-        type_label.setStyleSheet("color: #808080; font-size: 11px; padding: 4px 0;")
-        self.content_layout.addWidget(type_label)
 
         # Separator
         sep = QFrame()
@@ -162,104 +189,165 @@ class PropertiesPanel(QWidget):
         sep.setStyleSheet("background-color: #3E3E3E; margin: 8px 0;")
         self.content_layout.addWidget(sep)
 
-        # Tabs for different code sections
-        tabs = QTabWidget()
+        # Get block definition
+        try:
+            block_def = get_block_definition(BlockType(block.type))
+        except (ValueError, KeyError):
+            # Unknown block type
+            error_label = QLabel(f"Unknown block type: {block.type}")
+            error_label.setStyleSheet("color: #FF6B6B;")
+            self.content_layout.addWidget(error_label)
+            self.content_layout.addStretch()
+            return
 
-        # Properties code tab
-        props_tab = QTextEdit()
-        props_tab.setPlaceholderText("# Block properties as Python code\n# Example:\nserviceTime = 2.0\ncapacity = 10")
+        # Parameters group
+        if block_def.properties:
+            params_group = QGroupBox("⚙️ Parameters")
+            params_layout = QVBoxLayout(params_group)
+            params_layout.setSpacing(10)
 
-        # Convert current properties to code
-        props_code = self._properties_to_code(block.properties)
-        props_tab.setPlainText(props_code)
-        props_tab.textChanged.connect(lambda: self._update_properties_from_code(block, props_tab.toPlainText()))
+            for prop_def in block_def.properties:
+                # Property label
+                prop_label = QLabel(f"{prop_def.label}:")
+                params_layout.addWidget(prop_label)
 
-        tabs.addTab(props_tab, "Properties")
+                # Property input widget (based on type)
+                widget = self._create_property_widget(block, prop_def)
+                if widget:
+                    params_layout.addWidget(widget)
+                    self.property_widgets[prop_def.name] = widget
 
-        # Connections tab
+            self.content_layout.addWidget(params_group)
+
+        # Statechart group (if block has FSM)
+        if block_def.has_fsm:
+            fsm_group = QGroupBox("🔄 Statechart")
+            fsm_layout = QVBoxLayout(fsm_group)
+
+            # Get FSM info
+            fsm = None
+            if self.model and block.fsm_id:
+                fsm = self.model.get_fsm_by_id(block.fsm_id)
+
+            if fsm:
+                state_count = len(fsm.states)
+                initial_count = sum(1 for s in fsm.states.values() if s.is_initial)
+                fsm_info = QLabel(f"States: {state_count} ({initial_count} initial)")
+                fsm_info.setStyleSheet("color: #A0A0A0; font-size: 11px;")
+                fsm_layout.addWidget(fsm_info)
+            else:
+                fsm_info = QLabel("No FSM defined")
+                fsm_info.setStyleSheet("color: #808080; font-size: 11px;")
+                fsm_layout.addWidget(fsm_info)
+
+            # Edit statechart button
+            edit_btn = QPushButton("Edit Statechart")
+            edit_btn.clicked.connect(lambda: self.edit_fsm_clicked.emit(block.id))
+            fsm_layout.addWidget(edit_btn)
+
+            self.content_layout.addWidget(fsm_group)
+
+        # Connections group
         if self.model:
-            conn_tab = QTextEdit()
-            conn_tab.setReadOnly(True)
-            conn_code = self._connections_to_code(block)
-            conn_tab.setPlainText(conn_code)
+            connections = [c for c in self.model.connections.values() if c.from_block == block.id]
+            if connections:
+                conn_group = QGroupBox("🔗 Connections")
+                conn_layout = QVBoxLayout(conn_group)
 
-            tabs.addTab(conn_tab, "Connections")
+                for conn in connections:
+                    to_block = self.model.get_block_by_id(conn.to_block)
+                    if to_block:
+                        conn_label = QLabel(f"→ {to_block.name} ({conn.from_port} → {conn.to_port})")
+                        conn_label.setStyleSheet("color: #A0A0A0; font-size: 11px; padding: 2px 0;")
+                        conn_layout.addWidget(conn_label)
 
-        self.content_layout.addWidget(tabs)
+                self.content_layout.addWidget(conn_group)
+
         self.content_layout.addStretch()
 
-    def _properties_to_code(self, properties: dict) -> str:
-        """Convert properties dict to Python code"""
-        lines = []
-        lines.append("# Block properties")
-        lines.append("# Edit these values as Python expressions")
-        lines.append("")
+    def _create_property_widget(self, block, prop_def):
+        """Create appropriate widget for property type"""
+        current_value = block.properties.get(prop_def.name, prop_def.default)
 
-        if not properties:
-            lines.append("# No properties defined")
-            return "\n".join(lines)
+        if prop_def.type == PropertyType.FLOAT:
+            widget = QDoubleSpinBox()
+            widget.setRange(
+                prop_def.min_value if prop_def.min_value is not None else -99999.0,
+                prop_def.max_value if prop_def.max_value is not None else 99999.0
+            )
+            widget.setValue(float(current_value) if current_value else prop_def.default)
+            widget.setSingleStep(0.1)
+            widget.setDecimals(2)
+            widget.valueChanged.connect(
+                lambda val, name=prop_def.name: self._update_property(block, name, val)
+            )
+            widget.setToolTip(prop_def.description)
+            return widget
 
-        for key, value in properties.items():
-            if isinstance(value, str):
-                lines.append(f"{key} = '{value}'")
-            else:
-                lines.append(f"{key} = {value}")
+        elif prop_def.type == PropertyType.INT:
+            widget = QSpinBox()
+            widget.setRange(
+                int(prop_def.min_value) if prop_def.min_value is not None else -99999,
+                int(prop_def.max_value) if prop_def.max_value is not None else 99999
+            )
+            widget.setValue(int(current_value) if current_value else prop_def.default)
+            widget.valueChanged.connect(
+                lambda val, name=prop_def.name: self._update_property(block, name, val)
+            )
+            widget.setToolTip(prop_def.description)
+            return widget
 
-        return "\n".join(lines)
+        elif prop_def.type == PropertyType.STRING:
+            widget = QLineEdit(str(current_value) if current_value else prop_def.default)
+            widget.textChanged.connect(
+                lambda text, name=prop_def.name: self._update_property(block, name, text)
+            )
+            widget.setToolTip(prop_def.description)
+            return widget
 
-    def _update_properties_from_code(self, block, code: str):
-        """Parse code back into properties dict"""
-        # Simple parser - execute code in safe namespace
-        try:
-            namespace = {}
-            # Filter out comments and empty lines
-            exec_lines = [line for line in code.split('\n') if line.strip() and not line.strip().startswith('#')]
-            if exec_lines:
-                exec('\n'.join(exec_lines), {}, namespace)
-                # Update block properties
-                block.properties.update(namespace)
-        except:
-            pass  # Ignore syntax errors during typing
+        elif prop_def.type == PropertyType.CHOICE:
+            widget = QComboBox()
+            if prop_def.choices:
+                widget.addItems(prop_def.choices)
+                # Set current value
+                current_str = str(current_value) if current_value else prop_def.default
+                index = widget.findText(current_str)
+                if index >= 0:
+                    widget.setCurrentIndex(index)
+            widget.currentTextChanged.connect(
+                lambda text, name=prop_def.name: self._update_property(block, name, text)
+            )
+            widget.setToolTip(prop_def.description)
+            return widget
 
-    def _connections_to_code(self, block) -> str:
-        """Show connections as code"""
-        lines = []
-        lines.append(f"# Connections for {block.name}")
-        lines.append("")
+        elif prop_def.type == PropertyType.BOOL:
+            widget = QCheckBox()
+            widget.setChecked(bool(current_value) if current_value is not None else prop_def.default)
+            widget.stateChanged.connect(
+                lambda state, name=prop_def.name: self._update_property(block, name, state == Qt.CheckState.Checked.value)
+            )
+            widget.setToolTip(prop_def.description)
+            return widget
 
-        conns_from = self.model.get_connections_from(block.id)
-        conns_to = self.model.get_connections_to(block.id)
+        elif prop_def.type == PropertyType.CODE:
+            widget = QTextEdit()
+            widget.setPlainText(str(current_value) if current_value else prop_def.default)
+            widget.setMaximumHeight(100)
+            widget.textChanged.connect(
+                lambda name=prop_def.name, w=widget: self._update_property(block, name, w.toPlainText())
+            )
+            widget.setToolTip(prop_def.description)
+            widget.setStyleSheet("""
+                QTextEdit {
+                    font-family: 'Consolas', 'Monaco', monospace;
+                    font-size: 11px;
+                }
+            """)
+            return widget
 
-        if conns_from:
-            lines.append("# Outgoing:")
-            for conn in conns_from:
-                to_block = self.model.get_block_by_id(conn.to_block)
-                if to_block:
-                    safe_name = block.name.replace(' ', '_').lower()
-                    safe_to = to_block.name.replace(' ', '_').lower()
-                    lines.append(f"{safe_name}.connections['{conn.label}'] = {safe_to}")
+        return None
 
-        if conns_to:
-            lines.append("")
-            lines.append("# Incoming:")
-            for conn in conns_to:
-                from_block = self.model.get_block_by_id(conn.from_block)
-                if from_block:
-                    safe_from = from_block.name.replace(' ', '_').lower()
-                    safe_name = block.name.replace(' ', '_').lower()
-                    lines.append(f"{safe_from}.connections['{conn.label}'] = {safe_name}")
-
-        if not conns_from and not conns_to:
-            lines.append("# No connections")
-
-        return "\n".join(lines)
-
-    def show_state_properties(self, state):
-        """Show properties for an FSM state"""
-        # TODO: Implement
-        pass
-
-    def show_transition_properties(self, transition):
-        """Show properties for an FSM transition"""
-        # TODO: Implement
-        pass
+    def _update_property(self, block, property_name, value):
+        """Update block property"""
+        if block:
+            block.properties[property_name] = value

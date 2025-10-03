@@ -254,14 +254,16 @@ class MainWindow(QMainWindow):
         self.project_tree.agent_type_selected.connect(self.on_agent_type_selected)
         self.project_tree.create_custom_agent.connect(self.create_custom_agent)
 
+        # Properties panel signals
+        self.properties_panel.edit_fsm_clicked.connect(self.open_agent_internal_view)
+
     def open_agent_internal_view(self, block_id):
         """Open agent's internal view (statechart embedded in canvas)"""
         block = self.model.get_block_by_id(block_id)
         if block:
-            # TODO: Implement canvas mode switching to show agent internals
-            # For now, use temporary FSM editor
-            self.fsm_editor.set_agent(block, self.model)
-            self.statusBar().showMessage(f"Opening internal view: {block.name}")
+            # Enter agent internal view on canvas
+            self.canvas.enter_agent_view(block_id)
+            # TODO: Update breadcrumb to show "Main > BlockName > FSM"
 
     def on_agent_instance_selected(self, instance_id):
         """Handle agent instance selection from project tree"""

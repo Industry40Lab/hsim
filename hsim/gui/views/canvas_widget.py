@@ -36,6 +36,13 @@ class CanvasWidget(QGraphicsView):
         self.grid_visible = True
         self.zoom_level = 1.0
 
+        # Canvas mode (main process flow or agent internal FSM view)
+        self.current_mode = "main"  # "main" or "agent_internal"
+        self.current_agent_id = None  # ID of agent being edited in internal view
+        self.current_fsm = None  # FSM being displayed in internal view
+        self.state_items = {}  # state_id -> StateItem (in FSM view)
+        self.transition_items = {}  # transition_id -> TransitionItem (in FSM view)
+
         self.setup_scene()
         self.setup_view()
         self.load_model()
@@ -485,3 +492,150 @@ class CanvasWidget(QGraphicsView):
             while y < rect.bottom():
                 painter.drawLine(int(rect.left()), int(y), int(rect.right()), int(y))
                 y += grid_size
+
+    def enter_agent_view(self, block_id: str):
+        """Enter agent internal view - show FSM statechart"""
+        block = self.model.get_block_by_id(block_id)
+        if not block or not block.fsm_id:
+            return
+
+        fsm = self.model.get_fsm_by_id(block.fsm_id)
+        if not fsm:
+            return
+
+        # Save current mode
+        self.current_mode = "agent_internal"
+        self.current_agent_id = block_id
+        self.current_fsm = fsm
+
+        # Clear main canvas view (hide blocks)
+        for item in self.block_items.values():
+            item.setVisible(False)
+        for item in self.connection_items.values():
+            item.setVisible(False)
+
+        # Change background color to indicate internal view
+        self.scene.setBackgroundBrush(QBrush(QColor("#F5F3FF")))  # Slight purple tint
+
+        # Load FSM states and transitions
+        self._load_fsm_graphics()
+
+        # Emit signal for breadcrumb update
+        main_window = self._get_main_window()
+        if main_window:
+            main_window.statusBar().showMessage(f"Editing {block.name} internal view - Press ESC to return")
+
+    def exit_agent_view(self):
+        """Exit agent internal view - return to main process flow"""
+        if self.current_mode != "agent_internal":
+            return
+
+        # Clear FSM graphics
+        for item in self.state_items.values():
+            self.scene.removeItem(item)
+        for item in self.transition_items.values():
+            self.scene.removeItem(item)
+
+        self.state_items.clear()
+        self.transition_items.clear()
+
+        # Restore main view
+        for item in self.block_items.values():
+            item.setVisible(True)
+        for item in self.connection_items.values():
+            item.setVisible(True)
+
+        # Restore background
+        self.scene.setBackgroundBrush(QBrush(QColor("#F9FAFB")))
+
+        # Reset mode
+        self.current_mode = "main"
+        self.current_agent_id = None
+        self.current_fsm = None
+
+        # Update status
+        main_window = self._get_main_window()
+        if main_window:
+            main_window.statusBar().showMessage("Returned to main view")
+
+    def _load_fsm_graphics(self):
+        """Load FSM states and transitions as graphics items"""
+        if not self.current_fsm:
+            return
+
+        from hsim.gui.items.state_item import StateItem
+        from hsim.gui.items.transition_item import TransitionItem
+
+        # Clear existing FSM graphics
+        self.state_items.clear()
+        self.transition_items.clear()
+
+        # Create state items
+        for state_id, state in self.current_fsm.states.items():
+            state_item = StateItem(state)
+            state_item.setPos(state.position.x, state.position.y)
+
+            # Connect signals
+            state_item.signals.position_changed.connect(
+                lambda sid=state_id, s=state: self._on_fsm_state_moved(sid, s)
+            )
+            state_item.signals.selected.connect(self._on_fsm_state_selected)
+            state_item.signals.deleted.connect(self._on_fsm_state_deleted)
+
+            self.scene.addItem(state_item)
+            self.state_items[state_id] = state_item
+
+        # Create transition items
+        for transition in self.current_fsm.transitions:
+            if transition.from_state in self.state_items and transition.to_state in self.state_items:
+                from_item = self.state_items[transition.from_state]
+                to_item = self.state_items[transition.to_state]
+
+                trans_item = TransitionItem(transition, from_item, to_item)
+                trans_item.signals.selected.connect(self._on_fsm_transition_selected)
+                trans_item.signals.deleted.connect(self._on_fsm_transition_deleted)
+
+                self.scene.addItem(trans_item)
+                # Store by transition id if available, otherwise by from->to pair
+                trans_key = transition.id if hasattr(transition, 'id') else f"{transition.from_state}->{transition.to_state}"
+                self.transition_items[trans_key] = trans_item
+
+    def _on_fsm_state_moved(self, state_id, state):
+        """Handle FSM state movement"""
+        if state_id in self.state_items:
+            item = self.state_items[state_id]
+            state.position.x = item.pos().x()
+            state.position.y = item.pos().y()
+
+    def _on_fsm_state_selected(self, state_id):
+        """Handle FSM state selection"""
+        # TODO: Show state properties in properties panel
+        pass
+
+    def _on_fsm_state_deleted(self, state_id):
+        """Handle FSM state deletion"""
+        if self.current_fsm:
+            self.current_fsm.remove_state(state_id)
+            self._load_fsm_graphics()
+
+    def _on_fsm_transition_selected(self, transition_id):
+        """Handle FSM transition selection"""
+        # TODO: Show transition properties
+        pass
+
+    def _on_fsm_transition_deleted(self, transition_id):
+        """Handle FSM transition deletion"""
+        if self.current_fsm:
+            self.current_fsm.remove_transition(transition_id)
+            self._load_fsm_graphics()
+
+    def keyPressEvent(self, event):
+        """Handle key presses"""
+        from PyQt6.QtCore import Qt as QtCore
+
+        # ESC to exit agent view
+        if event.key() == QtCore.Key.Key_Escape and self.current_mode == "agent_internal":
+            self.exit_agent_view()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
