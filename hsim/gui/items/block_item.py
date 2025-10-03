@@ -238,3 +238,9 @@ class BlockItem(QGraphicsItemGroup):
         if port_name in self.ports:
             return self.ports[port_name].get_scene_center()
         return self.scenePos()
+
+    def get_center_pos(self) -> QPointF:
+        """Get the center position of the block in scene coordinates"""
+        rect = self.boundingRect()
+        center = QPointF(rect.center().x(), rect.center().y())
+        return self.mapToScene(center)

@@ -362,25 +362,98 @@ class CanvasWidget(QGraphicsView):
 
         # All blocks are agents and have FSMs
         if block_def.has_fsm:
-            from hsim.gui.models.model import State as FSMState
+            from hsim.gui.models.model import State as FSMState, Transition
             fsm = FSM(
                 id=str(uuid.uuid4()),
                 name=f"{block.name} FSM",
                 owner_block_id=block.id
             )
 
-            # Create default Empty initial state (matching core implementation)
-            empty_state = FSMState(
-                id=str(uuid.uuid4()),
-                name="Empty",
-                position=Position(50, 50),
-                size=Size(120, 60),
-                is_initial=True,
-                on_enter="",
-                on_exit="",
-                color="#3B82F6"
-            )
-            fsm.add_state(empty_state)
+            # Create appropriate FSM states based on block type
+            if block_type in ["server", "unreliable_machine", "quality_machine", "su_machine"]:
+                # Server-like blocks: Idle → Busy cycle
+                idle_state = FSMState(
+                    id=str(uuid.uuid4()),
+                    name="Idle",
+                    position=Position(100, 100),
+                    size=Size(120, 60),
+                    is_initial=True,
+                    on_enter="# Waiting for entity",
+                    on_exit="",
+                    color="#10B981"  # Green
+                )
+                busy_state = FSMState(
+                    id=str(uuid.uuid4()),
+                    name="Busy",
+                    position=Position(300, 100),
+                    size=Size(120, 60),
+                    is_initial=False,
+                    on_enter="# Processing entity",
+                    on_exit="# Entity processed",
+                    color="#F59E0B"  # Orange
+                )
+                fsm.add_state(idle_state)
+                fsm.add_state(busy_state)
+
+                # Add transitions
+                to_busy = Transition(
+                    id=str(uuid.uuid4()),
+                    from_state=idle_state.id,
+                    to_state=busy_state.id,
+                    label="start_service",
+                    transition_type="message"
+                )
+                to_idle = Transition(
+                    id=str(uuid.uuid4()),
+                    from_state=busy_state.id,
+                    to_state=idle_state.id,
+                    label="service_complete",
+                    transition_type="timeout"
+                )
+                fsm.add_transition(to_busy)
+                fsm.add_transition(to_idle)
+
+            elif block_type == "buffer":
+                # Buffer: Single state (passive storage)
+                ready_state = FSMState(
+                    id=str(uuid.uuid4()),
+                    name="Ready",
+                    position=Position(200, 100),
+                    size=Size(120, 60),
+                    is_initial=True,
+                    on_enter="# Ready to store entities",
+                    on_exit="",
+                    color="#3B82F6"  # Blue
+                )
+                fsm.add_state(ready_state)
+
+            elif block_type == "generator":
+                # Generator: Generating state
+                generating_state = FSMState(
+                    id=str(uuid.uuid4()),
+                    name="Generating",
+                    position=Position(200, 100),
+                    size=Size(120, 60),
+                    is_initial=True,
+                    on_enter="# Generate next entity",
+                    on_exit="",
+                    color="#10B981"  # Green
+                )
+                fsm.add_state(generating_state)
+
+            else:
+                # Default: Single Empty state
+                empty_state = FSMState(
+                    id=str(uuid.uuid4()),
+                    name="Empty",
+                    position=Position(200, 100),
+                    size=Size(120, 60),
+                    is_initial=True,
+                    on_enter="",
+                    on_exit="",
+                    color="#6B7280"  # Gray
+                )
+                fsm.add_state(empty_state)
 
             block.fsm_id = fsm.id
             self.model.add_fsm(fsm)
@@ -577,7 +650,7 @@ class CanvasWidget(QGraphicsView):
 
             # Connect signals
             state_item.signals.position_changed.connect(
-                lambda sid=state_id, s=state: self._on_fsm_state_moved(sid, s)
+                lambda sid=state_id: self._on_fsm_state_moved(sid)
             )
             state_item.signals.selected.connect(self._on_fsm_state_selected)
             state_item.signals.deleted.connect(self._on_fsm_state_deleted)
@@ -600,9 +673,10 @@ class CanvasWidget(QGraphicsView):
                 trans_key = transition.id if hasattr(transition, 'id') else f"{transition.from_state}->{transition.to_state}"
                 self.transition_items[trans_key] = trans_item
 
-    def _on_fsm_state_moved(self, state_id, state):
+    def _on_fsm_state_moved(self, state_id):
         """Handle FSM state movement"""
-        if state_id in self.state_items:
+        if self.current_fsm and state_id in self.current_fsm.states and state_id in self.state_items:
+            state = self.current_fsm.states[state_id]
             item = self.state_items[state_id]
             state.position.x = item.pos().x()
             state.position.y = item.pos().y()

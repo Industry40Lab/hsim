@@ -17,8 +17,6 @@ from hsim.gui.models.block_definitions import get_block_definition, BlockType, P
 class PropertiesPanel(QWidget):
     """Form-based properties panel for editing agents"""
 
-    edit_fsm_clicked = pyqtSignal(str)  # Emits block ID
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_block = None
@@ -240,10 +238,10 @@ class PropertiesPanel(QWidget):
                 fsm_info.setStyleSheet("color: #808080; font-size: 11px;")
                 fsm_layout.addWidget(fsm_info)
 
-            # Edit statechart button
-            edit_btn = QPushButton("Edit Statechart")
-            edit_btn.clicked.connect(lambda: self.edit_fsm_clicked.emit(block.id))
-            fsm_layout.addWidget(edit_btn)
+            # Instruction hint
+            hint = QLabel("Double-click block to edit FSM")
+            hint.setStyleSheet("color: #606060; font-size: 10px; font-style: italic; padding-top: 4px;")
+            fsm_layout.addWidget(hint)
 
             self.content_layout.addWidget(fsm_group)
 

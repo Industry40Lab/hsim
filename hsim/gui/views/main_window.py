@@ -254,9 +254,6 @@ class MainWindow(QMainWindow):
         self.project_tree.agent_type_selected.connect(self.on_agent_type_selected)
         self.project_tree.create_custom_agent.connect(self.create_custom_agent)
 
-        # Properties panel signals
-        self.properties_panel.edit_fsm_clicked.connect(self.open_agent_internal_view)
-
     def open_agent_internal_view(self, block_id):
         """Open agent's internal view (statechart embedded in canvas)"""
         block = self.model.get_block_by_id(block_id)
@@ -266,13 +263,11 @@ class MainWindow(QMainWindow):
             # TODO: Update breadcrumb to show "Main > BlockName > FSM"
 
     def on_agent_instance_selected(self, instance_id):
-        """Handle agent instance selection from project tree"""
+        """Handle agent instance selection/double-click from project tree"""
         block = self.model.get_block_by_id(instance_id)
         if block:
-            # Highlight on canvas
-            self.canvas.select_block(instance_id)
-            self.properties_panel.show_block_properties(instance_id)
-            self.statusBar().showMessage(f"Selected: {block.name}")
+            # Open agent internal view (FSM editor)
+            self.open_agent_internal_view(instance_id)
 
     def on_agent_type_selected(self, type_name):
         """Handle agent type selection from project tree"""
