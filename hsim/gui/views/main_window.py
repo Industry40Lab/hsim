@@ -14,7 +14,8 @@ from hsim.gui.models.model import SimulationModel
 from hsim.gui.views.palette_widget import PaletteWidget
 from hsim.gui.views.canvas_widget import CanvasWidget
 from hsim.gui.views.fsm_editor_widget import FSMEditorWidget
-from hsim.gui.views.properties_panel import PropertiesPanel  # Use V2
+from hsim.gui.views.properties_panel import PropertiesPanel
+from hsim.gui.views.project_tree import ProjectTree
 import json
 
 
@@ -47,33 +48,46 @@ class MainWindow(QMainWindow):
         # Create main splitter
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Left panel - Simple Component Palette
+        # Left panel - Project tree + Component Palette
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(0)
+
+        # Project tree (top, 60% of left panel)
+        self.project_tree = ProjectTree(self)
+        self.project_tree.set_model(self.model)
+
+        # Component palette (bottom, 40% of left panel)
         self.palette = PaletteWidget(self)
-        self.palette.setMinimumWidth(180)
-        self.palette.setMaximumWidth(220)
 
-        # Center panel - Tabbed view for Canvas and Agent Editor
-        self.center_tabs = QTabWidget()
+        # Vertical splitter for left panel
+        left_splitter = QSplitter(Qt.Orientation.Vertical)
+        left_splitter.addWidget(self.project_tree)
+        left_splitter.addWidget(self.palette)
+        left_splitter.setSizes([400, 300])
+        left_layout.addWidget(left_splitter)
+
+        left_panel.setMinimumWidth(200)
+        left_panel.setMaximumWidth(280)
+
+        # Center panel - Main canvas (no tabs, embed agent editor in canvas)
         self.canvas = CanvasWidget(self.model, self)
-        self.fsm_editor = FSMEditorWidget(self)
+        self.fsm_editor = FSMEditorWidget(self)  # Keep for compatibility
 
-        self.center_tabs.addTab(self.canvas, "Model Canvas")
-        self.center_tabs.addTab(self.fsm_editor, "Agent Editor")
-        self.center_tabs.setCurrentIndex(0)
-
-        # Right panel - Properties Panel V2 (code-focused)
+        # Right panel - Properties Panel (code-focused)
         self.properties_panel = PropertiesPanel(self)
-        self.properties_panel.model = self.model  # Set model reference
+        self.properties_panel.model = self.model
         self.properties_panel.setMinimumWidth(300)
         self.properties_panel.setMaximumWidth(400)
 
         # Add widgets to splitter
-        self.main_splitter.addWidget(self.palette)
-        self.main_splitter.addWidget(self.center_tabs)
+        self.main_splitter.addWidget(left_panel)
+        self.main_splitter.addWidget(self.canvas)
         self.main_splitter.addWidget(self.properties_panel)
 
-        # Set splitter sizes (left: 200, center: 1000, right: 300)
-        self.main_splitter.setSizes([200, 1000, 300])
+        # Set splitter sizes (left: 250, center: 1000, right: 300)
+        self.main_splitter.setSizes([250, 1000, 300])
 
         main_layout.addWidget(self.main_splitter)
 
@@ -227,22 +241,51 @@ class MainWindow(QMainWindow):
 
     def connect_signals(self):
         """Connect signals between widgets"""
-        # When canvas selection changes, update properties panel
+        # Canvas signals
         self.canvas.selection_changed.connect(self.properties_panel.show_block_properties)
+        self.canvas.block_double_clicked.connect(self.open_agent_internal_view)
+        self.canvas.model_changed.connect(self.on_model_changed)
 
-        # When a block is double-clicked, open its FSM editor (agent editor)
-        self.canvas.block_double_clicked.connect(self.open_fsm_editor)
-
-        # When palette item is selected, notify canvas
+        # Palette signals
         self.palette.block_selected.connect(self.canvas.set_create_mode)
 
-    def open_fsm_editor(self, block_id):
-        """Open FSM editor for an agent (block)"""
+        # Project tree signals
+        self.project_tree.agent_instance_selected.connect(self.on_agent_instance_selected)
+        self.project_tree.agent_type_selected.connect(self.on_agent_type_selected)
+        self.project_tree.create_custom_agent.connect(self.create_custom_agent)
+
+    def open_agent_internal_view(self, block_id):
+        """Open agent's internal view (statechart embedded in canvas)"""
         block = self.model.get_block_by_id(block_id)
         if block:
+            # TODO: Implement canvas mode switching to show agent internals
+            # For now, use temporary FSM editor
             self.fsm_editor.set_agent(block, self.model)
-            self.center_tabs.setCurrentIndex(1)
-            self.statusBar().showMessage(f"Editing agent: {block.name}")
+            self.statusBar().showMessage(f"Opening internal view: {block.name}")
+
+    def on_agent_instance_selected(self, instance_id):
+        """Handle agent instance selection from project tree"""
+        block = self.model.get_block_by_id(instance_id)
+        if block:
+            # Highlight on canvas
+            self.canvas.select_block(instance_id)
+            self.properties_panel.show_block_properties(instance_id)
+            self.statusBar().showMessage(f"Selected: {block.name}")
+
+    def on_agent_type_selected(self, type_name):
+        """Handle agent type selection from project tree"""
+        # Set canvas to create mode for this type
+        self.canvas.set_create_mode(type_name)
+        self.statusBar().showMessage(f"Click to place: {type_name}")
+
+    def create_custom_agent(self):
+        """Create a new custom agent type"""
+        # TODO: Open custom agent designer
+        self.statusBar().showMessage("Custom agent creation not yet implemented")
+
+    def on_model_changed(self):
+        """Handle model changes - refresh project tree"""
+        self.project_tree.refresh_instances()
 
     # File operations
     def new_model(self):

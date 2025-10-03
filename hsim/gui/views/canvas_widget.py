@@ -19,6 +19,7 @@ class CanvasWidget(QGraphicsView):
 
     selection_changed = pyqtSignal(object)  # Emits selected block
     block_double_clicked = pyqtSignal(str)  # Emits block ID
+    model_changed = pyqtSignal()  # Emits when model changes
 
     def __init__(self, model: SimulationModel, parent=None):
         super().__init__(parent)
@@ -226,6 +227,19 @@ class CanvasWidget(QGraphicsView):
         self.create_mode = block_type
         self.setCursor(Qt.CursorShape.CrossCursor)
 
+    def select_block(self, block_id: str):
+        """Select a block on the canvas"""
+        # Clear current selection
+        self.scene.clearSelection()
+
+        # Select the block item
+        if block_id in self.block_items:
+            block_item = self.block_items[block_id]
+            block_item.setSelected(True)
+
+            # Center view on block
+            self.centerOn(block_item)
+
     def _get_main_window(self):
         """Get main window through parent hierarchy"""
         widget = self.parent()
@@ -369,6 +383,9 @@ class CanvasWidget(QGraphicsView):
 
         # Add to canvas
         self.add_block_item(block)
+
+        # Emit model changed signal
+        self.model_changed.emit()
 
     def dragEnterEvent(self, event):
         """Handle drag enter"""
