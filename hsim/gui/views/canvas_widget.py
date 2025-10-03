@@ -8,8 +8,9 @@ from PyQt6.QtGui import QPainter, QColor, QPen, QBrush
 
 from hsim.gui.models.model import SimulationModel, Block, Connection, Position, Size, FSM
 from hsim.gui.models.block_definitions import BlockType, get_block_definition
-from hsim.gui.items.block_item import BlockItem
+from hsim.gui.items.block_item_v2 import BlockItemV2  # Use new version
 from hsim.gui.items.connection_item import ConnectionItem
+from hsim.gui.items.port_item import PortItem
 import uuid
 
 
@@ -78,14 +79,18 @@ class CanvasWidget(QGraphicsView):
         self.load_model()
 
     def add_block_item(self, block: Block):
-        """Add a block item to the canvas"""
-        item = BlockItem(block)
+        """Add a block item to the canvas (V2 with ports)"""
+        item = BlockItemV2(block)
 
         # Connect signals
         item.signals.double_clicked.connect(self.on_block_double_clicked)
         item.signals.properties_requested.connect(self.on_block_properties_requested)
         item.signals.deleted.connect(self.on_block_deleted)
-        item.signals.connection_requested.connect(self.start_connection_mode)
+
+        # Connect port signals for drag-drop connections
+        for port_name, port in item.ports.items():
+            port.signals.connection_drag_started.connect(self.on_port_drag_started)
+            port.signals.connection_drag_ended.connect(self.on_port_drag_ended)
 
         self.scene.addItem(item)
         self.block_items[block.id] = item
@@ -150,21 +155,83 @@ class CanvasWidget(QGraphicsView):
 
         # Find first selected block
         for item in selected_items:
-            # Check if item is BlockItem or has BlockItem parent
-            if isinstance(item, BlockItem):
+            # Check if item is BlockItemV2 or has BlockItemV2 parent
+            if isinstance(item, BlockItemV2):
                 self.selection_changed.emit(item.block)
                 return
-            elif hasattr(item, 'parentItem') and isinstance(item.parentItem(), BlockItem):
+            elif hasattr(item, 'parentItem') and isinstance(item.parentItem(), BlockItemV2):
                 self.selection_changed.emit(item.parentItem().block)
                 return
 
         # No block selected, clear properties
         self.selection_changed.emit(None)
 
+    def on_port_drag_started(self, block_id, port_name):
+        """Handle port drag start"""
+        self.connection_mode = True
+        self.connection_from = (block_id, port_name)
+        # Could draw preview line here
+
+    def on_port_drag_ended(self, from_block_id, from_port_name, target_port):
+        """Handle port drag end - create connection if valid target"""
+        if not target_port or not isinstance(target_port, PortItem):
+            self.connection_mode = False
+            self.connection_from = None
+            return
+
+        # Get target block and port
+        to_block_id = target_port.block_id
+        to_port_name = target_port.port_name
+
+        # Validate connection (output -> input)
+        if from_block_id == to_block_id:
+            # Can't connect to self
+            self.connection_mode = False
+            self.connection_from = None
+            return
+
+        if target_port.port_type != "input":
+            # Can only connect to input ports
+            self.connection_mode = False
+            self.connection_from = None
+            return
+
+        # Create connection
+        conn = Connection(
+            id=str(uuid.uuid4()),
+            from_block=from_block_id,
+            to_block=to_block_id,
+            label=from_port_name  # Use port name as label
+        )
+        self.model.add_connection(conn)
+
+        # Create visual connection
+        self.add_connection_item(conn)
+
+        # Show feedback
+        from_block = self.model.get_block_by_id(from_block_id)
+        to_block = self.model.get_block_by_id(to_block_id)
+        if from_block and to_block:
+            window = self._get_main_window()
+            if window:
+                window.statusBar().showMessage(
+                    f"Connected {from_block.name} → {to_block.name}"
+                )
+
+        self.connection_mode = False
+        self.connection_from = None
+
     def set_create_mode(self, block_type: str):
         """Set mode to create a block on next click"""
         self.create_mode = block_type
         self.setCursor(Qt.CursorShape.CrossCursor)
+
+    def _get_main_window(self):
+        """Get main window through parent hierarchy"""
+        widget = self.parent()
+        while widget and not hasattr(widget, 'statusBar'):
+            widget = widget.parent()
+        return widget
 
     def start_connection_mode(self, from_block_id: str):
         """Start connection creation mode"""
@@ -175,9 +242,11 @@ class CanvasWidget(QGraphicsView):
         # Show status message
         from_block = self.model.get_block_by_id(from_block_id)
         if from_block:
-            self.parent().statusBar().showMessage(
-                f"Creating connection from '{from_block.name}' - Click target block"
-            )
+            window = self._get_main_window()
+            if window:
+                window.statusBar().showMessage(
+                    f"Creating connection from '{from_block.name}' - Click target block"
+                )
 
     def complete_connection(self, to_block_id: str):
         """Complete connection creation"""
@@ -204,17 +273,20 @@ class CanvasWidget(QGraphicsView):
         from_block = self.model.get_block_by_id(self.connection_from)
         to_block = self.model.get_block_by_id(to_block_id)
         if from_block and to_block:
-            self.parent().statusBar().showMessage(
-                f"Connected '{from_block.name}' → '{to_block.name}'"
-            )
+            window = self._get_main_window()
+            if window:
+                window.statusBar().showMessage(
+                    f"Connected '{from_block.name}' → '{to_block.name}'"
+                )
 
     def cancel_connection_mode(self):
         """Cancel connection creation mode"""
         self.connection_mode = False
         self.connection_from = None
         self.setCursor(Qt.CursorShape.ArrowCursor)
-        if self.parent():
-            self.parent().statusBar().showMessage("Ready")
+        window = self._get_main_window()
+        if window:
+            window.statusBar().showMessage("Ready")
 
     def mousePressEvent(self, event):
         """Handle mouse press"""
@@ -233,12 +305,12 @@ class CanvasWidget(QGraphicsView):
                 # Check if clicked on a block
                 item = self.itemAt(event.pos())
                 if item:
-                    # Find the BlockItem (might be a child item)
+                    # Find the BlockItemV2 (might be a child item)
                     block_item = item
-                    while block_item and not isinstance(block_item, BlockItem):
+                    while block_item and not isinstance(block_item, BlockItemV2):
                         block_item = block_item.parentItem()
 
-                    if block_item and isinstance(block_item, BlockItem):
+                    if block_item and isinstance(block_item, BlockItemV2):
                         self.complete_connection(block_item.block.id)
                         return
 
@@ -346,7 +418,7 @@ class CanvasWidget(QGraphicsView):
         """Delete selected items"""
         selected_items = self.scene.selectedItems()
         for item in selected_items:
-            if isinstance(item, BlockItem):
+            if isinstance(item, BlockItemV2):
                 self.on_block_deleted(item.block.id)
             elif isinstance(item, ConnectionItem):
                 self.on_connection_deleted(item.connection.id)

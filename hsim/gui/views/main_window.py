@@ -11,10 +11,10 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QAction, QIcon, QKeySequence
 
 from hsim.gui.models.model import SimulationModel
-from hsim.gui.views.palette_widget import PaletteWidget
+from hsim.gui.views.palette_widget_simple import SimplePaletteWidget
 from hsim.gui.views.canvas_widget import CanvasWidget
 from hsim.gui.views.fsm_editor_widget import FSMEditorWidget
-from hsim.gui.views.properties_panel import PropertiesPanel
+from hsim.gui.views.properties_panel_v2 import PropertiesPanelV2  # Use V2
 import json
 
 
@@ -47,10 +47,10 @@ class MainWindow(QMainWindow):
         # Create main splitter
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Left panel - Component Palette
-        self.palette = PaletteWidget(self)
-        self.palette.setMinimumWidth(200)
-        self.palette.setMaximumWidth(300)
+        # Left panel - Simple Component Palette
+        self.palette = SimplePaletteWidget(self)
+        self.palette.setMinimumWidth(180)
+        self.palette.setMaximumWidth(220)
 
         # Center panel - Tabbed view for Canvas and FSM Editor
         self.center_tabs = QTabWidget()
@@ -61,10 +61,10 @@ class MainWindow(QMainWindow):
         self.center_tabs.addTab(self.fsm_editor, "FSM Editor")
         self.center_tabs.setCurrentIndex(0)
 
-        # Right panel - Properties Panel
-        self.properties_panel = PropertiesPanel(self)
+        # Right panel - Properties Panel V2 (code-focused)
+        self.properties_panel = PropertiesPanelV2(self)
         self.properties_panel.model = self.model  # Set model reference
-        self.properties_panel.setMinimumWidth(250)
+        self.properties_panel.setMinimumWidth(300)
         self.properties_panel.setMaximumWidth(400)
 
         # Add widgets to splitter
