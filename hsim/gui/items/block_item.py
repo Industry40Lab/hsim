@@ -1,29 +1,26 @@
 """
-Graphics items for DES blocks
+Redesigned block graphics item - Icon-based with visible ports
 """
 
-from PyQt6.QtWidgets import (
-    QGraphicsItem, QGraphicsRectItem, QGraphicsEllipseItem,
-    QGraphicsTextItem, QGraphicsItemGroup, QMenu, QInputDialog
-)
+from PyQt6.QtWidgets import QGraphicsItem, QGraphicsItemGroup, QGraphicsTextItem, QGraphicsRectItem
 from PyQt6.QtCore import Qt, QRectF, QPointF, pyqtSignal, QObject
-from PyQt6.QtGui import QPen, QBrush, QColor, QFont, QPainter
+from PyQt6.QtGui import QPen, QBrush, QColor, QFont, QPainter, QPainterPath
 
 from hsim.gui.models.block_definitions import get_block_definition, BlockType
-from hsim.gui.models.model import Block, Position, Size
+from hsim.gui.models.model import Block
+from hsim.gui.items.port_item import PortItem
 
 
 class BlockItemSignals(QObject):
-    """Signals for BlockItem (QGraphicsItem can't have signals directly)"""
+    """Signals for BlockItemV2"""
     position_changed = pyqtSignal(str, float, float)  # block_id, x, y
     double_clicked = pyqtSignal(str)  # block_id
     properties_requested = pyqtSignal(object)  # block data
     deleted = pyqtSignal(str)  # block_id
-    connection_requested = pyqtSignal(str)  # block_id - start creating connection from this block
 
 
 class BlockItem(QGraphicsItemGroup):
-    """Visual representation of a DES block"""
+    """Simplified icon-based block with visible ports"""
 
     def __init__(self, block: Block, parent=None):
         super().__init__(parent)
@@ -32,12 +29,14 @@ class BlockItem(QGraphicsItemGroup):
         self.signals = BlockItemSignals()
 
         # Graphics elements
-        self.shape_item = None
-        self.text_item = None
+        self.background_item = None
         self.icon_item = None
+        self.name_item = None
+        self.ports = {}  # port_name -> PortItem
 
         # State
         self.is_selected = False
+        self.is_hovering = False
 
         # Setup
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
@@ -47,182 +46,194 @@ class BlockItem(QGraphicsItemGroup):
 
         self.create_graphics()
         self.update_appearance()
+        self.setPos(self.block.position.x, self.block.position.y)
 
     def create_graphics(self):
-        """Create the graphical elements"""
-        # Create shape based on block definition
+        """Create the graphical elements - simple icon + ports"""
+        # Size: compact 60x60 icon
+        size = 60
+        self.block.size.width = size
+        self.block.size.height = size
+
+        # Background circle/square
+        self.background_item = QGraphicsRectItem(0, 0, size, size)
         if self.block_def.shape == "circle":
-            self.shape_item = QGraphicsEllipseItem(
-                0, 0,
-                self.block.size.width,
-                self.block.size.height
-            )
-        elif self.block_def.shape == "rounded":
-            # For rounded rectangles, we'll use a rectangle with rounded corners
-            self.shape_item = QGraphicsRectItem(
-                0, 0,
-                self.block.size.width,
-                self.block.size.height
-            )
-        else:  # rectangle
-            self.shape_item = QGraphicsRectItem(
-                0, 0,
-                self.block.size.width,
-                self.block.size.height
-            )
+            # Make it circular with painter path
+            path = QPainterPath()
+            path.addEllipse(0, 0, size, size)
+            # We'll use rounded rectangle for simplicity
+            self.background_item.setRect(0, 0, size, size)
+        else:
+            self.background_item.setRect(0, 0, size, size)
 
-        self.addToGroup(self.shape_item)
+        self.addToGroup(self.background_item)
 
-        # Add icon text
+        # Large emoji icon
         self.icon_item = QGraphicsTextItem(self.block_def.icon)
         font = QFont()
-        font.setPointSize(24)
+        font.setPointSize(32)  # Large icon
         self.icon_item.setFont(font)
-        self.icon_item.setDefaultTextColor(QColor("white"))
 
         # Center icon
         icon_rect = self.icon_item.boundingRect()
         self.icon_item.setPos(
-            (self.block.size.width - icon_rect.width()) / 2,
-            (self.block.size.height - icon_rect.height()) / 2 - 15
+            (size - icon_rect.width()) / 2,
+            (size - icon_rect.height()) / 2 - 5
         )
         self.addToGroup(self.icon_item)
 
-        # Add name text
-        self.text_item = QGraphicsTextItem(self.block.name)
+        # Name below (smaller)
+        self.name_item = QGraphicsTextItem(self.block.name)
         font = QFont()
-        font.setPointSize(10)
+        font.setPointSize(8)
         font.setBold(True)
-        self.text_item.setFont(font)
-        self.text_item.setDefaultTextColor(QColor("white"))
+        self.name_item.setFont(font)
 
-        # Center text
-        text_rect = self.text_item.boundingRect()
-        self.text_item.setPos(
-            (self.block.size.width - text_rect.width()) / 2,
-            self.block.size.height / 2 + 10
+        # Center name below block
+        name_rect = self.name_item.boundingRect()
+        self.name_item.setPos(
+            (size - name_rect.width()) / 2,
+            size + 2
         )
-        self.addToGroup(self.text_item)
+        self.addToGroup(self.name_item)
 
-        # Set position
-        self.setPos(self.block.position.x, self.block.position.y)
+        # Create ports
+        self.create_ports(size)
 
-    def update_appearance(self, selected=False):
-        """Update the visual appearance"""
+    def create_ports(self, size):
+        """Create input and output ports"""
+        # Input port on left
+        input_port = PortItem(self.block.id, "input", "input", self)
+        input_port.setPos(-5, size / 2)  # Left center
+        self.ports["input"] = input_port
+        self.addToGroup(input_port)
+
+        # Output port on right
+        output_port = PortItem(self.block.id, "next", "output", self)
+        output_port.setPos(size + 5, size / 2)  # Right center
+        self.ports["next"] = output_port
+        self.addToGroup(output_port)
+
+        # Connect port signals
+        output_port.signals.connection_drag_started.connect(self.on_port_drag_started)
+        output_port.signals.connection_drag_ended.connect(self.on_port_drag_ended)
+
+    def on_port_drag_started(self, block_id, port_name):
+        """Port drag started - notify canvas"""
+        # This will be handled by canvas
+        pass
+
+    def on_port_drag_ended(self, block_id, port_name, target_port):
+        """Port drag ended - create connection if valid target"""
+        # This will be handled by canvas
+        pass
+
+    def update_appearance(self):
+        """Update visual appearance based on state"""
+        # Color from block definition
         color = QColor(self.block_def.color)
-        pen = QPen(QColor("white") if selected else color.darker(120), 3 if selected else 2)
-        brush = QBrush(color)
 
-        self.shape_item.setPen(pen)
-        self.shape_item.setBrush(brush)
+        if self.isSelected():
+            # Selected: bright with thick border
+            self.background_item.setBrush(QBrush(color))
+            self.background_item.setPen(QPen(QColor("#2563EB"), 4))
+        elif self.is_hovering:
+            # Hovering: slightly brighter
+            lighter = color.lighter(120)
+            self.background_item.setBrush(QBrush(lighter))
+            self.background_item.setPen(QPen(QColor("#60A5FA"), 2))
+        else:
+            # Normal: semi-transparent
+            color.setAlpha(200)
+            self.background_item.setBrush(QBrush(color))
+            self.background_item.setPen(QPen(QColor("white"), 2))
 
-        self.is_selected = selected
+        # Icon color
+        self.icon_item.setDefaultTextColor(QColor("white"))
 
-    def update_name(self, name):
-        """Update the block name"""
-        self.block.name = name
-        self.text_item.setPlainText(name)
+        # Name color
+        if self.isSelected():
+            self.name_item.setDefaultTextColor(QColor("#2563EB"))
+        else:
+            self.name_item.setDefaultTextColor(QColor("#374151"))
 
-        # Re-center text
-        text_rect = self.text_item.boundingRect()
-        self.text_item.setPos(
-            (self.block.size.width - text_rect.width()) / 2,
-            self.block.size.height / 2 + 10
-        )
+    def paint(self, painter, option, widget=None):
+        """Custom paint for drop shadow"""
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Draw subtle drop shadow
+        if not self.isSelected():
+            shadow_color = QColor(0, 0, 0, 30)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(shadow_color))
+            painter.drawRoundedRect(QRectF(2, 2, 60, 60), 8, 8)
+
+        super().paint(painter, option, widget)
+
+    def boundingRect(self):
+        """Return bounding rectangle"""
+        return QRectF(-10, -10, 80, 90)  # Include ports and name
+
+    def shape(self):
+        """Return shape for collision detection"""
+        path = QPainterPath()
+        path.addRect(0, 0, 60, 60)
+        return path
+
+    def hoverEnterEvent(self, event):
+        """Mouse entered block"""
+        self.is_hovering = True
+        self.update_appearance()
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event):
+        """Mouse left block"""
+        self.is_hovering = False
+        self.update_appearance()
+        super().hoverLeaveEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        """Handle double-click"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.signals.double_clicked.emit(self.block.id)
+            event.accept()
 
     def itemChange(self, change, value):
         """Handle item changes"""
+        if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
+            self.update_appearance()
+
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            # Update block model
             pos = self.pos()
             self.block.position.x = pos.x()
             self.block.position.y = pos.y()
             self.signals.position_changed.emit(self.block.id, pos.x(), pos.y())
 
-        elif change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
-            self.update_appearance(selected=self.isSelected())
-
         return super().itemChange(change, value)
 
-    def mouseDoubleClickEvent(self, event):
-        """Handle double-click"""
-        if self.block_def.has_fsm:
-            self.signals.double_clicked.emit(self.block.id)
-        else:
-            # Show rename dialog
-            from PyQt6.QtWidgets import QInputDialog
-            name, ok = QInputDialog.getText(
-                None, "Rename Block",
-                "Enter new name:",
-                text=self.block.name
-            )
-            if ok and name:
-                self.update_name(name)
-
     def contextMenuEvent(self, event):
-        """Handle right-click context menu"""
+        """Handle right-click - Show properties"""
+        from PyQt6.QtWidgets import QMenu
+
         menu = QMenu()
 
-        # Rename action
-        rename_action = menu.addAction("✏️ Rename")
-        rename_action.triggered.connect(self.show_rename_dialog)
+        # Properties
+        props_action = menu.addAction("✏️ Edit Properties")
+        props_action.triggered.connect(lambda: self.signals.properties_requested.emit(self.block))
 
-        # Properties action
-        properties_action = menu.addAction("⚙️ Properties")
-        properties_action.triggered.connect(self.show_properties)
-
+        # Separator
         menu.addSeparator()
 
-        # Create connection action
-        create_conn_action = menu.addAction("➡️ Create Connection")
-        create_conn_action.triggered.connect(self.start_connection)
-
-        menu.addSeparator()
-
-        # Delete action
+        # Delete
         delete_action = menu.addAction("🗑️ Delete")
-        delete_action.triggered.connect(self.delete_block)
+        delete_action.triggered.connect(lambda: self.signals.deleted.emit(self.block.id))
 
         menu.exec(event.screenPos())
+        event.accept()
 
-    def start_connection(self):
-        """Start creating a connection from this block"""
-        self.signals.connection_requested.emit(self.block.id)
-
-    def show_rename_dialog(self):
-        """Show rename dialog"""
-        from PyQt6.QtWidgets import QInputDialog
-        name, ok = QInputDialog.getText(
-            None, "Rename Block",
-            "Enter new name:",
-            text=self.block.name
-        )
-        if ok and name:
-            self.update_name(name)
-
-    def show_properties(self):
-        """Show properties dialog"""
-        self.signals.properties_requested.emit(self.block)
-
-    def delete_block(self):
-        """Delete this block"""
-        from PyQt6.QtWidgets import QMessageBox
-        reply = QMessageBox.question(
-            None, "Delete Block",
-            f"Delete block '{self.block.name}'?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            self.signals.deleted.emit(self.block.id)
-
-    def get_center_pos(self):
-        """Get the center position of the block"""
-        return QPointF(
-            self.block.position.x + self.block.size.width / 2,
-            self.block.position.y + self.block.size.height / 2
-        )
-
-    def get_connection_point(self, angle):
-        """Get a point on the edge of the block for connections"""
-        # For simplicity, return center for now
-        # TODO: Calculate actual edge points based on shape and angle
-        return self.get_center_pos()
+    def get_port_scene_pos(self, port_name: str) -> QPointF:
+        """Get the scene position of a port"""
+        if port_name in self.ports:
+            return self.ports[port_name].get_scene_center()
+        return self.scenePos()

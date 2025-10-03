@@ -8,7 +8,7 @@ from PyQt6.QtGui import QPainter, QColor, QPen, QBrush
 
 from hsim.gui.models.model import SimulationModel, Block, Connection, Position, Size, FSM
 from hsim.gui.models.block_definitions import BlockType, get_block_definition
-from hsim.gui.items.block_item_v2 import BlockItemV2  # Use new version
+from hsim.gui.items.block_item import BlockItem  # Use new version
 from hsim.gui.items.connection_item import ConnectionItem
 from hsim.gui.items.port_item import PortItem
 import uuid
@@ -80,7 +80,7 @@ class CanvasWidget(QGraphicsView):
 
     def add_block_item(self, block: Block):
         """Add a block item to the canvas (V2 with ports)"""
-        item = BlockItemV2(block)
+        item = BlockItem(block)
 
         # Connect signals
         item.signals.double_clicked.connect(self.on_block_double_clicked)
@@ -155,11 +155,11 @@ class CanvasWidget(QGraphicsView):
 
         # Find first selected block
         for item in selected_items:
-            # Check if item is BlockItemV2 or has BlockItemV2 parent
-            if isinstance(item, BlockItemV2):
+            # Check if item is BlockItem or has BlockItem parent
+            if isinstance(item, BlockItem):
                 self.selection_changed.emit(item.block)
                 return
-            elif hasattr(item, 'parentItem') and isinstance(item.parentItem(), BlockItemV2):
+            elif hasattr(item, 'parentItem') and isinstance(item.parentItem(), BlockItem):
                 self.selection_changed.emit(item.parentItem().block)
                 return
 
@@ -305,12 +305,12 @@ class CanvasWidget(QGraphicsView):
                 # Check if clicked on a block
                 item = self.itemAt(event.pos())
                 if item:
-                    # Find the BlockItemV2 (might be a child item)
+                    # Find the BlockItem (might be a child item)
                     block_item = item
-                    while block_item and not isinstance(block_item, BlockItemV2):
+                    while block_item and not isinstance(block_item, BlockItem):
                         block_item = block_item.parentItem()
 
-                    if block_item and isinstance(block_item, BlockItemV2):
+                    if block_item and isinstance(block_item, BlockItem):
                         self.complete_connection(block_item.block.id)
                         return
 
@@ -418,7 +418,7 @@ class CanvasWidget(QGraphicsView):
         """Delete selected items"""
         selected_items = self.scene.selectedItems()
         for item in selected_items:
-            if isinstance(item, BlockItemV2):
+            if isinstance(item, BlockItem):
                 self.on_block_deleted(item.block.id)
             elif isinstance(item, ConnectionItem):
                 self.on_connection_deleted(item.connection.id)

@@ -11,10 +11,10 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QAction, QIcon, QKeySequence
 
 from hsim.gui.models.model import SimulationModel
-from hsim.gui.views.palette_widget_simple import SimplePaletteWidget
+from hsim.gui.views.palette_widget import PaletteWidget
 from hsim.gui.views.canvas_widget import CanvasWidget
 from hsim.gui.views.fsm_editor_widget import FSMEditorWidget
-from hsim.gui.views.properties_panel_v2 import PropertiesPanelV2  # Use V2
+from hsim.gui.views.properties_panel import PropertiesPanel  # Use V2
 import json
 
 
@@ -48,21 +48,21 @@ class MainWindow(QMainWindow):
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Left panel - Simple Component Palette
-        self.palette = SimplePaletteWidget(self)
+        self.palette = PaletteWidget(self)
         self.palette.setMinimumWidth(180)
         self.palette.setMaximumWidth(220)
 
-        # Center panel - Tabbed view for Canvas and FSM Editor
+        # Center panel - Tabbed view for Canvas and Agent Editor
         self.center_tabs = QTabWidget()
         self.canvas = CanvasWidget(self.model, self)
-        self.fsm_editor = FSMEditorWidget(None, self)
+        self.fsm_editor = FSMEditorWidget(self)
 
         self.center_tabs.addTab(self.canvas, "Model Canvas")
-        self.center_tabs.addTab(self.fsm_editor, "FSM Editor")
+        self.center_tabs.addTab(self.fsm_editor, "Agent Editor")
         self.center_tabs.setCurrentIndex(0)
 
         # Right panel - Properties Panel V2 (code-focused)
-        self.properties_panel = PropertiesPanelV2(self)
+        self.properties_panel = PropertiesPanel(self)
         self.properties_panel.model = self.model  # Set model reference
         self.properties_panel.setMinimumWidth(300)
         self.properties_panel.setMaximumWidth(400)
@@ -230,31 +230,19 @@ class MainWindow(QMainWindow):
         # When canvas selection changes, update properties panel
         self.canvas.selection_changed.connect(self.properties_panel.show_block_properties)
 
-        # When FSM editor selection changes, update properties panel
-        self.fsm_editor.selection_changed.connect(self.on_fsm_selection_changed)
-
-        # When a block is double-clicked, open its FSM editor
+        # When a block is double-clicked, open its FSM editor (agent editor)
         self.canvas.block_double_clicked.connect(self.open_fsm_editor)
 
         # When palette item is selected, notify canvas
         self.palette.block_selected.connect(self.canvas.set_create_mode)
 
-    def on_fsm_selection_changed(self, item_type, item_data):
-        """Handle FSM editor selection changes"""
-        if item_type == "state":
-            self.properties_panel.show_state_properties(item_data)
-        elif item_type == "transition":
-            self.properties_panel.show_transition_properties(item_data)
-
     def open_fsm_editor(self, block_id):
-        """Open FSM editor for a block"""
+        """Open FSM editor for an agent (block)"""
         block = self.model.get_block_by_id(block_id)
-        if block and block.fsm_id:
-            fsm = self.model.fsms.get(block.fsm_id)
-            if fsm:
-                self.fsm_editor.set_fsm(fsm)
-                self.center_tabs.setCurrentIndex(1)
-                self.statusBar().showMessage(f"Editing FSM for {block.name}")
+        if block:
+            self.fsm_editor.set_agent(block, self.model)
+            self.center_tabs.setCurrentIndex(1)
+            self.statusBar().showMessage(f"Editing agent: {block.name}")
 
     # File operations
     def new_model(self):
