@@ -8,9 +8,11 @@ from PyQt6.QtWidgets import (
     QToolBar, QPushButton, QLabel, QTextEdit, QSplitter
 )
 from PyQt6.QtCore import Qt, QRectF
-from PyQt6.QtGui import QPainter, QColor, QBrush
+from PyQt6.QtGui import QPainter, QColor, QBrush, QFont
 
 from hsim.gui.models.model import FSM, State as FSMState, Transition, Position, Size
+from hsim.gui.items.state_item import StateItem
+from hsim.gui.items.transition_item import TransitionItem
 import uuid
 
 
@@ -85,8 +87,46 @@ class FSMEditorWidget(QWidget):
 
         layout.addWidget(toolbar)
 
-        # Main splitter: canvas (left) + properties (right)
+        # Main splitter: code (left) + canvas (center) + properties (right)
         splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        # Left panel - FSM code view
+        left_panel = QWidget()
+        left_panel.setStyleSheet("""
+            QWidget {
+                background-color: #1E1E1E;
+                border-right: 1px solid #3E3E3E;
+            }
+            QLabel {
+                color: #D4D4D4;
+                font-size: 12px;
+                padding: 4px;
+            }
+            QTextEdit {
+                background-color: #1E1E1E;
+                border: 1px solid #3E3E3E;
+                border-radius: 3px;
+                color: #D4D4D4;
+                font-family: 'Consolas', 'Monaco', monospace;
+                font-size: 11px;
+                padding: 8px;
+            }
+        """)
+
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(12, 12, 12, 12)
+
+        code_label = QLabel("FSM Code View")
+        code_label.setStyleSheet("font-weight: bold; font-size: 13px;")
+        left_layout.addWidget(code_label)
+
+        self.fsm_code_view = QTextEdit()
+        self.fsm_code_view.setReadOnly(True)
+        self.fsm_code_view.setPlaceholderText("# FSM code will be displayed here\n# States, transitions, and behavior")
+        left_layout.addWidget(self.fsm_code_view)
+
+        left_panel.setMinimumWidth(300)
+        left_panel.setMaximumWidth(400)
 
         # Canvas for states/transitions
         self.scene = QGraphicsScene()
@@ -152,9 +192,10 @@ class FSMEditorWidget(QWidget):
         right_panel.setMinimumWidth(300)
         right_panel.setMaximumWidth(400)
 
+        splitter.addWidget(left_panel)
         splitter.addWidget(self.view)
         splitter.addWidget(right_panel)
-        splitter.setSizes([1200, 300])
+        splitter.setSizes([300, 900, 300])
 
         layout.addWidget(splitter)
 
@@ -182,43 +223,115 @@ class FSMEditorWidget(QWidget):
         self.scene.clear()
 
         if not self.current_fsm:
+            self.fsm_code_view.setPlainText("# No FSM loaded")
             return
 
+        # Store state items for transition drawing
+        state_items = {}
+
         # Draw states
-        # TODO: Create StateItem graphics
         for state_id, state in self.current_fsm.states.items():
-            # For now, just show placeholder
-            pass
+            state_item = StateItem(state)
+            state_item.setPos(state.position.x, state.position.y)
+
+            # Connect signals
+            state_item.signals.position_changed.connect(
+                lambda sid=state_id, pos=state.position: self._on_state_moved(sid, pos)
+            )
+            state_item.signals.selected.connect(self._on_state_selected)
+            state_item.signals.deleted.connect(self._on_state_deleted)
+
+            self.scene.addItem(state_item)
+            state_items[state_id] = state_item
 
         # Draw transitions
-        # TODO: Create TransitionItem graphics
         for transition in self.current_fsm.transitions:
-            # For now, just show placeholder
-            pass
+            if transition.from_state in state_items and transition.to_state in state_items:
+                from_item = state_items[transition.from_state]
+                to_item = state_items[transition.to_state]
+
+                trans_item = TransitionItem(transition, from_item, to_item)
+                trans_item.signals.selected.connect(self._on_transition_selected)
+                trans_item.signals.deleted.connect(self._on_transition_deleted)
+
+                self.scene.addItem(trans_item)
+
+        # Update code view
+        self.fsm_code_view.setPlainText(self._generate_fsm_code())
 
     def add_state(self):
         """Add a new state to the agent's FSM"""
         if not self.current_agent or not self.current_fsm:
             return
 
-        # Create new state
+        # Generate unique state name
+        state_count = len(self.current_fsm.states)
+        state_name = f"State_{state_count + 1}"
+
+        # Ensure uniqueness
+        while any(s.name == state_name for s in self.current_fsm.states.values()):
+            state_count += 1
+            state_name = f"State_{state_count + 1}"
+
+        # Create new state at center of view
+        view_center = self.view.mapToScene(self.view.viewport().rect().center())
+
         state = FSMState(
             id=str(uuid.uuid4()),
-            name=f"State_{len(self.current_fsm.states) + 1}",
-            position=Position(100, 100),
-            size=Size(120, 60),
+            name=state_name,
+            position=Position(x=view_center.x() - 60, y=view_center.y() - 30),
+            size=Size(width=120, height=60),
             is_initial=len(self.current_fsm.states) == 0,  # First state is initial
+            is_final=False,
             on_enter="",
             on_exit=""
         )
 
         self.current_fsm.add_state(state)
         self.load_fsm()
+        self.show_state_properties(state)
 
     def add_transition(self):
         """Add transition between selected states"""
-        # TODO: Implement transition creation
-        pass
+        if not self.current_agent or not self.current_fsm:
+            return
+
+        # Get selected states from scene
+        selected_items = [item for item in self.scene.selectedItems() if isinstance(item, StateItem)]
+
+        if len(selected_items) != 2:
+            # Show message in status bar
+            main_window = self._get_main_window()
+            if main_window:
+                main_window.statusBar().showMessage("Select exactly 2 states to create a transition", 3000)
+            return
+
+        from_state = selected_items[0].state
+        to_state = selected_items[1].state
+
+        # Create new transition
+        from hsim.gui.model.fsm_model import FSMTransition
+        transition = FSMTransition(
+            id=str(uuid.uuid4()),
+            from_state=from_state.id,
+            to_state=to_state.id,
+            label="",
+            transition_type="message",
+            timeout=None,
+            condition="",
+            on_transition=""
+        )
+
+        self.current_fsm.add_transition(transition)
+        self.load_fsm()
+        self.show_transition_properties(transition)
+
+    def _get_main_window(self):
+        """Get main window through parent hierarchy"""
+        widget = self.parent()
+        while widget and not hasattr(widget, 'statusBar'):
+            widget = widget.parent()
+        return widget
 
     def expose_agent_port(self):
         """Expose an agent port for external connections"""
@@ -237,3 +350,102 @@ class FSMEditorWidget(QWidget):
         """Show properties for selected transition"""
         # TODO: Implement
         pass
+
+    def _on_state_moved(self, state_id, position):
+        """Handle state being moved"""
+        if self.current_fsm and state_id in self.current_fsm.states:
+            state = self.current_fsm.states[state_id]
+            state.position.x = position.x
+            state.position.y = position.y
+
+    def _on_state_selected(self, state_id):
+        """Handle state selection"""
+        if self.current_fsm and state_id in self.current_fsm.states:
+            state = self.current_fsm.states[state_id]
+            self.show_state_properties(state)
+
+    def _on_state_deleted(self, state_id):
+        """Handle state deletion"""
+        if self.current_fsm:
+            self.current_fsm.remove_state(state_id)
+            self.load_fsm()
+
+    def _on_transition_selected(self, transition_id):
+        """Handle transition selection"""
+        if self.current_fsm:
+            for transition in self.current_fsm.transitions:
+                if transition.id == transition_id:
+                    self.show_transition_properties(transition)
+                    break
+
+    def _on_transition_deleted(self, transition_id):
+        """Handle transition deletion"""
+        if self.current_fsm:
+            self.current_fsm.remove_transition(transition_id)
+            self.load_fsm()
+
+    def _generate_fsm_code(self) -> str:
+        """Generate Python code representation of the FSM"""
+        if not self.current_fsm:
+            return "# No FSM loaded"
+
+        lines = []
+        lines.append(f"# FSM: {self.current_fsm.name}")
+        if self.current_agent:
+            lines.append(f"# Agent: {self.current_agent.name}")
+        lines.append("")
+
+        # States
+        lines.append("# States:")
+        if not self.current_fsm.states:
+            lines.append("#   (no states defined)")
+        else:
+            for state_id, state in self.current_fsm.states.items():
+                initial = " [INITIAL]" if state.is_initial else ""
+                final = " [FINAL]" if state.is_final else ""
+                lines.append(f"#   - {state.name}{initial}{final}")
+
+                if state.on_enter:
+                    lines.append(f"#       on_enter:")
+                    for code_line in state.on_enter.split('\n'):
+                        lines.append(f"#         {code_line}")
+
+                if state.on_exit:
+                    lines.append(f"#       on_exit:")
+                    for code_line in state.on_exit.split('\n'):
+                        lines.append(f"#         {code_line}")
+
+        lines.append("")
+
+        # Transitions
+        lines.append("# Transitions:")
+        if not self.current_fsm.transitions:
+            lines.append("#   (no transitions defined)")
+        else:
+            for transition in self.current_fsm.transitions:
+                from_state = self.current_fsm.states.get(transition.from_state)
+                to_state = self.current_fsm.states.get(transition.to_state)
+
+                if from_state and to_state:
+                    label = f" [{transition.label}]" if transition.label else ""
+                    lines.append(f"#   {from_state.name} -> {to_state.name}{label}")
+
+                    if transition.transition_type != "message":
+                        lines.append(f"#       type: {transition.transition_type}")
+
+                    if transition.timeout:
+                        lines.append(f"#       timeout: {transition.timeout}")
+
+                    if transition.condition:
+                        lines.append(f"#       condition: {transition.condition}")
+
+                    if transition.on_transition:
+                        lines.append(f"#       on_transition:")
+                        for code_line in transition.on_transition.split('\n'):
+                            lines.append(f"#         {code_line}")
+
+        lines.append("")
+        lines.append("# Double-click states to edit properties")
+        lines.append("# Use '+ State' and '+ Transition' buttons to add elements")
+
+        return '\n'.join(lines)

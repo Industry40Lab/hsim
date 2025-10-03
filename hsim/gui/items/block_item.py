@@ -103,20 +103,21 @@ class BlockItem(QGraphicsItemGroup):
     def create_ports(self, size):
         """Create input and output ports"""
         # Input port on left
-        input_port = PortItem(self.block.id, "input", "input", self)
+        # Don't use addToGroup() - it blocks mouse events!
+        # Instead, use setParentItem() for positioning only
+        input_port = PortItem(self.block.id, "input", "input")
+        input_port.setParentItem(self)
         input_port.setPos(-5, size / 2)  # Left center
         self.ports["input"] = input_port
-        self.addToGroup(input_port)
 
         # Output port on right
-        output_port = PortItem(self.block.id, "next", "output", self)
+        output_port = PortItem(self.block.id, "next", "output")
+        output_port.setParentItem(self)
         output_port.setPos(size + 5, size / 2)  # Right center
         self.ports["next"] = output_port
-        self.addToGroup(output_port)
 
-        # Connect port signals
-        output_port.signals.connection_drag_started.connect(self.on_port_drag_started)
-        output_port.signals.connection_drag_ended.connect(self.on_port_drag_ended)
+        # Ports will emit signals that canvas connects to
+        # No need to connect here
 
     def on_port_drag_started(self, block_id, port_name):
         """Port drag started - notify canvas"""
