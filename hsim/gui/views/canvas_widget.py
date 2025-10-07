@@ -624,6 +624,9 @@ class CanvasWidget(QGraphicsView):
         # Load FSM into NEW scene
         self._load_fsm_graphics()
 
+        # Show ports at boundaries (interface layer)
+        self._load_agent_ports(block)
+
         # Emit mode change signal
         self.mode_changed.emit("agent_internal")
 
@@ -720,6 +723,61 @@ class CanvasWidget(QGraphicsView):
                 # Store by transition id if available, otherwise by from->to pair
                 trans_key = transition.id if hasattr(transition, 'id') else f"{transition.from_state}->{transition.to_state}"
                 self.transition_items[trans_key] = trans_item
+
+    def _load_agent_ports(self, block):
+        """Load agent ports at boundaries in internal view"""
+        from PyQt6.QtWidgets import QGraphicsEllipseItem, QGraphicsTextItem
+        from PyQt6.QtGui import QFont
+
+        # Get scene dimensions
+        scene_rect = self.scene.sceneRect()
+        width = scene_rect.width()
+        height = scene_rect.height()
+
+        # Get block's ports from main scene
+        if block.id in self.block_items:
+            block_item = self.block_items[block.id]
+
+            # Create port visualizations at scene boundaries
+            for port_name, port in block_item.ports.items():
+                # Create visual port indicator
+                port_radius = 20
+                port_item = QGraphicsEllipseItem(-port_radius, -port_radius, port_radius * 2, port_radius * 2)
+
+                # Color based on port type
+                if port.port_type == "input":
+                    port_item.setBrush(QBrush(QColor("#3B82F6")))  # Blue
+                    port_item.setPen(QPen(QColor("white"), 3))
+                    # Position on left boundary
+                    port_item.setPos(100, height / 2)
+                    label_text = f"IN: {port_name}"
+                else:
+                    port_item.setBrush(QBrush(QColor("#10B981")))  # Green
+                    port_item.setPen(QPen(QColor("white"), 3))
+                    # Position on right boundary
+                    port_item.setPos(width - 100, height / 2)
+                    label_text = f"OUT: {port_name}"
+
+                port_item.setZValue(5)
+                port_item.setToolTip(f"Agent {port.port_type} port: {port_name}")
+                self.scene.addItem(port_item)
+
+                # Add label
+                label = QGraphicsTextItem(label_text)
+                label.setDefaultTextColor(QColor("white"))
+                font = QFont()
+                font.setPointSize(10)
+                font.setBold(True)
+                label.setFont(font)
+
+                # Position label near port
+                if port.port_type == "input":
+                    label.setPos(100 + port_radius + 5, height / 2 - 10)
+                else:
+                    label.setPos(width - 100 - label.boundingRect().width() - port_radius - 5, height / 2 - 10)
+
+                label.setZValue(5)
+                self.scene.addItem(label)
 
     def _on_fsm_state_moved(self, state_id):
         """Handle FSM state movement"""

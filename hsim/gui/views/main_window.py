@@ -5,7 +5,7 @@ Main application window with three-panel layout
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
     QMenuBar, QMenu, QToolBar, QStatusBar, QTabWidget, QLabel,
-    QFileDialog, QMessageBox
+    QFileDialog, QMessageBox, QTreeWidget, QTreeWidgetItem
 )
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QAction, QIcon, QKeySequence
@@ -48,28 +48,23 @@ class MainWindow(QMainWindow):
         # Create main splitter
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Left panel - Project tree + Component Palette
-        left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(0)
-
-        # Project tree (top, 60% of left panel)
-        self.project_tree = ProjectTree(self)
-        self.project_tree.set_model(self.model)
-
-        # Component palette (bottom, 40% of left panel)
-        self.palette = PaletteWidget(self)
-
-        # Vertical splitter for left panel
-        left_splitter = QSplitter(Qt.Orientation.Vertical)
-        left_splitter.addWidget(self.project_tree)
-        left_splitter.addWidget(self.palette)
-        left_splitter.setSizes([400, 300])
-        left_layout.addWidget(left_splitter)
-
+        # Left panel - Tabbed interface
+        left_panel = QTabWidget()
+        left_panel.setTabPosition(QTabWidget.TabPosition.North)
         left_panel.setMinimumWidth(200)
-        left_panel.setMaximumWidth(280)
+        left_panel.setMaximumWidth(300)
+
+        # Tab 1: Model Structure (what's in the model)
+        self.model_structure_tree = self._create_model_structure_tree()
+        left_panel.addTab(self.model_structure_tree, "📋 Model")
+
+        # Tab 2: Component Library (what can be added)
+        self.component_library = self._create_component_library()
+        left_panel.addTab(self.component_library, "📚 Library")
+
+        # Keep references for compatibility
+        self.project_tree = self.model_structure_tree  # Old name
+        self.palette = self.component_library  # Old name
 
         # Center panel - Main canvas (no tabs, embed agent editor in canvas)
         self.canvas = CanvasWidget(self.model, self)
@@ -273,13 +268,13 @@ class MainWindow(QMainWindow):
         self.canvas.model_changed.connect(self.on_model_changed)
         self.canvas.mode_changed.connect(self.on_canvas_mode_changed)
 
-        # Palette signals
-        self.palette.block_selected.connect(self.canvas.set_create_mode)
+        # Component Library signals
+        # (Library uses itemClicked, handled in _on_library_item_clicked)
 
-        # Project tree signals
-        self.project_tree.agent_instance_selected.connect(self.on_agent_instance_selected)
-        self.project_tree.agent_type_selected.connect(self.on_agent_type_selected)
-        self.project_tree.create_custom_agent.connect(self.create_custom_agent)
+        # Model Structure tree signals
+        self.model_structure_tree.agent_instance_selected.connect(self.on_agent_instance_selected)
+        self.model_structure_tree.agent_type_selected.connect(self.on_agent_type_selected)
+        self.model_structure_tree.create_custom_agent.connect(self.create_custom_agent)
 
     def open_agent_internal_view(self, block_id):
         """Open agent's internal view (statechart embedded in canvas)"""
@@ -312,13 +307,12 @@ class MainWindow(QMainWindow):
         self.project_tree.refresh_instances()
 
     def on_canvas_mode_changed(self, mode: str):
-        """Handle canvas mode changes - show/hide FSM toolbar and palette"""
+        """Handle canvas mode changes - show/hide FSM toolbar"""
         if mode == "agent_internal":
             self.fsm_toolbar.show()
-            self.palette.hide()  # Hide components palette in FSM mode
+            # Component library stays visible (contains FSM elements too)
         else:
             self.fsm_toolbar.hide()
-            self.palette.show()  # Show components palette in main mode
 
     # File operations
     def new_model(self):
@@ -496,6 +490,115 @@ class MainWindow(QMainWindow):
             self.canvas.exit_agent_view()
         else:
             self.statusBar().showMessage("Already in main view", 2000)
+
+    def _create_model_structure_tree(self):
+        """Create Model Structure tree (shows what's in the model)"""
+        tree = ProjectTree(self)
+        tree.set_model(self.model)
+        return tree
+
+    def _create_component_library(self):
+        """Create Component Library (shows what can be added)"""
+        from PyQt6.QtGui import QFont
+
+        library = QTreeWidget()
+        library.setHeaderLabel("Components")
+        library.setStyleSheet("""
+            QTreeWidget {
+                background-color: #252526;
+                color: #CCCCCC;
+                border: none;
+                font-size: 12px;
+            }
+            QTreeWidget::item {
+                padding: 6px;
+            }
+            QTreeWidget::item:hover {
+                background-color: #2A2D2E;
+            }
+        """)
+
+        font = QFont()
+        font.setBold(True)
+
+        # DES Blocks category
+        des_blocks = QTreeWidgetItem(library, ["📦 DES Blocks"])
+        des_blocks.setFont(0, font)
+        des_blocks.setExpanded(True)
+
+        # Process Flow
+        process = QTreeWidgetItem(des_blocks, ["📊 Process Flow"])
+        QTreeWidgetItem(process, ["⚙️ Generator"])
+        QTreeWidgetItem(process, ["📦 Buffer"])
+        QTreeWidgetItem(process, ["🔧 Server"])
+        QTreeWidgetItem(process, ["📥 Store"])
+        QTreeWidgetItem(process, ["🗑️ Terminator"])
+
+        # Resources
+        resources = QTreeWidgetItem(des_blocks, ["🔧 Resources"])
+        QTreeWidgetItem(resources, ["⚠️ Unreliable Machine"])
+        QTreeWidgetItem(resources, ["✓ Quality Machine"])
+        QTreeWidgetItem(resources, ["🔄 SUMachine"])
+        QTreeWidgetItem(resources, ["👷 Manual Station"])
+
+        # Advanced
+        advanced = QTreeWidgetItem(des_blocks, ["🔀 Advanced"])
+        QTreeWidgetItem(advanced, ["🔗 Assembly"])
+        QTreeWidgetItem(advanced, ["🤖 Agent"])
+
+        # FSM Elements category
+        fsm_elements = QTreeWidgetItem(library, ["🔄 FSM Elements"])
+        fsm_elements.setFont(0, font)
+        fsm_elements.setExpanded(True)
+        QTreeWidgetItem(fsm_elements, ["⭕ State"])
+        QTreeWidgetItem(fsm_elements, ["➡️ Transition"])
+        QTreeWidgetItem(fsm_elements, ["📍 Port Event"])
+        QTreeWidgetItem(fsm_elements, ["⏱️ Timeout Event"])
+
+        # Connectors category
+        connectors = QTreeWidgetItem(library, ["🔗 Connectors"])
+        connectors.setFont(0, font)
+        connectors.setExpanded(True)
+        QTreeWidgetItem(connectors, ["→ Connection"])
+        QTreeWidgetItem(connectors, ["✉️ Message Link"])
+
+        # Actions category
+        actions = QTreeWidgetItem(library, ["⚡ Actions"])
+        actions.setFont(0, font)
+        actions.setExpanded(False)
+        QTreeWidgetItem(actions, ["📤 Send Message"])
+        QTreeWidgetItem(actions, ["🔔 Trigger Event"])
+        QTreeWidgetItem(actions, ["📝 Set Variable"])
+        QTreeWidgetItem(actions, ["🔁 Loop"])
+
+        # Connect drag-drop for DES blocks
+        library.itemClicked.connect(self._on_library_item_clicked)
+
+        return library
+
+    def _on_library_item_clicked(self, item, column):
+        """Handle library item click"""
+        item_text = item.text(0)
+
+        # Map library items to block types
+        block_mapping = {
+            "⚙️ Generator": "generator",
+            "📦 Buffer": "buffer",
+            "🔧 Server": "server",
+            "📥 Store": "store",
+            "🗑️ Terminator": "terminator",
+            "⚠️ Unreliable Machine": "unreliable_machine",
+            "✓ Quality Machine": "quality_machine",
+            "🔄 SUMachine": "su_machine",
+            "👷 Manual Station": "manual_station",
+            "🔗 Assembly": "assembly",
+            "🤖 Agent": "agent"
+        }
+
+        if item_text in block_mapping:
+            block_type = block_mapping[item_text]
+            self.canvas.set_create_mode(block_type)
+            self.statusBar().showMessage(f"Click canvas to place: {item_text}", 3000)
 
     def show_about(self):
         """Show about dialog"""
