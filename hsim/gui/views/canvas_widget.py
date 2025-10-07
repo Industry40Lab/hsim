@@ -731,8 +731,12 @@ class CanvasWidget(QGraphicsView):
 
     def _on_fsm_state_selected(self, state_id):
         """Handle FSM state selection"""
-        # TODO: Show state properties in properties panel
-        pass
+        if self.current_fsm and state_id in self.current_fsm.states:
+            state = self.current_fsm.states[state_id]
+            # Show state properties in properties panel
+            main_window = self._get_main_window()
+            if main_window and hasattr(main_window, 'properties_panel'):
+                main_window.properties_panel.show_state_properties(state)
 
     def _on_fsm_state_deleted(self, state_id):
         """Handle FSM state deletion"""
@@ -742,8 +746,20 @@ class CanvasWidget(QGraphicsView):
 
     def _on_fsm_transition_selected(self, transition_id):
         """Handle FSM transition selection"""
-        # TODO: Show transition properties
-        pass
+        if self.current_fsm:
+            # Find transition by ID
+            transition = None
+            for trans in self.current_fsm.transitions:
+                trans_key = trans.id if hasattr(trans, 'id') else f"{trans.from_state}->{trans.to_state}"
+                if trans_key == transition_id:
+                    transition = trans
+                    break
+
+            if transition:
+                # Show transition properties in properties panel
+                main_window = self._get_main_window()
+                if main_window and hasattr(main_window, 'properties_panel'):
+                    main_window.properties_panel.show_transition_properties(transition)
 
     def _on_fsm_transition_deleted(self, transition_id):
         """Handle FSM transition deletion"""

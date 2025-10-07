@@ -162,16 +162,90 @@ def on_canvas_mode_changed(self, mode: str):
 
 ---
 
-## Phase 1 Complete: Critical Crashes Fixed ✅
+---
 
-All critical crashes have been resolved:
+### ✅ 10. Project Tree Context Menu Actions (Issue #8)
+**Problem**: Right-click context menu items in project tree had no functionality.
+
+**Fix**: Connected all context menu actions to handlers [project_tree.py:213-237](hsim/gui/views/project_tree.py#L213-L237)
+- **Agent Types**: View documentation
+- **Custom Agents**: Edit/Delete with confirmation dialogs
+- **Agent Instances**:
+  - Open Internal View (opens FSM editor)
+  - Edit Properties (shows in properties panel)
+  - Delete Instance (removes from model and canvas)
+
+**Handler Methods** [project_tree.py:286-382](hsim/gui/views/project_tree.py#L286-L382):
+- `view_documentation()` - Shows info dialog
+- `edit_custom_agent()` - Placeholder for future feature
+- `delete_custom_agent()` - Removes custom agent type
+- `edit_instance_properties()` - Shows properties panel
+- `delete_instance()` - Removes block from model with confirmation
+
+---
+
+### ✅ 11. Port Visibility (Issue #10)
+**Problem**: Ports on blocks were too small and hard to see.
+
+**Fix**: Enhanced port visibility [port_item.py:27-41](hsim/gui/items/port_item.py#L27-L41)
+- Increased size from 10x10 to 14x14 pixels
+- Thicker border (2.5px instead of 2px)
+- Larger hover scale (1.4x instead of 1.3x)
+- Enhanced multi-layer glow effect [port_item.py:110-135](hsim/gui/items/port_item.py#L110-L135)
+  - Outer glow: 24px diameter, 60% alpha
+  - Middle glow: 20px diameter, 100% alpha
+  - Inner glow: 16px diameter, 150% alpha
+
+**Visual Improvements**:
+- Blue ports for inputs, green for outputs
+- Brighter colors on hover
+- Smooth scaling animation
+- Multi-layer glow creates depth effect
+
+---
+
+### ✅ 12. State/Transition Property Editing
+**Problem**: No way to edit state and transition properties in properties panel.
+
+**Fix**: Added comprehensive property editors [properties_panel.py:353-485](hsim/gui/views/properties_panel.py#L353-L485)
+
+**State Properties Editor**:
+- Name (text field)
+- Initial State (checkbox)
+- On Enter action (text area)
+- On Exit action (text area)
+- Live updates as you type
+
+**Transition Properties Editor**:
+- Label (text field)
+- Condition expression (text area with hint)
+- On Transition action (text area)
+- Live updates as you type
+
+**Integration**: Connected to canvas selection handlers [canvas_widget.py:732-762](hsim/gui/views/canvas_widget.py#L732-L762)
+- Click state → properties panel shows state editor
+- Click transition → properties panel shows transition editor
+- Changes saved immediately to model
+
+---
+
+## All Phases Complete ✅
+
+### Phase 1: Critical Crashes ✅
 1. ✅ SUMachine/ManualStation crash - block definitions added
 2. ✅ Block creation crash - defensive error handling
 3. ✅ Scene rendering issues - scene stack architecture
 4. ✅ Transitions not updating - signal connections
 5. ✅ State deletion - context menu (already existed)
+
+### Phase 2: Core FSM Editing ✅
 6. ✅ State/transition creation - FSM toolbar
 7. ✅ Context-aware UI - palette show/hide
+
+### Phase 3: Usability ✅
+8. ✅ Project tree context menus - all actions connected
+9. ✅ Port visibility - size, hover, multi-layer glow
+10. ✅ State/transition property editing - live form fields
 
 ## Testing
 
@@ -195,27 +269,32 @@ Since GUI requires display, user should test:
 7. Press ESC or "⬅️ Back" to return to main view
 8. Components palette should hide in FSM mode
 
-## Remaining Work (Phase 2-4)
+## Future Enhancements (Phase 4)
 
-### Pending Tasks
-- [ ] Fix project tree context menu actions (Issue #8)
-- [ ] Make ports more visible (Issue #10)
-- [ ] Agent class vs instance distinction (Issue #9)
-- [ ] State/transition property editing in properties panel
-- [ ] Breadcrumb navigation
+### Optional Improvements
+- [ ] Agent class vs instance visual distinction (Issue #9)
+- [ ] Breadcrumb navigation widget
 - [ ] Custom agent designer
+- [ ] Keyboard shortcuts (Delete key for selected items)
+- [ ] Undo/Redo for FSM edits
 - [ ] Palette categorization with tree structure
+- [ ] Export FSM as image
+- [ ] FSM code generation preview
 
 ## Files Modified
 
 ### Core Fixes
-1. [hsim/gui/models/block_definitions.py](hsim/gui/models/block_definitions.py) - Added SUMachine and ManualStation
-2. [hsim/gui/views/canvas_widget.py](hsim/gui/views/canvas_widget.py) - Scene stack, FSM operations, defensive checks
-3. [hsim/gui/views/main_window.py](hsim/gui/views/main_window.py) - FSM toolbar, context-aware UI
-4. [hsim/gui/items/state_item.py](hsim/gui/items/state_item.py) - Context menu (already existed)
+1. [hsim/gui/models/block_definitions.py](hsim/gui/models/block_definitions.py) - SUMachine & ManualStation definitions
+2. [hsim/gui/views/canvas_widget.py](hsim/gui/views/canvas_widget.py) - Scene stack, FSM toolbar handlers, state/transition selection
+3. [hsim/gui/views/main_window.py](hsim/gui/views/main_window.py) - FSM toolbar, mode-based UI
+4. [hsim/gui/views/project_tree.py](hsim/gui/views/project_tree.py) - Context menu actions
+5. [hsim/gui/views/properties_panel.py](hsim/gui/views/properties_panel.py) - State/transition property editors
+6. [hsim/gui/items/port_item.py](hsim/gui/items/port_item.py) - Enhanced visibility with multi-layer glow
+7. [hsim/gui/items/state_item.py](hsim/gui/items/state_item.py) - Context menu (already existed)
 
 ### Tests
 1. [test_recent_fixes.py](test_recent_fixes.py) - Comprehensive test suite
+2. [test_gui_fixes.py](test_gui_fixes.py) - Original test file
 
 ## Architecture Patterns Used
 

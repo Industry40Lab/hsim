@@ -349,3 +349,137 @@ class PropertiesPanel(QWidget):
         """Update block property"""
         if block:
             block.properties[property_name] = value
+
+    def show_state_properties(self, state):
+        """Show properties for an FSM state"""
+        self.clear_properties()
+
+        if state is None:
+            self.empty_label = QLabel("Select a state to edit properties")
+            self.empty_label.setStyleSheet("color: #808080; padding: 40px 20px; font-size: 12px;")
+            self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.content_layout.addWidget(self.empty_label)
+            return
+
+        # State header
+        header = QLabel("FSM State")
+        header.setStyleSheet("font-size: 14px; font-weight: bold; color: #FFFFFF; padding-bottom: 4px;")
+        self.content_layout.addWidget(header)
+
+        # Name field
+        name_label = QLabel("Name:")
+        name_label.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        self.content_layout.addWidget(name_label)
+
+        name_edit = QLineEdit(state.name)
+        name_edit.textChanged.connect(lambda text: setattr(state, 'name', text))
+        self.content_layout.addWidget(name_edit)
+
+        # Initial state checkbox
+        initial_check = QCheckBox("Initial State")
+        initial_check.setChecked(state.is_initial)
+        initial_check.stateChanged.connect(lambda: setattr(state, 'is_initial', initial_check.isChecked()))
+        self.content_layout.addWidget(initial_check)
+
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet("background-color: #3E3E3E; margin: 8px 0;")
+        self.content_layout.addWidget(sep)
+
+        # Actions group
+        actions_group = QGroupBox("⚡ Actions")
+        actions_layout = QVBoxLayout(actions_group)
+
+        # On Enter
+        enter_label = QLabel("On Enter:")
+        actions_layout.addWidget(enter_label)
+
+        enter_edit = QTextEdit()
+        enter_edit.setMaximumHeight(80)
+        enter_edit.setPlainText(state.on_enter if state.on_enter else "")
+        enter_edit.textChanged.connect(lambda: setattr(state, 'on_enter', enter_edit.toPlainText()))
+        actions_layout.addWidget(enter_edit)
+
+        # On Exit
+        exit_label = QLabel("On Exit:")
+        actions_layout.addWidget(exit_label)
+
+        exit_edit = QTextEdit()
+        exit_edit.setMaximumHeight(80)
+        exit_edit.setPlainText(state.on_exit if state.on_exit else "")
+        exit_edit.textChanged.connect(lambda: setattr(state, 'on_exit', exit_edit.toPlainText()))
+        actions_layout.addWidget(exit_edit)
+
+        self.content_layout.addWidget(actions_group)
+
+        # Spacer
+        self.content_layout.addStretch()
+
+    def show_transition_properties(self, transition):
+        """Show properties for an FSM transition"""
+        self.clear_properties()
+
+        if transition is None:
+            self.empty_label = QLabel("Select a transition to edit properties")
+            self.empty_label.setStyleSheet("color: #808080; padding: 40px 20px; font-size: 12px;")
+            self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.content_layout.addWidget(self.empty_label)
+            return
+
+        # Transition header
+        header = QLabel("FSM Transition")
+        header.setStyleSheet("font-size: 14px; font-weight: bold; color: #FFFFFF; padding-bottom: 4px;")
+        self.content_layout.addWidget(header)
+
+        # Label field
+        label_label = QLabel("Label:")
+        label_label.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        self.content_layout.addWidget(label_label)
+
+        label_edit = QLineEdit(transition.label if transition.label else "")
+        label_edit.textChanged.connect(lambda text: setattr(transition, 'label', text))
+        self.content_layout.addWidget(label_edit)
+
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet("background-color: #3E3E3E; margin: 8px 0;")
+        self.content_layout.addWidget(sep)
+
+        # Condition group
+        condition_group = QGroupBox("🔀 Condition")
+        condition_layout = QVBoxLayout(condition_group)
+
+        condition_label = QLabel("Condition Expression:")
+        condition_layout.addWidget(condition_label)
+
+        condition_edit = QTextEdit()
+        condition_edit.setMaximumHeight(60)
+        condition_edit.setPlainText(transition.condition if transition.condition else "true")
+        condition_edit.textChanged.connect(lambda: setattr(transition, 'condition', condition_edit.toPlainText()))
+        condition_layout.addWidget(condition_edit)
+
+        hint_label = QLabel("Example: self.queue.length() > 0")
+        hint_label.setStyleSheet("color: #808080; font-size: 11px; font-style: italic;")
+        condition_layout.addWidget(hint_label)
+
+        self.content_layout.addWidget(condition_group)
+
+        # Action group
+        action_group = QGroupBox("⚡ Action")
+        action_layout = QVBoxLayout(action_group)
+
+        action_label = QLabel("On Transition:")
+        action_layout.addWidget(action_label)
+
+        action_edit = QTextEdit()
+        action_edit.setMaximumHeight(80)
+        action_edit.setPlainText(transition.action if hasattr(transition, 'action') and transition.action else "")
+        action_edit.textChanged.connect(lambda: setattr(transition, 'action', action_edit.toPlainText()))
+        action_layout.addWidget(action_edit)
+
+        self.content_layout.addWidget(action_group)
+
+        # Spacer
+        self.content_layout.addStretch()

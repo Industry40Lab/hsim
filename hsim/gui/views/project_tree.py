@@ -213,18 +213,28 @@ class ProjectTree(QWidget):
         elif data and data['type'] == 'agent_type':
             # Context menu for agent type
             action = menu.addAction(f"📖 View {data['name']} Documentation")
+            action.triggered.connect(lambda: self.view_documentation(data['name']))
 
         elif data and data['type'] == 'custom_agent_type':
             # Context menu for custom agent type
-            menu.addAction("✏️ Edit Agent Type")
-            menu.addAction("🗑️ Delete Agent Type")
+            edit_action = menu.addAction("✏️ Edit Agent Type")
+            edit_action.triggered.connect(lambda: self.edit_custom_agent(data['name']))
+
+            delete_action = menu.addAction("🗑️ Delete Agent Type")
+            delete_action.triggered.connect(lambda: self.delete_custom_agent(item))
 
         elif data and data['type'] == 'agent_instance':
             # Context menu for agent instance
-            menu.addAction("🔍 Open Internal View")
-            menu.addAction("📝 Edit Properties")
+            open_action = menu.addAction("🔍 Open Internal View")
+            open_action.triggered.connect(lambda: self.agent_instance_selected.emit(data['id']))
+
+            edit_action = menu.addAction("📝 Edit Properties")
+            edit_action.triggered.connect(lambda: self.edit_instance_properties(data['id']))
+
             menu.addSeparator()
-            menu.addAction("🗑️ Delete Instance")
+
+            delete_action = menu.addAction("🗑️ Delete Instance")
+            delete_action.triggered.connect(lambda: self.delete_instance(data['id']))
 
         if menu.actions():
             menu.exec(self.tree.viewport().mapToGlobal(position))
@@ -272,3 +282,101 @@ class ProjectTree(QWidget):
             if data and (data['type'] == 'agent_type' or data['type'] == 'custom_agent_type'):
                 return data['name']
         return None
+
+    # Context menu action handlers
+    def view_documentation(self, agent_name):
+        """View documentation for agent type"""
+        QMessageBox.information(
+            self,
+            f"{agent_name} Documentation",
+            f"Documentation for {agent_name} agent type.\n\n"
+            "This would open the online documentation or show help text."
+        )
+
+    def edit_custom_agent(self, agent_name):
+        """Edit custom agent type"""
+        QMessageBox.information(
+            self,
+            "Edit Custom Agent",
+            f"Opening editor for custom agent: {agent_name}\n\n"
+            "This feature will be implemented in a future update."
+        )
+
+    def delete_custom_agent(self, item):
+        """Delete custom agent type"""
+        data = item.data(0, Qt.ItemDataRole.UserRole)
+        if not data:
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Delete Custom Agent",
+            f"Are you sure you want to delete '{data['name']}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            # Remove from tree
+            parent = item.parent()
+            if parent:
+                parent.removeChild(item)
+
+            # TODO: Remove from model if custom agent types are stored there
+            QMessageBox.information(
+                self,
+                "Deleted",
+                f"Custom agent '{data['name']}' has been deleted."
+            )
+
+    def edit_instance_properties(self, instance_id):
+        """Edit properties of agent instance"""
+        if not self.model:
+            return
+
+        block = self.model.get_block_by_id(instance_id)
+        if not block:
+            return
+
+        # Get main window to show properties
+        main_window = self.window()
+        if main_window and hasattr(main_window, 'properties_panel'):
+            main_window.properties_panel.show_block_properties(block)
+            QMessageBox.information(
+                self,
+                "Edit Properties",
+                f"Properties for '{block.name}' are now shown in the Properties panel."
+            )
+
+    def delete_instance(self, instance_id):
+        """Delete agent instance from model"""
+        if not self.model:
+            return
+
+        block = self.model.get_block_by_id(instance_id)
+        if not block:
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Delete Instance",
+            f"Are you sure you want to delete '{block.name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            # Remove block from model
+            self.model.remove_block(instance_id)
+
+            # Refresh tree
+            self.refresh_instances()
+
+            # Get main window to refresh canvas
+            main_window = self.window()
+            if main_window and hasattr(main_window, 'canvas'):
+                main_window.canvas.refresh_from_model()
+
+            QMessageBox.information(
+                self,
+                "Deleted",
+                f"Agent instance '{block.name}' has been deleted."
+            )

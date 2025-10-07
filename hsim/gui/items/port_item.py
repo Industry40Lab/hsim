@@ -24,20 +24,21 @@ class PortItem(QGraphicsEllipseItem):
             port_type: 'input' or 'output'
             parent: Parent graphics item
         """
-        super().__init__(-5, -5, 10, 10, parent)  # 10x10 circle centered at (0,0)
+        # Increased from 10x10 to 14x14 for better visibility
+        super().__init__(-7, -7, 14, 14, parent)  # 14x14 circle centered at (0,0)
 
         self.block_id = block_id
         self.port_name = port_name
         self.port_type = port_type  # 'input' or 'output'
         self.signals = PortItemSignals()
 
-        # Visual settings
+        # Visual settings - brighter colors for better visibility
         self.normal_color = QColor("#3B82F6") if port_type == "input" else QColor("#10B981")
         self.hover_color = QColor("#60A5FA") if port_type == "input" else QColor("#34D399")
         self.active_color = QColor("#2563EB") if port_type == "input" else QColor("#059669")
 
         self.setBrush(QBrush(self.normal_color))
-        self.setPen(QPen(QColor("white"), 2))
+        self.setPen(QPen(QColor("white"), 2.5))  # Thicker border for visibility
 
         # Interaction
         self.setAcceptHoverEvents(True)
@@ -52,8 +53,8 @@ class PortItem(QGraphicsEllipseItem):
         """Mouse entered port"""
         self.is_hovering = True
         self.setBrush(QBrush(self.hover_color))
-        self.setPen(QPen(QColor("white"), 3))
-        self.setScale(1.3)
+        self.setPen(QPen(QColor("white"), 3.5))  # Thicker on hover
+        self.setScale(1.4)  # Larger scale on hover
         super().hoverEnterEvent(event)
 
     def hoverLeaveEvent(self, event):
@@ -61,7 +62,7 @@ class PortItem(QGraphicsEllipseItem):
         if not self.is_dragging:
             self.is_hovering = False
             self.setBrush(QBrush(self.normal_color))
-            self.setPen(QPen(QColor("white"), 2))
+            self.setPen(QPen(QColor("white"), 2.5))
             self.setScale(1.0)
         super().hoverLeaveEvent(event)
 
@@ -97,7 +98,7 @@ class PortItem(QGraphicsEllipseItem):
                 self.setBrush(QBrush(self.hover_color))
             else:
                 self.setBrush(QBrush(self.normal_color))
-                self.setPen(QPen(QColor("white"), 2))
+                self.setPen(QPen(QColor("white"), 2.5))
                 self.setScale(1.0)
 
         super().mouseReleaseEvent(event)
@@ -111,10 +112,22 @@ class PortItem(QGraphicsEllipseItem):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         if self.is_hovering or self.is_dragging:
-            # Draw outer glow
+            # Draw multi-layer glow for better visibility
             glow_color = QColor(self.hover_color)
-            glow_color.setAlpha(100)
+
+            # Outer glow (faint)
+            glow_color.setAlpha(60)
             painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(glow_color))
+            painter.drawEllipse(QRectF(-12, -12, 24, 24))
+
+            # Middle glow (medium)
+            glow_color.setAlpha(100)
+            painter.setBrush(QBrush(glow_color))
+            painter.drawEllipse(QRectF(-10, -10, 20, 20))
+
+            # Inner glow (bright)
+            glow_color.setAlpha(150)
             painter.setBrush(QBrush(glow_color))
             painter.drawEllipse(QRectF(-8, -8, 16, 16))
 
