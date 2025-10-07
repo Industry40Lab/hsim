@@ -40,6 +40,12 @@ class PortItem(QGraphicsEllipseItem):
         self.setBrush(QBrush(self.normal_color))
         self.setPen(QPen(QColor("white"), 2.5))  # Thicker border for visibility
 
+        # Tooltips for discoverability
+        if port_type == "input":
+            self.setToolTip("📥 Input Port - Drop connections here")
+        else:
+            self.setToolTip("📤 Output Port - Drag from here to create connection")
+
         # Interaction
         self.setAcceptHoverEvents(True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, False)
@@ -72,6 +78,10 @@ class PortItem(QGraphicsEllipseItem):
             self.is_dragging = True
             self.setBrush(QBrush(self.active_color))
             self.signals.connection_drag_started.emit(self.block_id, self.port_name)
+
+            # Update tooltip during drag
+            self.setToolTip("Release on target input port to connect")
+
             event.accept()
         else:
             super().mousePressEvent(event)
@@ -93,13 +103,19 @@ class PortItem(QGraphicsEllipseItem):
 
             self.signals.connection_drag_ended.emit(self.block_id, self.port_name, target_port)
 
-            # Reset visual state
+            # Reset visual state and tooltip
             if self.is_hovering:
                 self.setBrush(QBrush(self.hover_color))
             else:
                 self.setBrush(QBrush(self.normal_color))
                 self.setPen(QPen(QColor("white"), 2.5))
                 self.setScale(1.0)
+
+            # Restore original tooltip
+            if self.port_type == "input":
+                self.setToolTip("📥 Input Port - Drop connections here")
+            else:
+                self.setToolTip("📤 Output Port - Drag from here to create connection")
 
         super().mouseReleaseEvent(event)
 
