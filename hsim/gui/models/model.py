@@ -31,7 +31,7 @@ class Size:
 
 @dataclass
 class Block:
-    """A DES block instance in the model"""
+    """A DES block instance in the model (agents can contain sub-agents)"""
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     type: str = ""
     name: str = "Block"
@@ -39,6 +39,8 @@ class Block:
     size: Size = field(default_factory=lambda: Size(100, 80))
     properties: Dict[str, Any] = field(default_factory=dict)
     fsm_id: Optional[str] = None  # Reference to FSM if this block has one
+    parent_id: Optional[str] = None  # Parent agent ID (for hierarchical structure)
+    children: List[str] = field(default_factory=list)  # Child agent IDs
 
     def to_dict(self) -> dict:
         """Serialize to dictionary"""
@@ -47,9 +49,11 @@ class Block:
             'type': self.type,
             'name': self.name,
             'position': {'x': self.position.x, 'y': self.position.y},
-            'size': {'width': self.size.width, 'height': self.size.height},
+            'size': {'width': self.size.width, 'height': self.height},
             'properties': self.properties,
-            'fsm_id': self.fsm_id
+            'fsm_id': self.fsm_id,
+            'parent_id': self.parent_id,
+            'children': self.children
         }
 
     @staticmethod
@@ -62,7 +66,9 @@ class Block:
             position=Position(data['position']['x'], data['position']['y']),
             size=Size(data['size']['width'], data['size']['height']),
             properties=data.get('properties', {}),
-            fsm_id=data.get('fsm_id')
+            fsm_id=data.get('fsm_id'),
+            parent_id=data.get('parent_id'),
+            children=data.get('children', [])
         )
 
 

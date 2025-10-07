@@ -70,51 +70,18 @@ class ProjectTree(QWidget):
         self.init_tree_structure()
 
     def init_tree_structure(self):
-        """Initialize the default tree structure"""
+        """Initialize the default tree structure - ONLY instances, no types"""
         self.tree.clear()
 
-        # Main simulation node
-        self.main_node = QTreeWidgetItem(self.tree, ["📋 Main"])
+        # Main frame (root container)
+        self.main_node = QTreeWidgetItem(self.tree, ["📋 Main (Frame)"])
         self.main_node.setExpanded(True)
         font = QFont()
         font.setBold(True)
         self.main_node.setFont(0, font)
 
-        # Agents category
-        self.agents_node = QTreeWidgetItem(self.tree, ["🤖 Agent Types"])
-        self.agents_node.setExpanded(True)
-        self.agents_node.setFont(0, font)
-
-        # Add built-in agent types (DES blocks are agents)
-        builtin_agents = QTreeWidgetItem(self.agents_node, ["📦 Built-in"])
-
-        # Process Flow Agents
-        process_category = QTreeWidgetItem(builtin_agents, ["📊 Process Flow"])
-        self._add_agent_type(process_category, "generator", "⚙️", "Generates entities", display_name="Generator")
-        self._add_agent_type(process_category, "buffer", "📦", "Stores entities", display_name="Buffer")
-        self._add_agent_type(process_category, "server", "🔧", "Processes entities", display_name="Server")
-        self._add_agent_type(process_category, "store", "📥", "Storage location", display_name="Store")
-        self._add_agent_type(process_category, "terminator", "🗑️", "Destroys entities", display_name="Terminator")
-
-        # Resource Agents
-        resource_category = QTreeWidgetItem(builtin_agents, ["🔧 Resources"])
-        self._add_agent_type(resource_category, "unreliable_machine", "⚠️", "Machine with failures", display_name="UnreliableMachine")
-        self._add_agent_type(resource_category, "quality_machine", "✓", "Quality control", display_name="QualityMachine")
-        self._add_agent_type(resource_category, "su_machine", "🔄", "Setup/operation", display_name="SUMachine")
-        self._add_agent_type(resource_category, "manual_station", "👷", "Manual workstation", display_name="ManualStation")
-
-        # Advanced Agents
-        advanced_category = QTreeWidgetItem(builtin_agents, ["🔀 Advanced"])
-        self._add_agent_type(advanced_category, "assembly", "🔗", "Assembly operation", display_name="Assembly")
-        self._add_agent_type(advanced_category, "agent", "🤖", "Generic agent", display_name="Agent")
-
-        # Custom agents category
-        self.custom_agents_node = QTreeWidgetItem(self.agents_node, ["⭐ Custom"])
-        self.custom_agents_node.setExpanded(True)
-
-        # Resources category (instances)
-        self.resources_node = QTreeWidgetItem(self.tree, ["🏭 Resources"])
-        self.resources_node.setFont(0, font)
+        # Note: Agent types are now in Library tab, not here
+        # This tree only shows actual instances in the model
 
         # Expand all
         self.tree.expandAll()

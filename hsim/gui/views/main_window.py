@@ -66,8 +66,18 @@ class MainWindow(QMainWindow):
         self.project_tree = self.model_structure_tree  # Old name
         self.palette = self.component_library  # Old name
 
-        # Center panel - Main canvas (no tabs, embed agent editor in canvas)
-        self.canvas = CanvasWidget(self.model, self)
+        # Center panel - Tabbed canvas (AnyLogic style)
+        self.canvas_tabs = QTabWidget()
+        self.canvas_tabs.setTabsClosable(True)
+        self.canvas_tabs.setMovable(True)
+        self.canvas_tabs.tabCloseRequested.connect(self._close_agent_tab)
+
+        # Main frame always in first tab (cannot be closed)
+        self.main_canvas = CanvasWidget(self.model, self)
+        self.canvas_tabs.addTab(self.main_canvas, "📋 Main")
+
+        # Keep reference for compatibility
+        self.canvas = self.main_canvas
         self.fsm_editor = FSMEditorWidget(self)  # Keep for compatibility
 
         # Right panel - Properties Panel (code-focused)
@@ -78,7 +88,7 @@ class MainWindow(QMainWindow):
 
         # Add widgets to splitter
         self.main_splitter.addWidget(left_panel)
-        self.main_splitter.addWidget(self.canvas)
+        self.main_splitter.addWidget(self.canvas_tabs)
         self.main_splitter.addWidget(self.properties_panel)
 
         # Set splitter sizes (left: 250, center: 1000, right: 300)
@@ -277,12 +287,34 @@ class MainWindow(QMainWindow):
         self.model_structure_tree.create_custom_agent.connect(self.create_custom_agent)
 
     def open_agent_internal_view(self, block_id):
-        """Open agent's internal view (statechart embedded in canvas)"""
+        """Open agent's internal view in NEW TAB (AnyLogic style)"""
         block = self.model.get_block_by_id(block_id)
-        if block:
-            # Enter agent internal view on canvas (this will emit mode_changed signal)
-            self.canvas.enter_agent_view(block_id)
-            # TODO: Update breadcrumb to show "Main > BlockName > FSM"
+        if not block:
+            return
+
+        # Check if already open in a tab
+        for i in range(self.canvas_tabs.count()):
+            widget = self.canvas_tabs.widget(i)
+            if hasattr(widget, 'current_agent_id') and widget.current_agent_id == block_id:
+                # Already open, just switch to that tab
+                self.canvas_tabs.setCurrentIndex(i)
+                return
+
+        # Create new canvas for this agent
+        agent_canvas = CanvasWidget(self.model, self)
+        agent_canvas.enter_agent_view(block_id)
+
+        # Connect signals for this canvas
+        agent_canvas.selection_changed.connect(self.properties_panel.show_block_properties)
+        agent_canvas.block_double_clicked.connect(self.open_agent_internal_view)
+        agent_canvas.model_changed.connect(self.on_model_changed)
+        agent_canvas.mode_changed.connect(self.on_canvas_mode_changed)
+
+        # Add tab
+        tab_index = self.canvas_tabs.addTab(agent_canvas, f"🤖 {block.name}")
+        self.canvas_tabs.setCurrentIndex(tab_index)
+
+        self.statusBar().showMessage(f"Opened {block.name} in new tab")
 
     def on_agent_instance_selected(self, instance_id):
         """Handle agent instance selection/double-click from project tree"""
@@ -552,15 +584,15 @@ class MainWindow(QMainWindow):
         fsm_elements.setExpanded(True)
         QTreeWidgetItem(fsm_elements, ["⭕ State"])
         QTreeWidgetItem(fsm_elements, ["➡️ Transition"])
-        QTreeWidgetItem(fsm_elements, ["📍 Port Event"])
         QTreeWidgetItem(fsm_elements, ["⏱️ Timeout Event"])
 
-        # Connectors category
+        # Connectors category (includes ports)
         connectors = QTreeWidgetItem(library, ["🔗 Connectors"])
         connectors.setFont(0, font)
         connectors.setExpanded(True)
         QTreeWidgetItem(connectors, ["→ Connection"])
-        QTreeWidgetItem(connectors, ["✉️ Message Link"])
+        QTreeWidgetItem(connectors, ["📥 Input Port"])
+        QTreeWidgetItem(connectors, ["📤 Output Port"])
 
         # Actions category
         actions = QTreeWidgetItem(library, ["⚡ Actions"])
@@ -597,8 +629,29 @@ class MainWindow(QMainWindow):
 
         if item_text in block_mapping:
             block_type = block_mapping[item_text]
-            self.canvas.set_create_mode(block_type)
+            # Apply to currently active canvas tab
+            current_canvas = self.canvas_tabs.currentWidget()
+            current_canvas.set_create_mode(block_type)
             self.statusBar().showMessage(f"Click canvas to place: {item_text}", 3000)
+
+    def _close_agent_tab(self, index):
+        """Close an agent tab"""
+        if index == 0:
+            # Cannot close Main tab
+            self.statusBar().showMessage("Cannot close Main tab", 2000)
+            return
+
+        # Get widget before removing
+        widget = self.canvas_tabs.widget(index)
+
+        # Remove tab
+        self.canvas_tabs.removeTab(index)
+
+        # Delete widget to free memory
+        if widget:
+            widget.deleteLater()
+
+        self.statusBar().showMessage("Tab closed", 1000)
 
     def show_about(self):
         """Show about dialog"""
