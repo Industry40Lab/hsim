@@ -235,6 +235,32 @@ class MainWindow(QMainWindow):
         zoom_out_action.triggered.connect(self.zoom_out)
         toolbar.addAction(zoom_out_action)
 
+        # FSM Toolbar (hidden by default, shown when in agent_internal mode)
+        self.fsm_toolbar = QToolBar("FSM Editor Toolbar")
+        self.fsm_toolbar.setIconSize(QSize(24, 24))
+        self.addToolBar(self.fsm_toolbar)
+        self.fsm_toolbar.hide()  # Hidden by default
+
+        # Add State button
+        add_state_action = QAction("➕ State", self)
+        add_state_action.setToolTip("Add a new state to the FSM")
+        add_state_action.triggered.connect(self.add_fsm_state)
+        self.fsm_toolbar.addAction(add_state_action)
+
+        # Add Transition button
+        add_transition_action = QAction("➡️ Transition", self)
+        add_transition_action.setToolTip("Add a transition between two states")
+        add_transition_action.triggered.connect(self.add_fsm_transition)
+        self.fsm_toolbar.addAction(add_transition_action)
+
+        self.fsm_toolbar.addSeparator()
+
+        # Back to main view button
+        back_action = QAction("⬅️ Back", self)
+        back_action.setToolTip("Return to main canvas view (ESC)")
+        back_action.triggered.connect(self.exit_fsm_view)
+        self.fsm_toolbar.addAction(back_action)
+
     def setup_statusbar(self):
         """Setup status bar"""
         self.statusBar().showMessage("Ready")
@@ -245,6 +271,7 @@ class MainWindow(QMainWindow):
         self.canvas.selection_changed.connect(self.properties_panel.show_block_properties)
         self.canvas.block_double_clicked.connect(self.open_agent_internal_view)
         self.canvas.model_changed.connect(self.on_model_changed)
+        self.canvas.mode_changed.connect(self.on_canvas_mode_changed)
 
         # Palette signals
         self.palette.block_selected.connect(self.canvas.set_create_mode)
@@ -258,7 +285,7 @@ class MainWindow(QMainWindow):
         """Open agent's internal view (statechart embedded in canvas)"""
         block = self.model.get_block_by_id(block_id)
         if block:
-            # Enter agent internal view on canvas
+            # Enter agent internal view on canvas (this will emit mode_changed signal)
             self.canvas.enter_agent_view(block_id)
             # TODO: Update breadcrumb to show "Main > BlockName > FSM"
 
@@ -283,6 +310,15 @@ class MainWindow(QMainWindow):
     def on_model_changed(self):
         """Handle model changes - refresh project tree"""
         self.project_tree.refresh_instances()
+
+    def on_canvas_mode_changed(self, mode: str):
+        """Handle canvas mode changes - show/hide FSM toolbar and palette"""
+        if mode == "agent_internal":
+            self.fsm_toolbar.show()
+            self.palette.hide()  # Hide components palette in FSM mode
+        else:
+            self.fsm_toolbar.hide()
+            self.palette.show()  # Show components palette in main mode
 
     # File operations
     def new_model(self):
@@ -435,6 +471,31 @@ class MainWindow(QMainWindow):
                 self, "Validation",
                 "Model is valid!"
             )
+
+    # FSM Toolbar Actions
+    def add_fsm_state(self):
+        """Add a new state to the current FSM"""
+        if self.canvas.current_mode == "agent_internal" and self.canvas.current_fsm:
+            # Delegate to canvas widget
+            self.canvas.create_fsm_state()
+        else:
+            self.statusBar().showMessage("Cannot add state: Not in FSM editing mode", 3000)
+
+    def add_fsm_transition(self):
+        """Add a transition between selected states"""
+        if self.canvas.current_mode == "agent_internal" and self.canvas.current_fsm:
+            # Delegate to canvas widget
+            self.canvas.create_fsm_transition()
+        else:
+            self.statusBar().showMessage("Cannot add transition: Not in FSM editing mode", 3000)
+
+    def exit_fsm_view(self):
+        """Exit FSM editing view and return to main canvas"""
+        if self.canvas.current_mode == "agent_internal":
+            # Exit agent view (this will emit mode_changed signal)
+            self.canvas.exit_agent_view()
+        else:
+            self.statusBar().showMessage("Already in main view", 2000)
 
     def show_about(self):
         """Show about dialog"""

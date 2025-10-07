@@ -20,6 +20,7 @@ class CanvasWidget(QGraphicsView):
     selection_changed = pyqtSignal(object)  # Emits selected block
     block_double_clicked = pyqtSignal(str)  # Emits block ID
     model_changed = pyqtSignal()  # Emits when model changes
+    mode_changed = pyqtSignal(str)  # Emits "main" or "agent_internal"
 
     def __init__(self, model: SimulationModel, parent=None):
         super().__init__(parent)
@@ -42,6 +43,10 @@ class CanvasWidget(QGraphicsView):
         self.current_fsm = None  # FSM being displayed in internal view
         self.state_items = {}  # state_id -> StateItem (in FSM view)
         self.transition_items = {}  # transition_id -> TransitionItem (in FSM view)
+
+        # Scene stack for nested agent editing
+        self.scene_stack = []  # Stack of (scene, mode, agent_id, fsm) tuples
+        self.main_scene = self.scene  # Save reference to main scene
 
         self.setup_scene()
         self.setup_view()
@@ -348,7 +353,21 @@ class CanvasWidget(QGraphicsView):
 
     def create_block_at(self, block_type: str, x: float, y: float):
         """Create a new block at the specified position"""
-        block_def = get_block_definition(BlockType(block_type))
+        try:
+            block_def = get_block_definition(BlockType(block_type))
+        except (ValueError, KeyError) as e:
+            print(f"Error: Unknown block type '{block_type}': {e}")
+            main_window = self._get_main_window()
+            if main_window:
+                main_window.statusBar().showMessage(f"Error: Unknown block type '{block_type}'", 5000)
+            return
+
+        if not block_def:
+            print(f"Error: No definition found for block type '{block_type}'")
+            main_window = self._get_main_window()
+            if main_window:
+                main_window.statusBar().showMessage(f"Error: No definition for '{block_type}'", 5000)
+            return
 
         # Create block data
         block = Block(
@@ -576,60 +595,80 @@ class CanvasWidget(QGraphicsView):
         if not fsm:
             return
 
-        # Save current mode
+        # Push current scene state onto stack
+        self.scene_stack.append((
+            self.scene,
+            self.current_mode,
+            self.current_agent_id,
+            self.current_fsm
+        ))
+
+        # Create NEW scene for this agent's FSM
+        fsm_scene = QGraphicsScene()
+        fsm_scene.setSceneRect(0, 0, 2000, 2000)
+        fsm_scene.setBackgroundBrush(QBrush(QColor("#F5F3FF")))  # Slight purple tint
+
+        # Switch to new scene
+        self.setScene(fsm_scene)
+        self.scene = fsm_scene
+
+        # Update mode
         self.current_mode = "agent_internal"
         self.current_agent_id = block_id
         self.current_fsm = fsm
 
-        # Clear main canvas view (hide blocks)
-        for item in self.block_items.values():
-            item.setVisible(False)
-        for item in self.connection_items.values():
-            item.setVisible(False)
+        # Clear state/transition items from previous view
+        self.state_items.clear()
+        self.transition_items.clear()
 
-        # Change background color to indicate internal view
-        self.scene.setBackgroundBrush(QBrush(QColor("#F5F3FF")))  # Slight purple tint
-
-        # Load FSM states and transitions
+        # Load FSM into NEW scene
         self._load_fsm_graphics()
 
-        # Emit signal for breadcrumb update
+        # Emit mode change signal
+        self.mode_changed.emit("agent_internal")
+
+        # Update status
         main_window = self._get_main_window()
         if main_window:
             main_window.statusBar().showMessage(f"Editing {block.name} internal view - Press ESC to return")
 
     def exit_agent_view(self):
-        """Exit agent internal view - return to main process flow"""
-        if self.current_mode != "agent_internal":
+        """Exit agent internal view - return to previous view"""
+        if not self.scene_stack:
             return
 
-        # Clear FSM graphics
-        for item in self.state_items.values():
-            self.scene.removeItem(item)
-        for item in self.transition_items.values():
-            self.scene.removeItem(item)
+        # Pop previous scene from stack
+        previous_scene, previous_mode, previous_agent_id, previous_fsm = self.scene_stack.pop()
 
+        # Current scene will be garbage collected, no need to manually clear
+        # This prevents the rendering issues from leftover items
+
+        # Switch back to previous scene
+        self.setScene(previous_scene)
+        self.scene = previous_scene
+
+        # Restore mode
+        self.current_mode = previous_mode
+        self.current_agent_id = previous_agent_id
+        self.current_fsm = previous_fsm
+
+        # Clear state/transition items (they belong to the discarded scene)
         self.state_items.clear()
         self.transition_items.clear()
 
-        # Restore main view
-        for item in self.block_items.values():
-            item.setVisible(True)
-        for item in self.connection_items.values():
-            item.setVisible(True)
-
-        # Restore background
-        self.scene.setBackgroundBrush(QBrush(QColor("#F9FAFB")))
-
-        # Reset mode
-        self.current_mode = "main"
-        self.current_agent_id = None
-        self.current_fsm = None
+        # Emit mode change signal
+        self.mode_changed.emit(self.current_mode)
 
         # Update status
         main_window = self._get_main_window()
         if main_window:
-            main_window.statusBar().showMessage("Returned to main view")
+            if self.current_mode == "main":
+                main_window.statusBar().showMessage("Returned to main view")
+            else:
+                # Returned to a nested agent view
+                block = self.model.get_block_by_id(self.current_agent_id)
+                if block:
+                    main_window.statusBar().showMessage(f"Returned to {block.name} view")
 
     def _load_fsm_graphics(self):
         """Load FSM states and transitions as graphics items"""
@@ -665,6 +704,15 @@ class CanvasWidget(QGraphicsView):
                 to_item = self.state_items[transition.to_state]
 
                 trans_item = TransitionItem(transition, from_item, to_item)
+
+                # Connect state movements to transition update (FIX for Issue #1)
+                from_item.signals.position_changed.connect(
+                    lambda *args, t=trans_item: t.update_path()
+                )
+                to_item.signals.position_changed.connect(
+                    lambda *args, t=trans_item: t.update_path()
+                )
+
                 trans_item.signals.selected.connect(self._on_fsm_transition_selected)
                 trans_item.signals.deleted.connect(self._on_fsm_transition_deleted)
 
@@ -702,6 +750,83 @@ class CanvasWidget(QGraphicsView):
         if self.current_fsm:
             self.current_fsm.remove_transition(transition_id)
             self._load_fsm_graphics()
+
+    def create_fsm_state(self):
+        """Create a new state in the current FSM"""
+        if not self.current_fsm:
+            return
+
+        from hsim.gui.models.model import State, Position, Size
+        import uuid
+
+        # Create new state with unique name
+        state_count = len(self.current_fsm.states)
+        state_name = f"State_{state_count + 1}"
+
+        # Position new state in center of view
+        view_center = self.viewport().rect().center()
+        scene_pos = self.mapToScene(view_center)
+
+        state = State(
+            id=str(uuid.uuid4()),
+            name=state_name,
+            position=Position(x=scene_pos.x() - 50, y=scene_pos.y() - 25),  # Center the 100x50 state
+            size=Size(width=100, height=50),
+            color="#6366F1",  # Indigo
+            is_initial=len(self.current_fsm.states) == 0  # First state is initial
+        )
+
+        self.current_fsm.add_state(state)
+        self._load_fsm_graphics()
+
+        # Select the new state
+        if state.id in self.state_items:
+            self.state_items[state.id].setSelected(True)
+
+    def create_fsm_transition(self):
+        """Create a transition between two selected states"""
+        if not self.current_fsm:
+            return
+
+        # Find selected states
+        selected_states = [item for item in self.scene.selectedItems()
+                          if hasattr(item, 'state')]
+
+        if len(selected_states) != 2:
+            # Show message in status bar via main window
+            main_window = self._get_main_window()
+            if main_window:
+                main_window.statusBar().showMessage(
+                    "Select exactly 2 states to create a transition", 3000
+                )
+            return
+
+        from hsim.gui.models.model import Transition
+        import uuid
+
+        from_state = selected_states[0].state
+        to_state = selected_states[1].state
+
+        # Check if transition already exists
+        for trans in self.current_fsm.transitions:
+            if trans.from_state == from_state.id and trans.to_state == to_state.id:
+                main_window = self._get_main_window()
+                if main_window:
+                    main_window.statusBar().showMessage(
+                        f"Transition from {from_state.name} to {to_state.name} already exists", 3000
+                    )
+                return
+
+        transition = Transition(
+            id=str(uuid.uuid4()),
+            from_state=from_state.id,
+            to_state=to_state.id,
+            condition="true",  # Default condition
+            label=""
+        )
+
+        self.current_fsm.add_transition(transition)
+        self._load_fsm_graphics()
 
     def keyPressEvent(self, event):
         """Handle key presses"""

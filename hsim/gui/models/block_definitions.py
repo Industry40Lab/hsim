@@ -280,12 +280,75 @@ BLOCK_DEFINITIONS = {
         ]
     ),
 
+    BlockType.SU_MACHINE: BlockDefinition(
+        type=BlockType.SU_MACHINE,
+        name="SUMachine",
+        category="Resources",
+        description="Machine with setup and operation phases",
+        color="#8B5CF6",  # Purple
+        shape="rectangle",
+        icon="🔄",
+        python_class="SUMachine",
+        python_module="hsim.core.des.resources",
+        has_fsm=True,
+        properties=[
+            PropertyDefinition(
+                name="setupTime",
+                label="Setup Time",
+                type=PropertyType.FLOAT,
+                default=0.5,
+                description="Time required for setup",
+                min_value=0.0
+            ),
+            PropertyDefinition(
+                name="operationTime",
+                label="Operation Time",
+                type=PropertyType.FLOAT,
+                default=2.0,
+                description="Time for operation phase",
+                min_value=0.0
+            ),
+        ]
+    ),
+
+    BlockType.MANUAL_STATION: BlockDefinition(
+        type=BlockType.MANUAL_STATION,
+        name="ManualStation",
+        category="Resources",
+        description="Manual workstation requiring operator",
+        color="#F97316",  # Orange
+        shape="rectangle",
+        icon="👷",
+        python_class="ManualStation",
+        python_module="hsim.core.des.resources",
+        has_fsm=True,
+        properties=[
+            PropertyDefinition(
+                name="serviceTime",
+                label="Service Time",
+                type=PropertyType.FLOAT,
+                default=1.5,
+                description="Mean service time",
+                min_value=0.0
+            ),
+            PropertyDefinition(
+                name="operatorsRequired",
+                label="Operators Required",
+                type=PropertyType.INT,
+                default=1,
+                description="Number of operators needed",
+                min_value=1,
+                max_value=10
+            ),
+        ]
+    ),
+
     BlockType.ASSEMBLY: BlockDefinition(
         type=BlockType.ASSEMBLY,
         name="Assembly",
         category="Advanced",
         description="Joins multiple entities into one",
-        color="#8B5CF6",  # Purple
+        color="#A855F7",  # Purple (lighter)
         shape="rectangle",
         icon="🔗",
         python_class="Assembly",
