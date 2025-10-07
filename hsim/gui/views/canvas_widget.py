@@ -22,6 +22,9 @@ class CanvasWidget(QGraphicsView):
     model_changed = pyqtSignal()  # Emits when model changes
     mode_changed = pyqtSignal(str)  # Emits "main" or "agent_internal"
 
+    # Grid settings
+    GRID_SIZE = 20  # Snap grid size in pixels
+
     def __init__(self, model: SimulationModel, parent=None):
         super().__init__(parent)
         self.model = model
@@ -35,6 +38,7 @@ class CanvasWidget(QGraphicsView):
         self.connection_mode = False
         self.connection_from = None
         self.grid_visible = True
+        self.grid_snap = True  # Enable grid snapping by default
         self.zoom_level = 1.0
 
         # Canvas mode (main process flow or agent internal FSM view)
@@ -259,6 +263,13 @@ class CanvasWidget(QGraphicsView):
             widget = widget.parent()
         return widget
 
+    def snap_to_grid(self, x, y):
+        """Snap coordinates to grid"""
+        if self.grid_snap:
+            x = round(x / self.GRID_SIZE) * self.GRID_SIZE
+            y = round(y / self.GRID_SIZE) * self.GRID_SIZE
+        return x, y
+
     def start_connection_mode(self, from_block_id: str):
         """Start connection creation mode"""
         self.connection_mode = True
@@ -340,6 +351,15 @@ class CanvasWidget(QGraphicsView):
                     self.create_mode = None
                     self.setCursor(Qt.CursorShape.ArrowCursor)
                     return
+                elif self.create_mode == "timeout_event":
+                    # Timeout events are added to states, not placed on canvas
+                    main_window = self._get_main_window()
+                    if main_window:
+                        main_window.statusBar().showMessage("Click a state to add timeout event", 3000)
+                    # For now, just exit create mode
+                    self.create_mode = None
+                    self.setCursor(Qt.CursorShape.ArrowCursor)
+                    return
                 elif self.create_mode == "connection":
                     # Connection mode uses port drag-drop (already implemented)
                     main_window = self._get_main_window()
@@ -402,12 +422,15 @@ class CanvasWidget(QGraphicsView):
         if self.current_mode == "agent_internal" and self.current_agent_id:
             parent_id = self.current_agent_id
 
+        # Snap to grid
+        x, y = self.snap_to_grid(x - 50, y - 40)  # Center on click, then snap
+
         # Create block data
         block = Block(
             id=str(uuid.uuid4()),
             type=block_type,
             name=f"{block_def.name} {len(self.model.blocks) + 1}",
-            position=Position(x - 50, y - 40),  # Center on click
+            position=Position(x, y),
             size=Size(100, 80),
             properties={prop.name: prop.default for prop in block_def.properties},
             parent_id=parent_id
@@ -761,6 +784,7 @@ class CanvasWidget(QGraphicsView):
 
                 trans_item.signals.selected.connect(self._on_fsm_transition_selected)
                 trans_item.signals.deleted.connect(self._on_fsm_transition_deleted)
+                trans_item.signals.properties_requested.connect(self._on_fsm_transition_properties)
 
                 self.scene.addItem(trans_item)
                 # Store by transition id if available, otherwise by from->to pair
@@ -853,11 +877,14 @@ class CanvasWidget(QGraphicsView):
         from hsim.gui.models.model import State as FSMState
         import uuid
 
+        # Snap to grid
+        x, y = self.snap_to_grid(x - 60, y - 30)  # Center on click, then snap
+
         # Create new state
         state = FSMState(
             id=str(uuid.uuid4()),
             name=f"State{len(self.current_fsm.states) + 1}",
-            position=Position(x - 60, y - 30),
+            position=Position(x, y),
             size=Size(120, 60),
             is_initial=len(self.current_fsm.states) == 0,  # First state is initial
             on_enter="# Enter actions",
@@ -954,6 +981,7 @@ class CanvasWidget(QGraphicsView):
             if source_item and target_item:
                 transition_item = TransitionItem(transition, source_item, target_item)
                 transition_item.signals.deleted.connect(self._on_fsm_transition_deleted)
+                transition_item.signals.properties_requested.connect(self._on_fsm_transition_properties)
 
                 self.scene.addItem(transition_item)
                 self.transition_items[transition.id] = transition_item
@@ -1053,6 +1081,12 @@ class CanvasWidget(QGraphicsView):
         if self.current_fsm:
             self.current_fsm.remove_transition(transition_id)
             self._load_fsm_graphics()
+
+    def _on_fsm_transition_properties(self, transition):
+        """Handle FSM transition properties request"""
+        main_window = self._get_main_window()
+        if main_window and hasattr(main_window, 'properties_panel'):
+            main_window.properties_panel.show_transition_properties(transition)
 
     def create_fsm_state(self):
         """Create a new state in the current FSM"""

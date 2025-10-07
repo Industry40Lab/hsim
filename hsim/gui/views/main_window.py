@@ -425,34 +425,32 @@ class MainWindow(QMainWindow):
     # Edit operations
     def delete_selected(self):
         """Delete selected items"""
-        current_widget = self.center_tabs.currentWidget()
-        if current_widget == self.canvas:
-            self.canvas.delete_selected()
-        elif current_widget == self.fsm_editor:
-            self.fsm_editor.delete_selected()
+        current_widget = self.canvas_tabs.currentWidget()
+        if hasattr(current_widget, 'delete_selected'):
+            current_widget.delete_selected()
 
     # View operations
     def zoom_in(self):
         """Zoom in the current view"""
-        current_widget = self.center_tabs.currentWidget()
+        current_widget = self.canvas_tabs.currentWidget()
         if hasattr(current_widget, 'zoom_in'):
             current_widget.zoom_in()
 
     def zoom_out(self):
         """Zoom out the current view"""
-        current_widget = self.center_tabs.currentWidget()
+        current_widget = self.canvas_tabs.currentWidget()
         if hasattr(current_widget, 'zoom_out'):
             current_widget.zoom_out()
 
     def zoom_reset(self):
         """Reset zoom to 100%"""
-        current_widget = self.center_tabs.currentWidget()
+        current_widget = self.canvas_tabs.currentWidget()
         if hasattr(current_widget, 'zoom_reset'):
             current_widget.zoom_reset()
 
     def toggle_grid(self, checked):
         """Toggle grid display"""
-        current_widget = self.center_tabs.currentWidget()
+        current_widget = self.canvas_tabs.currentWidget()
         if hasattr(current_widget, 'set_grid_visible'):
             current_widget.set_grid_visible(checked)
 

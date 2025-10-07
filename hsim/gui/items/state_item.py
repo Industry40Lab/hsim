@@ -83,6 +83,14 @@ class StateItem(QGraphicsRectItem):
 
     def itemChange(self, change, value):
         """Handle item changes"""
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
+            # Snap to grid (20px grid)
+            GRID_SIZE = 20
+            new_pos = value
+            snapped_x = round(new_pos.x() / GRID_SIZE) * GRID_SIZE
+            snapped_y = round(new_pos.y() / GRID_SIZE) * GRID_SIZE
+            return QPointF(snapped_x, snapped_y)
+
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             pos = self.pos()
             self.state.position.x = pos.x()

@@ -276,3 +276,54 @@
 - Properties panel integration
 
 **All originally requested features are implemented and ready for testing.**
+
+---
+
+## Bug Fixes and Improvements (Session 3)
+
+### Fixed Issues
+
+**1. Delete Block Error** ✅
+- **Issue**: AttributeError 'center_tabs' should be 'canvas_tabs'
+- **Fix**: Updated all references from `center_tabs` to `canvas_tabs` in [main_window.py](hsim/gui/views/main_window.py#L426-L453)
+
+**2. Timeout Event BlockType Error** ✅
+- **Issue**: timeout_event was being passed to create_block_at() which expects BlockType enum
+- **Fix**: Added special handling for timeout_event in [canvas_widget.py](hsim/gui/views/canvas_widget.py#L343-L351)
+
+**3. Transitions Not Connected to States** ✅
+- **Issue**: Transitions appeared as "floating" when states were moved
+- **Fix**: Connected state position_changed signals to transition update_path() in [transition_item.py](hsim/gui/items/transition_item.py#L44-L48)
+- **Result**: Transitions now automatically update when connected states move
+
+**4. Grid Snapping for Blocks** ✅
+- **Implementation**: 20px grid snapping for all elements
+- **Files Modified**:
+  - [canvas_widget.py](hsim/gui/views/canvas_widget.py#L25-L26) - Added GRID_SIZE constant and grid_snap flag
+  - [canvas_widget.py](hsim/gui/views/canvas_widget.py#L266-L271) - Added snap_to_grid() method
+  - [canvas_widget.py](hsim/gui/views/canvas_widget.py#L425-L426) - Applied to block creation
+  - [canvas_widget.py](hsim/gui/views/canvas_widget.py#L879-L880) - Applied to state creation
+  - [block_item.py](hsim/gui/items/block_item.py#L207-L213) - Added grid snapping on move
+  - [state_item.py](hsim/gui/items/state_item.py#L86-L92) - Added grid snapping on move
+- **Result**: All blocks and states snap to 20px grid when placed or moved
+
+**5. Transition Editing** ✅
+- **Implementation**: Double-click or right-click transitions to edit properties
+- **Files Modified**:
+  - [transition_item.py](hsim/gui/items/transition_item.py#L17) - Added properties_requested signal
+  - [transition_item.py](hsim/gui/items/transition_item.py#L131-L146) - Added context menu and double-click handlers
+  - [canvas_widget.py](hsim/gui/views/canvas_widget.py#L983) - Connected signal in transition creation
+  - [canvas_widget.py](hsim/gui/views/canvas_widget.py#L787) - Connected signal in FSM loading
+  - [canvas_widget.py](hsim/gui/views/canvas_widget.py#L1084-L1088) - Added handler method
+- **Result**: Transitions can now be edited via properties panel
+
+**6. Port Positioning** ✅
+- **Decision**: Ports remain fixed on blocks (left for inputs, right for outputs)
+- **Rationale**: Consistent interface, automatic layout, prevents connection confusion
+
+### Summary of Session 3
+
+**Issues Resolved**: 6/6
+**New Features**: Grid snapping system, transition editing
+**Code Quality**: All files compile without errors
+**Status**: All critical issues fixed, ready for testing

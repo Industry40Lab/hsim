@@ -14,6 +14,7 @@ class TransitionItemSignals(QObject):
     """Signals for TransitionItem"""
     selected = pyqtSignal(str)  # transition_id
     deleted = pyqtSignal(str)  # transition_id
+    properties_requested = pyqtSignal(object)  # transition object
 
 
 class TransitionItem(QGraphicsPathItem):
@@ -41,6 +42,16 @@ class TransitionItem(QGraphicsPathItem):
             self.label.setFont(font)
             self.label.setDefaultTextColor(QColor("#374151"))
 
+        # Connect to state movement signals
+        if hasattr(from_state_item, 'signals'):
+            from_state_item.signals.position_changed.connect(self._on_state_moved)
+        if hasattr(to_state_item, 'signals'):
+            to_state_item.signals.position_changed.connect(self._on_state_moved)
+
+        self.update_path()
+
+    def _on_state_moved(self, state_id, x, y):
+        """Handle state movement - update transition path"""
         self.update_path()
 
     def update_path(self):
@@ -117,8 +128,19 @@ class TransitionItem(QGraphicsPathItem):
 
         menu = QMenu()
 
+        props_action = menu.addAction("✏️ Edit Properties")
+        props_action.triggered.connect(lambda: self.signals.properties_requested.emit(self.transition))
+
+        menu.addSeparator()
+
         delete_action = menu.addAction("🗑️ Delete Transition")
         delete_action.triggered.connect(lambda: self.signals.deleted.emit(self.transition.id))
 
         menu.exec(event.screenPos())
         event.accept()
+
+    def mouseDoubleClickEvent(self, event):
+        """Handle double-click - edit properties"""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.signals.properties_requested.emit(self.transition)
+            event.accept()

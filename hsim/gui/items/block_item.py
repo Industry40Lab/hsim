@@ -204,6 +204,14 @@ class BlockItem(QGraphicsItemGroup):
         if change == QGraphicsItem.GraphicsItemChange.ItemSelectedHasChanged:
             self.update_appearance()
 
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange:
+            # Snap to grid (20px grid)
+            GRID_SIZE = 20
+            new_pos = value
+            snapped_x = round(new_pos.x() / GRID_SIZE) * GRID_SIZE
+            snapped_y = round(new_pos.y() / GRID_SIZE) * GRID_SIZE
+            return QPointF(snapped_x, snapped_y)
+
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             # Update block model
             pos = self.pos()
