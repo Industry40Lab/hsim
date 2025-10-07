@@ -244,3 +244,30 @@ class BlockItem(QGraphicsItemGroup):
         rect = self.boundingRect()
         center = QPointF(rect.center().x(), rect.center().y())
         return self.mapToScene(center)
+
+    def add_port(self, port_name: str, port_type: str):
+        """Add a new port to the block dynamically"""
+        if port_name in self.ports:
+            return  # Port already exists
+
+        size = 60  # Block size
+
+        # Create new port
+        new_port = PortItem(self.block.id, port_name, port_type)
+        new_port.setParentItem(self)
+
+        # Position based on port type and existing ports of that type
+        if port_type == "input":
+            # Count existing input ports
+            input_count = sum(1 for p in self.ports.values() if p.port_type == "input")
+            # Stack vertically on left side
+            y_offset = 15 + (input_count * 15)
+            new_port.setPos(-5, y_offset)
+        else:  # output
+            # Count existing output ports
+            output_count = sum(1 for p in self.ports.values() if p.port_type == "output")
+            # Stack vertically on right side
+            y_offset = 15 + (output_count * 15)
+            new_port.setPos(size + 5, y_offset)
+
+        self.ports[port_name] = new_port

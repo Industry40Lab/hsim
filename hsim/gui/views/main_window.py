@@ -614,6 +614,7 @@ class MainWindow(QMainWindow):
 
         # Map library items to block types
         block_mapping = {
+            # DES Blocks
             "⚙️ Generator": "generator",
             "📦 Buffer": "buffer",
             "🔧 Server": "server",
@@ -627,12 +628,38 @@ class MainWindow(QMainWindow):
             "🤖 Agent": "agent"
         }
 
+        # FSM Elements and Connectors
+        fsm_element_mapping = {
+            "⭕ State": "state",
+            "➡️ Transition": "transition",
+            "⏱️ Timeout Event": "timeout_event",
+            "→ Connection": "connection",
+            "📥 Input Port": "input_port",
+            "📤 Output Port": "output_port"
+        }
+
+        current_canvas = self.canvas_tabs.currentWidget()
+
         if item_text in block_mapping:
             block_type = block_mapping[item_text]
-            # Apply to currently active canvas tab
-            current_canvas = self.canvas_tabs.currentWidget()
             current_canvas.set_create_mode(block_type)
             self.statusBar().showMessage(f"Click canvas to place: {item_text}", 3000)
+        elif item_text in fsm_element_mapping:
+            element_type = fsm_element_mapping[item_text]
+            current_canvas.set_create_mode(element_type)
+
+            # Different messages for different element types
+            if element_type == "state":
+                self.statusBar().showMessage("Click canvas to place State", 3000)
+            elif element_type == "transition":
+                self.statusBar().showMessage("Click source state, then target state to create Transition", 5000)
+            elif element_type == "timeout_event":
+                self.statusBar().showMessage("Click state to add Timeout Event", 3000)
+            elif element_type == "connection":
+                self.statusBar().showMessage("Drag from output port to input port to create Connection", 5000)
+            elif element_type in ["input_port", "output_port"]:
+                port_type = "Input" if element_type == "input_port" else "Output"
+                self.statusBar().showMessage(f"Click agent block to add {port_type} Port", 3000)
 
     def _close_agent_tab(self, index):
         """Close an agent tab"""

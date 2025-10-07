@@ -318,14 +318,42 @@ class CanvasWidget(QGraphicsView):
         """Handle mouse press"""
         if event.button() == Qt.MouseButton.LeftButton:
             if self.create_mode:
-                # Create new block at click position
                 scene_pos = self.mapToScene(event.pos())
-                self.create_block_at(self.create_mode, scene_pos.x(), scene_pos.y())
 
-                # Exit create mode
-                self.create_mode = None
-                self.setCursor(Qt.CursorShape.ArrowCursor)
-                return
+                # Handle different creation modes
+                if self.create_mode == "state":
+                    self._create_state_at(scene_pos.x(), scene_pos.y())
+                    self.create_mode = None
+                    self.setCursor(Qt.CursorShape.ArrowCursor)
+                    return
+                elif self.create_mode == "transition":
+                    # Transition requires clicking two states
+                    if not hasattr(self, 'transition_source_state'):
+                        # First click - select source state
+                        self._start_transition_creation(event.pos())
+                    else:
+                        # Second click - select target state and create transition
+                        self._complete_transition_creation(event.pos())
+                    return
+                elif self.create_mode in ["input_port", "output_port"]:
+                    self._create_port_at(event.pos())
+                    self.create_mode = None
+                    self.setCursor(Qt.CursorShape.ArrowCursor)
+                    return
+                elif self.create_mode == "connection":
+                    # Connection mode uses port drag-drop (already implemented)
+                    main_window = self._get_main_window()
+                    if main_window:
+                        main_window.statusBar().showMessage("Use port drag-drop for connections (already available)", 3000)
+                    self.create_mode = None
+                    self.setCursor(Qt.CursorShape.ArrowCursor)
+                    return
+                else:
+                    # Standard block creation
+                    self.create_block_at(self.create_mode, scene_pos.x(), scene_pos.y())
+                    self.create_mode = None
+                    self.setCursor(Qt.CursorShape.ArrowCursor)
+                    return
 
             elif self.connection_mode:
                 # Check if clicked on a block
@@ -813,6 +841,172 @@ class CanvasWidget(QGraphicsView):
                 to_block.parent_id == parent_block.id):
                 # Both blocks are children of this agent
                 self.add_connection_item(connection)
+
+    def _create_state_at(self, x, y):
+        """Create a new FSM state at the specified position"""
+        if not self.current_fsm:
+            main_window = self._get_main_window()
+            if main_window:
+                main_window.statusBar().showMessage("Cannot add state: No FSM context (open an agent first)", 5000)
+            return
+
+        from hsim.gui.models.model import State as FSMState
+        import uuid
+
+        # Create new state
+        state = FSMState(
+            id=str(uuid.uuid4()),
+            name=f"State{len(self.current_fsm.states) + 1}",
+            position=Position(x - 60, y - 30),
+            size=Size(120, 60),
+            is_initial=len(self.current_fsm.states) == 0,  # First state is initial
+            on_enter="# Enter actions",
+            on_exit="# Exit actions",
+            color="#3B82F6"  # Blue
+        )
+
+        # Add to FSM model
+        self.current_fsm.add_state(state)
+
+        # Create visual item
+        from hsim.gui.items.state_item import StateItem
+        state_item = StateItem(state)
+        state_item.setPos(state.position.x, state.position.y)
+
+        # Connect signals
+        state_item.signals.position_changed.connect(
+            lambda sid=state.id: self._on_fsm_state_moved(sid)
+        )
+        state_item.signals.selected.connect(self._on_fsm_state_selected)
+        state_item.signals.deleted.connect(self._on_fsm_state_deleted)
+
+        self.scene.addItem(state_item)
+        self.state_items[state.id] = state_item
+
+        # Emit model changed
+        self.model_changed.emit()
+
+        main_window = self._get_main_window()
+        if main_window:
+            main_window.statusBar().showMessage(f"Created state: {state.name}", 2000)
+
+    def _start_transition_creation(self, click_pos):
+        """Start transition creation by selecting source state"""
+        item = self.itemAt(click_pos)
+
+        # Find StateItem
+        from hsim.gui.items.state_item import StateItem
+        state_item = item
+        while state_item and not isinstance(state_item, StateItem):
+            state_item = state_item.parentItem() if hasattr(state_item, 'parentItem') else None
+
+        if state_item and isinstance(state_item, StateItem):
+            self.transition_source_state = state_item.state.id
+            main_window = self._get_main_window()
+            if main_window:
+                main_window.statusBar().showMessage(f"Transition from '{state_item.state.name}' - Click target state", 5000)
+        else:
+            main_window = self._get_main_window()
+            if main_window:
+                main_window.statusBar().showMessage("Click on a state to start transition", 3000)
+
+    def _complete_transition_creation(self, click_pos):
+        """Complete transition creation by selecting target state"""
+        item = self.itemAt(click_pos)
+
+        # Find StateItem
+        from hsim.gui.items.state_item import StateItem
+        state_item = item
+        while state_item and not isinstance(state_item, StateItem):
+            state_item = state_item.parentItem() if hasattr(state_item, 'parentItem') else None
+
+        if state_item and isinstance(state_item, StateItem):
+            target_state_id = state_item.state.id
+
+            if target_state_id == self.transition_source_state:
+                main_window = self._get_main_window()
+                if main_window:
+                    main_window.statusBar().showMessage("Cannot create self-transition", 3000)
+                delattr(self, 'transition_source_state')
+                self.create_mode = None
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+                return
+
+            # Create transition
+            from hsim.gui.models.model import Transition
+            import uuid
+
+            transition = Transition(
+                id=str(uuid.uuid4()),
+                from_state=self.transition_source_state,
+                to_state=target_state_id,
+                label="condition",
+                transition_type="condition"
+            )
+
+            self.current_fsm.add_transition(transition)
+
+            # Create visual item
+            from hsim.gui.items.transition_item import TransitionItem
+            source_item = self.state_items.get(self.transition_source_state)
+            target_item = self.state_items.get(target_state_id)
+
+            if source_item and target_item:
+                transition_item = TransitionItem(transition, source_item, target_item)
+                transition_item.signals.deleted.connect(self._on_fsm_transition_deleted)
+
+                self.scene.addItem(transition_item)
+                self.transition_items[transition.id] = transition_item
+
+                # Emit model changed
+                self.model_changed.emit()
+
+                main_window = self._get_main_window()
+                if main_window:
+                    source_name = self.current_fsm.states[self.transition_source_state].name
+                    target_name = self.current_fsm.states[target_state_id].name
+                    main_window.statusBar().showMessage(f"Created transition: {source_name} → {target_name}", 2000)
+
+            # Clean up
+            delattr(self, 'transition_source_state')
+            self.create_mode = None
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+        else:
+            main_window = self._get_main_window()
+            if main_window:
+                main_window.statusBar().showMessage("Click on a state to complete transition", 3000)
+
+    def _create_port_at(self, click_pos):
+        """Create a new port on a block"""
+        item = self.itemAt(click_pos)
+
+        # Find BlockItem
+        from hsim.gui.items.block_item import BlockItem
+        block_item = item
+        while block_item and not isinstance(block_item, BlockItem):
+            block_item = block_item.parentItem() if hasattr(block_item, 'parentItem') else None
+
+        if block_item and isinstance(block_item, BlockItem):
+            block = block_item.block
+            port_type = "input" if self.create_mode == "input_port" else "output"
+
+            # Count existing ports of this type
+            port_count = sum(1 for p in block_item.ports.values() if p.port_type == port_type)
+            port_name = f"{port_type}{port_count + 1}"
+
+            # Add port to block item (this will create the visual port)
+            block_item.add_port(port_name, port_type)
+
+            # Emit model changed
+            self.model_changed.emit()
+
+            main_window = self._get_main_window()
+            if main_window:
+                main_window.statusBar().showMessage(f"Added {port_type} port '{port_name}' to {block.name}", 2000)
+        else:
+            main_window = self._get_main_window()
+            if main_window:
+                main_window.statusBar().showMessage("Click on a block to add port", 3000)
 
     def _on_fsm_state_moved(self, state_id):
         """Handle FSM state movement"""
