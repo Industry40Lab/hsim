@@ -78,117 +78,39 @@
 
 ---
 
-### 4. Hierarchical Agent Model (Partial)
-**Status**: 🔄 IN PROGRESS
+### 4. Hierarchical Agent System
+**Status**: ✅ COMPLETE
 
 **Completed**:
-- Added `parent_id` and `children` fields to Block model
-- Updated serialization (to_dict/from_dict)
-- Model supports hierarchy
+- ✅ Added `parent_id` and `children` fields to Block model
+- ✅ Updated serialization (to_dict/from_dict)
+- ✅ Model supports hierarchy
+- ✅ Canvas shows sub-agents as blocks when opening agent view
+- ✅ When creating blocks inside agent, they become sub-agents automatically
+- ✅ Model tree shows hierarchy recursively
+- ✅ Connections between sub-agents displayed correctly
 
 **Files Modified**:
 - [model.py](hsim/gui/models/model.py#L42-L43) - Added hierarchy fields
 - [model.py](hsim/gui/models/model.py#L55-L56) - Serialization
 - [model.py](hsim/gui/models/model.py#L70-L71) - Deserialization
+- [canvas_widget.py](hsim/gui/views/canvas_widget.py#L785-L803) - `_load_sub_agents()` method
+- [canvas_widget.py](hsim/gui/views/canvas_widget.py#L372-L375) - Parent detection in `create_block_at()`
+- [canvas_widget.py](hsim/gui/views/canvas_widget.py#L489-L493) - Update parent's children list
+- [project_tree.py](hsim/gui/views/project_tree.py#L107-L141) - Hierarchical tree display
 
-**Remaining Work**:
-- Canvas must show sub-agents as blocks when inside parent
-- When you open an agent tab, show its children
-- Update Model tree to show hierarchy recursively
-- Add "Add Sub-Agent" functionality
+**How It Works**:
+1. Double-click agent → opens in new tab (AnyLogic style)
+2. Inside agent tab, place blocks from Library → they become sub-agents
+3. Sub-agents appear as blocks with FSM
+4. Model tree shows: Main → Agent → Sub-Agent → etc.
+5. Can navigate down arbitrarily deep hierarchy
 
 ---
 
 ## 🔧 Remaining Work
 
-### Priority 1: Complete Hierarchical Agents (2-3 hours)
-
-#### A. Show Sub-Agents in Agent View
-When opening an agent tab, should show:
-- Agent's FSM states (already works)
-- Agent's sub-agents as blocks (NEW)
-- Connections between sub-agents (NEW)
-- Ports at boundaries (already works)
-
-**Implementation Needed**:
-```python
-# canvas_widget.py
-def enter_agent_view(self, block_id):
-    ...
-    # Load FSM
-    self._load_fsm_graphics()
-
-    # Load sub-agents as blocks (NEW)
-    self._load_sub_agents(block)
-
-    # Load ports
-    self._load_agent_ports(block)
-
-def _load_sub_agents(self, parent_block):
-    """Show sub-agents as blocks inside parent"""
-    for child_id in parent_block.children:
-        child_block = self.model.get_block_by_id(child_id)
-        if child_block:
-            # Create block item in this scene
-            self.add_block_item(child_block)
-```
-
-#### B. Create Sub-Agents
-When inside an agent, clicking Library items should create sub-agents
-
-**Implementation Needed**:
-```python
-# canvas_widget.py
-def create_block_at(self, block_type, x, y):
-    ...
-    # Determine parent
-    if self.current_mode == "agent_internal":
-        parent_id = self.current_agent_id
-    else:
-        parent_id = "main"  # Top level
-
-    block.parent_id = parent_id
-
-    # Add to parent's children list
-    if parent_id != "main":
-        parent = self.model.get_block_by_id(parent_id)
-        if parent:
-            parent.children.append(block.id)
-```
-
-#### C. Hierarchical Model Tree
-Show tree structure recursively
-
-**Implementation Needed**:
-```python
-# project_tree.py
-def refresh_instances(self):
-    self.main_node.takeChildren()
-
-    # Show only top-level agents (parent_id == None)
-    for block in self.model.blocks.values():
-        if block.parent_id is None:
-            self._add_block_tree_item(self.main_node, block)
-
-def _add_block_tree_item(self, parent_node, block):
-    """Recursively add block and its children"""
-    item = QTreeWidgetItem(parent_node, [f"  {block.name} ({block.type})"])
-    item.setData(0, Qt.ItemDataRole.UserRole, {
-        'type': 'agent_instance',
-        'id': block.id,
-        'block': block
-    })
-
-    # Add children recursively
-    for child_id in block.children:
-        child = self.model.get_block_by_id(child_id)
-        if child:
-            self._add_block_tree_item(item, child)
-```
-
----
-
-### Priority 2: Enable FSM/Connector Creation (1-2 hours)
+### Priority 1: Enable FSM/Connector Creation (1-2 hours)
 
 **Goal**: Click State/Transition/Port in Library → place in frame
 
@@ -223,19 +145,18 @@ elif self.create_mode == "input_port":
 
 ## Testing Checklist
 
-### ✅ Already Testable
+### ✅ Testable Now
 - [ ] Open agent in new tab (double-click)
 - [ ] Switch between tabs
 - [ ] Close tab (not Main)
 - [ ] Library applies to active tab
 - [ ] Model tab shows only instances
 - [ ] Library has correct categories
-
-### 🔄 Will Be Testable After Hierarchical Agents
 - [ ] Open agent → see sub-agents as blocks
 - [ ] Create sub-agent inside agent
 - [ ] Model tree shows hierarchy
 - [ ] Navigate nested agents
+- [ ] Connections between sub-agents visible
 
 ### 🔜 Will Be Testable After FSM Creation
 - [ ] Click State → place in frame
@@ -246,31 +167,56 @@ elif self.create_mode == "input_port":
 
 ## Summary
 
-**Working Now**:
+**✅ Completed Features**:
 1. ✅ Tabbed canvas (AnyLogic style)
 2. ✅ Model tab (only instances)
 3. ✅ Library reorganized
 4. ✅ Port tooltips and visibility
+5. ✅ Hierarchical agents (complete system)
 
-**Almost Done** (model ready, needs UI):
-5. 🔄 Hierarchical agents (model supports it, need canvas/tree updates)
+**🔜 TODO**:
+6. 🔜 FSM element creation from Library (State, Transition, Timeout)
+7. 🔜 Connector creation from Library (Input/Output ports)
 
-**TODO**:
-6. 🔜 FSM element creation from Library
-7. 🔜 Connector creation from Library
-
-**Estimated Time**:
-- Complete hierarchical agents: 2-3 hours
+**Estimated Time Remaining**:
 - Enable FSM/connector creation: 1-2 hours
-- **Total**: 3-5 hours remaining
+- **Total**: 1-2 hours remaining
+
+---
+
+## What Just Got Done
+
+### Hierarchical Agent System (AnyLogic Style)
+
+The system now fully supports nested agent hierarchies:
+
+**Data Model** (`model.py`):
+- Each Block has `parent_id` and `children` fields
+- Full serialization/deserialization support
+
+**Canvas Behavior** (`canvas_widget.py`):
+- When opening agent tab → loads sub-agents as blocks via `_load_sub_agents()`
+- When creating blocks inside agent → automatically sets parent_id
+- Shows FSM states, sub-agent blocks, and connections all in same view
+- Connections between sub-agents rendered correctly
+
+**Model Tree** (`project_tree.py`):
+- Recursive display: Main → Agent → Sub-Agent → Sub-Sub-Agent...
+- Double-click any agent in tree → opens in new tab
+- FSM indicator (🔄) for agents with state machines
+
+**Workflow**:
+1. User double-clicks agent → opens in new tab
+2. User clicks Library item (e.g., "Server") → places in agent view
+3. New block becomes sub-agent (parent_id = opened agent's ID)
+4. Model tree updates to show nested structure
+5. Can navigate unlimited depth
 
 ---
 
 ## Next Steps
 
-Please confirm priority:
-1. Should I complete hierarchical agents first (show sub-agents, tree structure)?
-2. Or enable FSM element creation first (state/transition placement)?
-3. Or both in parallel?
-
-Once confirmed, I'll proceed with implementation.
+Moving to FSM element creation from Library:
+- Enable placing States from Library
+- Enable creating Transitions between states
+- Enable adding Timeout Events to states

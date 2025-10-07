@@ -105,25 +105,40 @@ class ProjectTree(QWidget):
         self.refresh_instances()
 
     def refresh_instances(self):
-        """Refresh agent instances from model"""
+        """Refresh agent instances from model - show hierarchical structure"""
         if not self.model:
             return
 
         # Clear main node
         self.main_node.takeChildren()
 
-        # Add all blocks as agent instances
+        # Add only top-level blocks (no parent)
         for block in self.model.blocks.values():
-            item = QTreeWidgetItem(self.main_node, [f"  {block.name} ({block.type})"])
-            item.setData(0, Qt.ItemDataRole.UserRole, {
-                'type': 'agent_instance',
-                'id': block.id,
-                'block': block
-            })
+            if block.parent_id is None:
+                self._add_block_tree_item(self.main_node, block)
 
-            # If block has FSM, show statechart indicator
-            if block.fsm_id:
-                item.setText(0, f"  {block.name} ({block.type}) 🔄")
+        # Expand all to show hierarchy
+        self.tree.expandAll()
+
+    def _add_block_tree_item(self, parent_node, block):
+        """Recursively add block and its children to the tree"""
+        # Create item with FSM indicator if applicable
+        label = f"  {block.name} ({block.type})"
+        if block.fsm_id:
+            label += " 🔄"
+
+        item = QTreeWidgetItem(parent_node, [label])
+        item.setData(0, Qt.ItemDataRole.UserRole, {
+            'type': 'agent_instance',
+            'id': block.id,
+            'block': block
+        })
+
+        # Add children recursively
+        for child_id in block.children:
+            child = self.model.get_block_by_id(child_id)
+            if child:
+                self._add_block_tree_item(item, child)
 
     def add_custom_agent_type(self, name, base_type=None):
         """Add a custom agent type to the tree"""

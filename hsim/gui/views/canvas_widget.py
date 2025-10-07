@@ -369,6 +369,11 @@ class CanvasWidget(QGraphicsView):
                 main_window.statusBar().showMessage(f"Error: No definition for '{block_type}'", 5000)
             return
 
+        # Determine parent based on current view mode
+        parent_id = None
+        if self.current_mode == "agent_internal" and self.current_agent_id:
+            parent_id = self.current_agent_id
+
         # Create block data
         block = Block(
             id=str(uuid.uuid4()),
@@ -376,7 +381,8 @@ class CanvasWidget(QGraphicsView):
             name=f"{block_def.name} {len(self.model.blocks) + 1}",
             position=Position(x - 50, y - 40),  # Center on click
             size=Size(100, 80),
-            properties={prop.name: prop.default for prop in block_def.properties}
+            properties={prop.name: prop.default for prop in block_def.properties},
+            parent_id=parent_id
         )
 
         # All blocks are agents and have FSMs
@@ -479,6 +485,12 @@ class CanvasWidget(QGraphicsView):
 
         # Add to model
         self.model.add_block(block)
+
+        # Add to parent's children list if this is a sub-agent
+        if parent_id:
+            parent_block = self.model.get_block_by_id(parent_id)
+            if parent_block:
+                parent_block.children.append(block.id)
 
         # Add to canvas
         self.add_block_item(block)
@@ -623,6 +635,9 @@ class CanvasWidget(QGraphicsView):
 
         # Load FSM into NEW scene
         self._load_fsm_graphics()
+
+        # Load sub-agents as blocks (AnyLogic style)
+        self._load_sub_agents(block)
 
         # Show ports at boundaries (interface layer)
         self._load_agent_ports(block)
@@ -778,6 +793,26 @@ class CanvasWidget(QGraphicsView):
 
                 label.setZValue(5)
                 self.scene.addItem(label)
+
+    def _load_sub_agents(self, parent_block):
+        """Load sub-agents as blocks inside parent (AnyLogic style)"""
+        for child_id in parent_block.children:
+            child_block = self.model.get_block_by_id(child_id)
+            if child_block:
+                # Create block item for this sub-agent
+                self.add_block_item(child_block)
+
+        # Also load connections between sub-agents
+        for connection in self.model.connections.values():
+            # Only show connections between blocks in this agent
+            from_block = self.model.get_block_by_id(connection.from_block)
+            to_block = self.model.get_block_by_id(connection.to_block)
+
+            if (from_block and to_block and
+                from_block.parent_id == parent_block.id and
+                to_block.parent_id == parent_block.id):
+                # Both blocks are children of this agent
+                self.add_connection_item(connection)
 
     def _on_fsm_state_moved(self, state_id):
         """Handle FSM state movement"""
