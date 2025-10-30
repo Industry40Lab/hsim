@@ -1,10 +1,18 @@
 if __name__ == "__main__":
     import sys
     import os
+    # Cross-platform path handling
+    abs_path = os.path.abspath(__file__)
+    parts = abs_path.split(os.sep)
     try:
-        sys.path.append("/".join(os.path.abspath(__file__).split("/")[:os.path.abspath(__file__).split("/").index("hsim")+1]))
-    except:
-        sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+        if "hsim" in parts:
+            hsim_index = parts.index("hsim")
+            hsim_path = os.sep.join(parts[:hsim_index + 1])
+            if hsim_path not in sys.path:
+                sys.path.append(hsim_path)
+    except (ValueError, IndexError):
+        pass  # Path setup failed, imports may fail
+        
 from typing import Any, Callable, Tuple, Union
 import numpy as np
 from hsim.core.agent.agent import Agent
