@@ -17,6 +17,7 @@ from hsim.gui.views.canvas_widget import CanvasWidget
 from hsim.gui.views.fsm_editor_widget import FSMEditorWidget
 from hsim.gui.views.properties_panel import PropertiesPanel
 from hsim.gui.views.project_tree import ProjectTree
+from hsim.gui.version import __version__, __app_name__, __organization__, __copyright__
 import json
 
 
@@ -379,10 +380,10 @@ class MainWindow(QMainWindow):
 
     def setup_statusbar(self):
         """Setup status bar"""
-        self.statusBar().showMessage("Ready - Press F1 for help, Ctrl+N for new model")
+        self.statusBar().showMessage("Ready - Ctrl+N for new model, F5 to run simulation")
         
         # Add permanent widgets to status bar
-        from PyQt6.QtWidgets import QLabel
+        # Import QLabel at top level
         
         # Selection info label
         self.selection_label = QLabel("No selection")
@@ -853,10 +854,10 @@ class MainWindow(QMainWindow):
     def show_about(self):
         """Show about dialog"""
         QMessageBox.about(
-            self, "About hsim Model Designer",
-            "<h2>hsim Model Designer</h2>"
+            self, f"About {__app_name__}",
+            f"<h2>{__app_name__}</h2>"
             "<p><b>Visual designer for discrete event simulation models</b></p>"
-            "<p>Version 1.0.0</p>"
+            f"<p>Version {__version__}</p>"
             "<hr>"
             "<p>Features:</p>"
             "<ul>"
@@ -872,7 +873,7 @@ class MainWindow(QMainWindow):
             "</ul>"
             "<hr>"
             "<p>Built with PyQt6 and the hsim framework</p>"
-            "<p>© 2025 hsim Project</p>"
+            f"<p>{__copyright__}</p>"
         )
     
     def undo(self):
