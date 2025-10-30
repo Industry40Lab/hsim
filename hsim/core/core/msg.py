@@ -13,7 +13,11 @@ if __name__ == "__main__":
 
 from abc import abstractmethod
 import types
+import logging
 from typing import Any, Callable, Iterable, OrderedDict, Tuple
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 from sortedcontainers import SortedList
 from hsim.core.core.event import BaseEvent, RecurringEvent, Status
@@ -94,10 +98,16 @@ class MessageQueue:
         self._trigger()
         
     def cancel(self, message: Message):
+        """
+        Cancel a message in the queue.
+        
+        Args:
+            message: Message to cancel
+        """
         try:
             self.queue.remove(message)
         except ValueError:
-            print("Message not found in receiver, just deleting it")
+            logger.warning("Message not found in receiver queue, deleting message object")
             for event in message.receipts.values():
                 event.cancel()
             del message

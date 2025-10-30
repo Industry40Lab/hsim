@@ -76,28 +76,40 @@ class Scheduler():
             if not getattr(cond_event, "_canceled", False) and cond_event.verify():
                 break
     def execute(self,event):
+        """
+        Execute event action(s).
+        
+        Args:
+            event: Event to execute
+        """
         if callable(event.action):
             try:
                 event.action(*event.arguments, **event.kwargs)
             except Exception as e:
                 if DEBUG:
-                    event.action(*event.arguments, **event.kwargs)
-                    print(f"Error in event {event}: {e}. Action: {event.action}. Arguments: {event.arguments}")
+                    # Re-raise in debug mode to see full traceback
+                    raise
                 else:
-                    raise e
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Error executing event {event}: {e}", exc_info=True)
+                    raise
         else:
             if len(event.arguments) == 0:
                 event.arguments = [() for _ in range(len(event.action))]
             elif len(event.arguments) != len(event.action):
-                raise ValueError("Arguments do not match")
+                raise ValueError(f"Arguments count ({len(event.arguments)}) does not match actions count ({len(event.action)})")
             for index, action in enumerate(event.action):
                 try:
                     action(*event.arguments[index], **event.kwargs)
                 except Exception as e:
                     if DEBUG:
-                        print(f"Error in event {event}: {e}. Action: {event.action}. Arguments: {event.arguments}")
+                        raise
                     else:
-                        raise e 
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"Error executing action {index} of event {event}: {e}", exc_info=True)
+                        raise 
     def cancel(self, event):
         # Just flag as canceled, do not remove from queue
         event.cancel()

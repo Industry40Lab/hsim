@@ -1,8 +1,12 @@
 import os
+import logging
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 RESULTS_FOLDER = "hsim/GSOM/flask/static/results/"
 RESULTS_FILENAME = "results.csv"
@@ -18,7 +22,7 @@ TEMP_FOLDER_NAME = 'simulation_results'
 # Security: Load sensitive data from environment variables
 AZURE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING", "")
 if not AZURE_CONNECTION_STRING:
-    print("WARNING: AZURE_CONNECTION_STRING not set in environment variables")
+    logger.warning("AZURE_CONNECTION_STRING not set in environment variables")
 
 POLLER_WAIT_TIME = int(os.getenv("POLLER_WAIT_TIME", "15"))  # seconds
 

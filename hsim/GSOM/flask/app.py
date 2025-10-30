@@ -15,6 +15,7 @@ import sqlite3
 import os
 import shutil
 import tempfile
+import logging
 from werkzeug.utils import secure_filename
 import io
 from threading import Thread
@@ -23,6 +24,13 @@ from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Import route modules
 from hsim.GSOM.flask.routes.auth import auth_bp
@@ -39,7 +47,7 @@ if not app.secret_key:
     # Generate a random secret key if not set (for development only)
     import secrets
     app.secret_key = secrets.token_hex(32)
-    print("WARNING: Using generated secret key. Set FLASK_SECRET_KEY environment variable for production!")
+    logger.warning("Using generated secret key. Set FLASK_SECRET_KEY environment variable for production!")
 
 # Security headers
 @app.after_request
@@ -85,12 +93,13 @@ with app.app_context():
 
 # Cleanup function to remove temporary files when the app shuts down
 def cleanup_temp_files():
+    """Clean up temporary files on application shutdown."""
     if os.path.exists(TEMP_FOLDER):
         try:
             shutil.rmtree(TEMP_FOLDER)
-            print(f"Cleaned up temporary directory: {TEMP_FOLDER}")
+            logger.info(f"Cleaned up temporary directory: {TEMP_FOLDER}")
         except Exception as e:
-            print(f"Error cleaning up temporary directory: {e}")
+            logger.error(f"Error cleaning up temporary directory: {e}")
 
 # Register the cleanup function to run on exit
 atexit.register(cleanup_temp_files)
