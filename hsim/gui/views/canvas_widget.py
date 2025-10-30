@@ -687,6 +687,160 @@ class CanvasWidget(QGraphicsView):
             elif isinstance(item, ConnectionItem):
                 self.on_connection_deleted(item.connection.id)
 
+    # Alignment operations
+    def align_left(self):
+        """Align selected blocks to the leftmost block"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 2:
+            return
+        
+        # Find leftmost position
+        min_x = min(item.pos().x() for item in selected_blocks)
+        
+        # Move all blocks to that x position
+        for item in selected_blocks:
+            item.setPos(min_x, item.pos().y())
+            # Update model
+            item.block.position.x = min_x
+        
+        self.model_changed.emit()
+    
+    def align_right(self):
+        """Align selected blocks to the rightmost block"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 2:
+            return
+        
+        # Find rightmost position (accounting for width)
+        max_x = max(item.pos().x() + item.block.size.width for item in selected_blocks)
+        
+        # Move all blocks to that x position
+        for item in selected_blocks:
+            new_x = max_x - item.block.size.width
+            item.setPos(new_x, item.pos().y())
+            item.block.position.x = new_x
+        
+        self.model_changed.emit()
+    
+    def align_top(self):
+        """Align selected blocks to the topmost block"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 2:
+            return
+        
+        # Find topmost position
+        min_y = min(item.pos().y() for item in selected_blocks)
+        
+        # Move all blocks to that y position
+        for item in selected_blocks:
+            item.setPos(item.pos().x(), min_y)
+            item.block.position.y = min_y
+        
+        self.model_changed.emit()
+    
+    def align_bottom(self):
+        """Align selected blocks to the bottommost block"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 2:
+            return
+        
+        # Find bottommost position (accounting for height)
+        max_y = max(item.pos().y() + item.block.size.height for item in selected_blocks)
+        
+        # Move all blocks to that y position
+        for item in selected_blocks:
+            new_y = max_y - item.block.size.height
+            item.setPos(item.pos().x(), new_y)
+            item.block.position.y = new_y
+        
+        self.model_changed.emit()
+    
+    def align_horizontal_center(self):
+        """Align selected blocks to horizontal center"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 2:
+            return
+        
+        # Calculate center y position
+        min_y = min(item.pos().y() for item in selected_blocks)
+        max_y = max(item.pos().y() + item.block.size.height for item in selected_blocks)
+        center_y = (min_y + max_y) / 2
+        
+        # Move all blocks to center
+        for item in selected_blocks:
+            new_y = center_y - item.block.size.height / 2
+            item.setPos(item.pos().x(), new_y)
+            item.block.position.y = new_y
+        
+        self.model_changed.emit()
+    
+    def align_vertical_center(self):
+        """Align selected blocks to vertical center"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 2:
+            return
+        
+        # Calculate center x position
+        min_x = min(item.pos().x() for item in selected_blocks)
+        max_x = max(item.pos().x() + item.block.size.width for item in selected_blocks)
+        center_x = (min_x + max_x) / 2
+        
+        # Move all blocks to center
+        for item in selected_blocks:
+            new_x = center_x - item.block.size.width / 2
+            item.setPos(new_x, item.pos().y())
+            item.block.position.x = new_x
+        
+        self.model_changed.emit()
+    
+    def distribute_horizontally(self):
+        """Distribute selected blocks evenly horizontally"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 3:
+            return
+        
+        # Sort by x position
+        sorted_blocks = sorted(selected_blocks, key=lambda item: item.pos().x())
+        
+        # Calculate spacing
+        first_x = sorted_blocks[0].pos().x()
+        last_x = sorted_blocks[-1].pos().x()
+        total_space = last_x - first_x
+        num_gaps = len(sorted_blocks) - 1
+        spacing = total_space / num_gaps
+        
+        # Distribute
+        for i, item in enumerate(sorted_blocks[1:-1], start=1):
+            new_x = first_x + spacing * i
+            item.setPos(new_x, item.pos().y())
+            item.block.position.x = new_x
+        
+        self.model_changed.emit()
+    
+    def distribute_vertically(self):
+        """Distribute selected blocks evenly vertically"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 3:
+            return
+        
+        # Sort by y position
+        sorted_blocks = sorted(selected_blocks, key=lambda item: item.pos().y())
+        
+        # Calculate spacing
+        first_y = sorted_blocks[0].pos().y()
+        last_y = sorted_blocks[-1].pos().y()
+        total_space = last_y - first_y
+        num_gaps = len(sorted_blocks) - 1
+        spacing = total_space / num_gaps
+        
+        # Distribute
+        for i, item in enumerate(sorted_blocks[1:-1], start=1):
+            new_y = first_y + spacing * i
+            item.setPos(item.pos().x(), new_y)
+            item.block.position.y = new_y
+        
+        self.model_changed.emit()
+
     # View operations
     def zoom_in(self):
         """Zoom in"""

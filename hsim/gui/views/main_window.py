@@ -197,6 +197,59 @@ class MainWindow(QMainWindow):
         toggle_grid_action.triggered.connect(self.toggle_grid)
         view_menu.addAction(toggle_grid_action)
 
+        # Arrange menu
+        arrange_menu = menubar.addMenu("&Arrange")
+
+        align_left_action = QAction("⬅️ Align &Left", self)
+        align_left_action.setShortcut(QKeySequence("Ctrl+Shift+L"))
+        align_left_action.setToolTip("Align selected blocks to the left")
+        align_left_action.triggered.connect(self.align_left)
+        arrange_menu.addAction(align_left_action)
+
+        align_right_action = QAction("➡️ Align &Right", self)
+        align_right_action.setShortcut(QKeySequence("Ctrl+Shift+R"))
+        align_right_action.setToolTip("Align selected blocks to the right")
+        align_right_action.triggered.connect(self.align_right)
+        arrange_menu.addAction(align_right_action)
+
+        align_top_action = QAction("⬆️ Align &Top", self)
+        align_top_action.setShortcut(QKeySequence("Ctrl+Shift+T"))
+        align_top_action.setToolTip("Align selected blocks to the top")
+        align_top_action.triggered.connect(self.align_top)
+        arrange_menu.addAction(align_top_action)
+
+        align_bottom_action = QAction("⬇️ Align &Bottom", self)
+        align_bottom_action.setShortcut(QKeySequence("Ctrl+Shift+B"))
+        align_bottom_action.setToolTip("Align selected blocks to the bottom")
+        align_bottom_action.triggered.connect(self.align_bottom)
+        arrange_menu.addAction(align_bottom_action)
+
+        arrange_menu.addSeparator()
+
+        align_h_center_action = QAction("↔️ Align &Horizontal Center", self)
+        align_h_center_action.setShortcut(QKeySequence("Ctrl+Shift+H"))
+        align_h_center_action.setToolTip("Align selected blocks to horizontal center")
+        align_h_center_action.triggered.connect(self.align_horizontal_center)
+        arrange_menu.addAction(align_h_center_action)
+
+        align_v_center_action = QAction("↕️ Align &Vertical Center", self)
+        align_v_center_action.setShortcut(QKeySequence("Ctrl+Shift+V"))
+        align_v_center_action.setToolTip("Align selected blocks to vertical center")
+        align_v_center_action.triggered.connect(self.align_vertical_center)
+        arrange_menu.addAction(align_v_center_action)
+
+        arrange_menu.addSeparator()
+
+        distribute_h_action = QAction("⬌ Distribute Horizontally", self)
+        distribute_h_action.setToolTip("Distribute selected blocks evenly horizontally")
+        distribute_h_action.triggered.connect(self.distribute_horizontally)
+        arrange_menu.addAction(distribute_h_action)
+
+        distribute_v_action = QAction("⬍ Distribute Vertically", self)
+        distribute_v_action.setToolTip("Distribute selected blocks evenly vertically")
+        distribute_v_action.triggered.connect(self.distribute_vertically)
+        arrange_menu.addAction(distribute_v_action)
+
         # Simulation menu
         sim_menu = menubar.addMenu("&Simulation")
 
@@ -279,6 +332,24 @@ class MainWindow(QMainWindow):
         zoom_reset_action.setToolTip("Reset zoom to 100% (Ctrl+0)")
         zoom_reset_action.triggered.connect(self.zoom_reset)
         toolbar.addAction(zoom_reset_action)
+        
+        toolbar.addSeparator()
+        
+        # Grid toggle
+        self.grid_toggle_action = QAction("⊞ Grid", self)
+        self.grid_toggle_action.setCheckable(True)
+        self.grid_toggle_action.setChecked(True)
+        self.grid_toggle_action.setToolTip("Toggle grid visibility")
+        self.grid_toggle_action.triggered.connect(self.toggle_grid)
+        toolbar.addAction(self.grid_toggle_action)
+        
+        # Snap to grid toggle
+        self.snap_toggle_action = QAction("🧲 Snap", self)
+        self.snap_toggle_action.setCheckable(True)
+        self.snap_toggle_action.setChecked(True)
+        self.snap_toggle_action.setToolTip("Toggle snap to grid")
+        self.snap_toggle_action.triggered.connect(self.toggle_snap)
+        toolbar.addAction(self.snap_toggle_action)
 
         # FSM Toolbar (hidden by default, shown when in agent_internal mode)
         self.fsm_toolbar = QToolBar("FSM Editor Toolbar")
@@ -493,6 +564,14 @@ class MainWindow(QMainWindow):
         current_widget = self.canvas_tabs.currentWidget()
         if hasattr(current_widget, 'set_grid_visible'):
             current_widget.set_grid_visible(checked)
+            self.statusBar().showMessage(f"Grid {'visible' if checked else 'hidden'}", 1000)
+    
+    def toggle_snap(self, checked):
+        """Toggle snap to grid"""
+        current_widget = self.canvas_tabs.currentWidget()
+        if hasattr(current_widget, 'grid_snap'):
+            current_widget.grid_snap = checked
+            self.statusBar().showMessage(f"Snap to grid {'enabled' if checked else 'disabled'}", 1000)
 
     # Simulation operations
     def run_simulation(self):
@@ -789,3 +868,59 @@ class MainWindow(QMainWindow):
                 self.statusBar().showMessage(f"Pasted {count} block(s)", 2000)
             else:
                 self.statusBar().showMessage("Nothing to paste", 2000)
+    
+    def align_left(self):
+        """Align selected blocks to the left"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'align_left'):
+            current_canvas.align_left()
+            self.statusBar().showMessage("Aligned to left", 1000)
+    
+    def align_right(self):
+        """Align selected blocks to the right"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'align_right'):
+            current_canvas.align_right()
+            self.statusBar().showMessage("Aligned to right", 1000)
+    
+    def align_top(self):
+        """Align selected blocks to the top"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'align_top'):
+            current_canvas.align_top()
+            self.statusBar().showMessage("Aligned to top", 1000)
+    
+    def align_bottom(self):
+        """Align selected blocks to the bottom"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'align_bottom'):
+            current_canvas.align_bottom()
+            self.statusBar().showMessage("Aligned to bottom", 1000)
+    
+    def align_horizontal_center(self):
+        """Align selected blocks to horizontal center"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'align_horizontal_center'):
+            current_canvas.align_horizontal_center()
+            self.statusBar().showMessage("Aligned to horizontal center", 1000)
+    
+    def align_vertical_center(self):
+        """Align selected blocks to vertical center"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'align_vertical_center'):
+            current_canvas.align_vertical_center()
+            self.statusBar().showMessage("Aligned to vertical center", 1000)
+    
+    def distribute_horizontally(self):
+        """Distribute selected blocks horizontally"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'distribute_horizontally'):
+            current_canvas.distribute_horizontally()
+            self.statusBar().showMessage("Distributed horizontally", 1000)
+    
+    def distribute_vertically(self):
+        """Distribute selected blocks vertically"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'distribute_vertically'):
+            current_canvas.distribute_vertically()
+            self.statusBar().showMessage("Distributed vertically", 1000)
