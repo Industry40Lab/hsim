@@ -26,8 +26,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pytest pytest-cov
-        pip install -r requirements.txt
+        pip install -e .[dev]
     
     - name: Run tests
       run: |
@@ -43,6 +42,7 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
+    continue-on-error: true
     
     steps:
     - uses: actions/checkout@v3
@@ -56,12 +56,14 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pylint black
-        pip install -r requirements.txt
+        pip install -e .
     
     - name: Lint with pylint
+      continue-on-error: true
       run: |
-        pylint hsim/core --rcfile=.pylintrc || true
+        pylint hsim/core --rcfile=.pylintrc
     
     - name: Check code formatting with black
+      continue-on-error: true
       run: |
-        black --check hsim/ || true
+        black --check hsim/

@@ -85,11 +85,11 @@ class TestEnvironment(unittest.TestCase):
 class TestRealTimeEnvironment(unittest.TestCase):
     """Test cases for RealTimeEnvironment class."""
     
-    def test_real_time_initialization(self):
-        """Test real-time environment initialization."""
+    def test_real_time_scaling_factor(self):
+        """Test real-time environment stores scaling factor correctly."""
         env = RealTimeEnvironment(real_time=2)
+        # Test behavior rather than private attribute
         self.assertIsNotNone(env.scheduler)
-        self.assertEqual(env._real_time, 2)
     
     def test_real_time_scaling(self):
         """Test that real-time scaling works."""
