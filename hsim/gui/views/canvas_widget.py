@@ -30,6 +30,9 @@ class CanvasWidget(QGraphicsView):
         self.model = model
         self.scene = QGraphicsScene()
         self.setScene(self.scene)
+        
+        # Enable rubber band selection for multi-select
+        self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
 
         # State
         self.block_items = {}  # block_id -> BlockItem
@@ -40,6 +43,9 @@ class CanvasWidget(QGraphicsView):
         self.grid_visible = True
         self.grid_snap = True  # Enable grid snapping by default
         self.zoom_level = 1.0
+        
+        # Clipboard for copy/paste
+        self.clipboard = []  # List of copied block data
 
         # Canvas mode (main process flow or agent internal FSM view)
         self.current_mode = "main"  # "main" or "agent_internal"
@@ -592,6 +598,85 @@ class CanvasWidget(QGraphicsView):
         """Select all blocks"""
         for item in self.block_items.values():
             item.setSelected(True)
+
+    def copy_selected(self):
+        """Copy selected blocks to clipboard"""
+        selected_items = self.scene.selectedItems()
+        self.clipboard = []
+        
+        for item in selected_items:
+            if isinstance(item, BlockItem):
+                block = item.block
+                block_data = {
+                    'type': block.type,
+                    'name': block.name,
+                    'position': {'x': block.position.x, 'y': block.position.y},
+                    'size': {'width': block.size.width, 'height': block.size.height},
+                    'properties': block.properties.copy() if block.properties else {}
+                }
+                self.clipboard.append(block_data)
+        
+        if self.clipboard:
+            return len(self.clipboard)
+        return 0
+    
+    def paste_from_clipboard(self):
+        """Paste blocks from clipboard"""
+        if not self.clipboard:
+            return 0
+        
+        # Clear current selection
+        for item in self.scene.selectedItems():
+            item.setSelected(False)
+        
+        pasted_count = 0
+        offset = 30  # Offset to avoid pasting on top of original
+        
+        for block_data in self.clipboard:
+            # Create new block with offset position
+            new_id = str(uuid.uuid4())
+            position = Position(
+                block_data['position']['x'] + offset,
+                block_data['position']['y'] + offset
+            )
+            size = Size(
+                block_data['size']['width'],
+                block_data['size']['height']
+            )
+            
+            # Generate unique name
+            base_name = block_data['name']
+            counter = 1
+            new_name = f"{base_name}_copy"
+            while any(b.name == new_name for b in self.model.blocks.values()):
+                counter += 1
+                new_name = f"{base_name}_copy{counter}"
+            
+            new_block = Block(
+                id=new_id,
+                type=block_data['type'],
+                name=new_name,
+                position=position,
+                size=size,
+                properties=block_data['properties'].copy()
+            )
+            
+            # Add to model
+            self.model.blocks[new_id] = new_block
+            
+            # Add to canvas
+            self.add_block_to_canvas(new_block)
+            
+            # Select the new block
+            if new_id in self.block_items:
+                self.block_items[new_id].setSelected(True)
+            
+            pasted_count += 1
+        
+        if pasted_count > 0:
+            self.model_changed.emit()
+        
+        return pasted_count
 
     def delete_selected(self):
         """Delete selected items"""
