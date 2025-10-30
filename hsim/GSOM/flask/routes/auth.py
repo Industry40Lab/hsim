@@ -27,7 +27,31 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 EMAIL_REGEX = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
 AZURE = True
 
+# Password validation regex - at least 8 chars, 1 uppercase, 1 lowercase, 1 digit
+PASSWORD_REGEX = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$"
+
 from hsim.GSOM.flask.config import USERS_DB, AZURE_CONNECTION_STRING, POLLER_WAIT_TIME
+
+
+def validate_password_strength(password):
+    """
+    Validate password strength.
+    Requirements:
+    - At least 8 characters
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one digit
+    """
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+    if not re.search(r"[a-z]", password):
+        return False, "Password must contain at least one lowercase letter."
+    if not re.search(r"[A-Z]", password):
+        return False, "Password must contain at least one uppercase letter."
+    if not re.search(r"\d", password):
+        return False, "Password must contain at least one digit."
+    return True, ""
+
 
 # Database connection helper
 def get_db_connection():
@@ -136,20 +160,25 @@ def register():
         elif password != confirm_password:
             flash('Passwords do not match. Please try again.', 'error')
         else:
-            conn = get_db_connection()
-            try:
-                hashed_password = generate_password_hash(password)
-                conn.execute(
-                    'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
-                    (username, email, hashed_password)
-                )
-                conn.commit()
-                flash('Registration successful! Please log in.', 'success')
-                return redirect(url_for('auth.login'))
-            except sqlite3.IntegrityError:
-                flash('Username or email already exists. Please try again.', 'error')
-            finally:
-                conn.close()
+            # Validate password strength
+            is_valid, error_msg = validate_password_strength(password)
+            if not is_valid:
+                flash(error_msg, 'error')
+            else:
+                conn = get_db_connection()
+                try:
+                    hashed_password = generate_password_hash(password)
+                    conn.execute(
+                        'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
+                        (username, email, hashed_password)
+                    )
+                    conn.commit()
+                    flash('Registration successful! Please log in.', 'success')
+                    return redirect(url_for('auth.login'))
+                except sqlite3.IntegrityError:
+                    flash('Username or email already exists. Please try again.', 'error')
+                finally:
+                    conn.close()
     
     return render_template('auth/register.html')
 
