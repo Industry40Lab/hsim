@@ -379,12 +379,31 @@ class MainWindow(QMainWindow):
 
     def setup_statusbar(self):
         """Setup status bar"""
-        self.statusBar().showMessage("Ready")
+        self.statusBar().showMessage("Ready - Press F1 for help, Ctrl+N for new model")
+        
+        # Add permanent widgets to status bar
+        from PyQt6.QtWidgets import QLabel
+        
+        # Selection info label
+        self.selection_label = QLabel("No selection")
+        self.selection_label.setStyleSheet("padding: 0 10px;")
+        self.statusBar().addPermanentWidget(self.selection_label)
+        
+        # Zoom level label
+        self.zoom_label = QLabel("100%")
+        self.zoom_label.setStyleSheet("padding: 0 10px;")
+        self.statusBar().addPermanentWidget(self.zoom_label)
+        
+        # Grid/snap status
+        self.grid_status_label = QLabel("Grid: ON | Snap: ON")
+        self.grid_status_label.setStyleSheet("padding: 0 10px;")
+        self.statusBar().addPermanentWidget(self.grid_status_label)
 
     def connect_signals(self):
         """Connect signals between widgets"""
         # Canvas signals
         self.canvas.selection_changed.connect(self.properties_panel.show_block_properties)
+        self.canvas.selection_changed.connect(self.on_selection_changed)
         self.canvas.block_double_clicked.connect(self.open_agent_internal_view)
         self.canvas.model_changed.connect(self.on_model_changed)
         self.canvas.mode_changed.connect(self.on_canvas_mode_changed)
@@ -448,6 +467,21 @@ class MainWindow(QMainWindow):
     def on_model_changed(self):
         """Handle model changes - refresh project tree"""
         self.project_tree.refresh_instances()
+
+    def on_selection_changed(self, block):
+        """Handle selection changes - update status bar"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'scene'):
+            selected_items = current_canvas.scene.selectedItems()
+            if len(selected_items) == 0:
+                self.selection_label.setText("No selection")
+            elif len(selected_items) == 1:
+                if block:
+                    self.selection_label.setText(f"Selected: {block.name}")
+                else:
+                    self.selection_label.setText("1 item selected")
+            else:
+                self.selection_label.setText(f"{len(selected_items)} items selected")
 
     def on_canvas_mode_changed(self, mode: str):
         """Handle canvas mode changes - show/hide FSM toolbar"""
@@ -546,18 +580,27 @@ class MainWindow(QMainWindow):
         current_widget = self.canvas_tabs.currentWidget()
         if hasattr(current_widget, 'zoom_in'):
             current_widget.zoom_in()
+            self._update_zoom_label(current_widget)
 
     def zoom_out(self):
         """Zoom out the current view"""
         current_widget = self.canvas_tabs.currentWidget()
         if hasattr(current_widget, 'zoom_out'):
             current_widget.zoom_out()
+            self._update_zoom_label(current_widget)
 
     def zoom_reset(self):
         """Reset zoom to 100%"""
         current_widget = self.canvas_tabs.currentWidget()
         if hasattr(current_widget, 'zoom_reset'):
             current_widget.zoom_reset()
+            self._update_zoom_label(current_widget)
+    
+    def _update_zoom_label(self, canvas):
+        """Update zoom label in status bar"""
+        if hasattr(canvas, 'zoom_level'):
+            zoom_percent = int(canvas.zoom_level * 100)
+            self.zoom_label.setText(f"{zoom_percent}%")
 
     def toggle_grid(self, checked):
         """Toggle grid display"""
@@ -565,6 +608,7 @@ class MainWindow(QMainWindow):
         if hasattr(current_widget, 'set_grid_visible'):
             current_widget.set_grid_visible(checked)
             self.statusBar().showMessage(f"Grid {'visible' if checked else 'hidden'}", 1000)
+            self._update_grid_status_label()
     
     def toggle_snap(self, checked):
         """Toggle snap to grid"""
@@ -572,6 +616,15 @@ class MainWindow(QMainWindow):
         if hasattr(current_widget, 'grid_snap'):
             current_widget.grid_snap = checked
             self.statusBar().showMessage(f"Snap to grid {'enabled' if checked else 'disabled'}", 1000)
+            self._update_grid_status_label()
+    
+    def _update_grid_status_label(self):
+        """Update grid/snap status in status bar"""
+        grid_on = self.grid_toggle_action.isChecked()
+        snap_on = self.snap_toggle_action.isChecked()
+        self.grid_status_label.setText(
+            f"Grid: {'ON' if grid_on else 'OFF'} | Snap: {'ON' if snap_on else 'OFF'}"
+        )
 
     # Simulation operations
     def run_simulation(self):
@@ -802,9 +855,24 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self, "About hsim Model Designer",
             "<h2>hsim Model Designer</h2>"
-            "<p>Visual designer for discrete event simulation models</p>"
-            "<p>Version 0.1.0</p>"
-            "<p>Built with PyQt6 and hsim framework</p>"
+            "<p><b>Visual designer for discrete event simulation models</b></p>"
+            "<p>Version 1.0.0</p>"
+            "<hr>"
+            "<p>Features:</p>"
+            "<ul>"
+            "<li>🎨 AnyLogic-style interface with dark theme</li>"
+            "<li>🔧 Visual block-based modeling</li>"
+            "<li>🔄 FSM editor for agent behaviors</li>"
+            "<li>⚡ Hierarchical agent composition</li>"
+            "<li>↶ Undo/Redo support</li>"
+            "<li>📋 Copy/Paste functionality</li>"
+            "<li>⬌ Alignment and distribution tools</li>"
+            "<li>🧲 Grid snapping</li>"
+            "<li>🐍 Python code export</li>"
+            "</ul>"
+            "<hr>"
+            "<p>Built with PyQt6 and the hsim framework</p>"
+            "<p>© 2025 hsim Project</p>"
         )
     
     def undo(self):
