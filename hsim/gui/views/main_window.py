@@ -11,11 +11,13 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QAction, QIcon, QKeySequence
 
 from hsim.gui.models.model import SimulationModel
+from hsim.gui.models.undo_stack import UndoStack
 from hsim.gui.views.palette_widget import PaletteWidget
 from hsim.gui.views.canvas_widget import CanvasWidget
 from hsim.gui.views.fsm_editor_widget import FSMEditorWidget
 from hsim.gui.views.properties_panel import PropertiesPanel
 from hsim.gui.views.project_tree import ProjectTree
+from hsim.gui.version import __version__, __app_name__, __organization__, __copyright__
 import json
 
 
@@ -26,11 +28,13 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.model = SimulationModel(name="New Model")
         self.current_file = None
+        self.undo_stack = UndoStack()
         self.setup_ui()
         self.setup_menu()
         self.setup_toolbar()
         self.setup_statusbar()
         self.connect_signals()
+        self.update_undo_redo_actions()
 
     def setup_ui(self):
         """Setup the UI layout"""
@@ -103,35 +107,35 @@ class MainWindow(QMainWindow):
         # File menu
         file_menu = menubar.addMenu("&File")
 
-        new_action = QAction("&New", self)
+        new_action = QAction("📄 &New", self)
         new_action.setShortcut(QKeySequence.StandardKey.New)
         new_action.triggered.connect(self.new_model)
         file_menu.addAction(new_action)
 
-        open_action = QAction("&Open...", self)
+        open_action = QAction("📁 &Open...", self)
         open_action.setShortcut(QKeySequence.StandardKey.Open)
         open_action.triggered.connect(self.open_model)
         file_menu.addAction(open_action)
 
-        save_action = QAction("&Save", self)
+        save_action = QAction("💾 &Save", self)
         save_action.setShortcut(QKeySequence.StandardKey.Save)
         save_action.triggered.connect(self.save_model)
         file_menu.addAction(save_action)
 
-        save_as_action = QAction("Save &As...", self)
+        save_as_action = QAction("💾 Save &As...", self)
         save_as_action.setShortcut(QKeySequence.StandardKey.SaveAs)
         save_as_action.triggered.connect(self.save_model_as)
         file_menu.addAction(save_as_action)
 
         file_menu.addSeparator()
 
-        export_python_action = QAction("Export &Python Code...", self)
+        export_python_action = QAction("🐍 Export &Python Code...", self)
         export_python_action.triggered.connect(self.export_python)
         file_menu.addAction(export_python_action)
 
         file_menu.addSeparator()
 
-        exit_action = QAction("E&xit", self)
+        exit_action = QAction("🚪 E&xit", self)
         exit_action.setShortcut(QKeySequence.StandardKey.Quit)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
@@ -139,19 +143,31 @@ class MainWindow(QMainWindow):
         # Edit menu
         edit_menu = menubar.addMenu("&Edit")
 
-        undo_action = QAction("&Undo", self)
-        undo_action.setShortcut(QKeySequence.StandardKey.Undo)
-        undo_action.setEnabled(False)  # TODO: Implement undo/redo
-        edit_menu.addAction(undo_action)
+        self.undo_action = QAction("↶ &Undo", self)
+        self.undo_action.setShortcut(QKeySequence.StandardKey.Undo)
+        self.undo_action.triggered.connect(self.undo)
+        edit_menu.addAction(self.undo_action)
 
-        redo_action = QAction("&Redo", self)
-        redo_action.setShortcut(QKeySequence.StandardKey.Redo)
-        redo_action.setEnabled(False)
-        edit_menu.addAction(redo_action)
+        self.redo_action = QAction("↷ &Redo", self)
+        self.redo_action.setShortcut(QKeySequence.StandardKey.Redo)
+        self.redo_action.triggered.connect(self.redo)
+        edit_menu.addAction(self.redo_action)
 
         edit_menu.addSeparator()
 
-        delete_action = QAction("&Delete", self)
+        copy_action = QAction("📋 &Copy", self)
+        copy_action.setShortcut(QKeySequence.StandardKey.Copy)
+        copy_action.triggered.connect(self.copy_selected)
+        edit_menu.addAction(copy_action)
+
+        paste_action = QAction("📄 &Paste", self)
+        paste_action.setShortcut(QKeySequence.StandardKey.Paste)
+        paste_action.triggered.connect(self.paste_from_clipboard)
+        edit_menu.addAction(paste_action)
+
+        edit_menu.addSeparator()
+
+        delete_action = QAction("🗑️ &Delete", self)
         delete_action.setShortcut(QKeySequence.StandardKey.Delete)
         delete_action.triggered.connect(self.delete_selected)
         edit_menu.addAction(delete_action)
@@ -159,45 +175,98 @@ class MainWindow(QMainWindow):
         # View menu
         view_menu = menubar.addMenu("&View")
 
-        zoom_in_action = QAction("Zoom &In", self)
+        zoom_in_action = QAction("🔍+ Zoom &In", self)
         zoom_in_action.setShortcut(QKeySequence.StandardKey.ZoomIn)
         zoom_in_action.triggered.connect(self.zoom_in)
         view_menu.addAction(zoom_in_action)
 
-        zoom_out_action = QAction("Zoom &Out", self)
+        zoom_out_action = QAction("🔍- Zoom &Out", self)
         zoom_out_action.setShortcut(QKeySequence.StandardKey.ZoomOut)
         zoom_out_action.triggered.connect(self.zoom_out)
         view_menu.addAction(zoom_out_action)
 
-        zoom_reset_action = QAction("&Reset Zoom", self)
+        zoom_reset_action = QAction("🔍 &Reset Zoom", self)
         zoom_reset_action.setShortcut(QKeySequence("Ctrl+0"))
         zoom_reset_action.triggered.connect(self.zoom_reset)
         view_menu.addAction(zoom_reset_action)
 
         view_menu.addSeparator()
 
-        toggle_grid_action = QAction("Show &Grid", self)
+        toggle_grid_action = QAction("⊞ Show &Grid", self)
         toggle_grid_action.setCheckable(True)
         toggle_grid_action.setChecked(True)
         toggle_grid_action.triggered.connect(self.toggle_grid)
         view_menu.addAction(toggle_grid_action)
 
+        # Arrange menu
+        arrange_menu = menubar.addMenu("&Arrange")
+
+        align_left_action = QAction("⬅️ Align &Left", self)
+        align_left_action.setShortcut(QKeySequence("Ctrl+Shift+L"))
+        align_left_action.setToolTip("Align selected blocks to the left")
+        align_left_action.triggered.connect(self.align_left)
+        arrange_menu.addAction(align_left_action)
+
+        align_right_action = QAction("➡️ Align &Right", self)
+        align_right_action.setShortcut(QKeySequence("Ctrl+Shift+R"))
+        align_right_action.setToolTip("Align selected blocks to the right")
+        align_right_action.triggered.connect(self.align_right)
+        arrange_menu.addAction(align_right_action)
+
+        align_top_action = QAction("⬆️ Align &Top", self)
+        align_top_action.setShortcut(QKeySequence("Ctrl+Shift+T"))
+        align_top_action.setToolTip("Align selected blocks to the top")
+        align_top_action.triggered.connect(self.align_top)
+        arrange_menu.addAction(align_top_action)
+
+        align_bottom_action = QAction("⬇️ Align &Bottom", self)
+        align_bottom_action.setShortcut(QKeySequence("Ctrl+Shift+B"))
+        align_bottom_action.setToolTip("Align selected blocks to the bottom")
+        align_bottom_action.triggered.connect(self.align_bottom)
+        arrange_menu.addAction(align_bottom_action)
+
+        arrange_menu.addSeparator()
+
+        align_h_center_action = QAction("↔️ Align &Horizontal Center", self)
+        align_h_center_action.setShortcut(QKeySequence("Ctrl+Shift+H"))
+        align_h_center_action.setToolTip("Align selected blocks to horizontal center")
+        align_h_center_action.triggered.connect(self.align_horizontal_center)
+        arrange_menu.addAction(align_h_center_action)
+
+        align_v_center_action = QAction("↕️ Align &Vertical Center", self)
+        align_v_center_action.setShortcut(QKeySequence("Ctrl+Shift+V"))
+        align_v_center_action.setToolTip("Align selected blocks to vertical center")
+        align_v_center_action.triggered.connect(self.align_vertical_center)
+        arrange_menu.addAction(align_v_center_action)
+
+        arrange_menu.addSeparator()
+
+        distribute_h_action = QAction("⬌ Distribute Horizontally", self)
+        distribute_h_action.setToolTip("Distribute selected blocks evenly horizontally")
+        distribute_h_action.triggered.connect(self.distribute_horizontally)
+        arrange_menu.addAction(distribute_h_action)
+
+        distribute_v_action = QAction("⬍ Distribute Vertically", self)
+        distribute_v_action.setToolTip("Distribute selected blocks evenly vertically")
+        distribute_v_action.triggered.connect(self.distribute_vertically)
+        arrange_menu.addAction(distribute_v_action)
+
         # Simulation menu
         sim_menu = menubar.addMenu("&Simulation")
 
-        run_action = QAction("&Run", self)
+        run_action = QAction("▶️ &Run", self)
         run_action.setShortcut(QKeySequence("F5"))
         run_action.triggered.connect(self.run_simulation)
         sim_menu.addAction(run_action)
 
-        validate_action = QAction("&Validate Model", self)
+        validate_action = QAction("✓ &Validate Model", self)
         validate_action.triggered.connect(self.validate_model)
         sim_menu.addAction(validate_action)
 
         # Help menu
         help_menu = menubar.addMenu("&Help")
 
-        about_action = QAction("&About", self)
+        about_action = QAction("ℹ️ &About", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
 
@@ -208,37 +277,80 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
 
         # New
-        new_action = QAction("New", self)
+        new_action = QAction("📄 New", self)
+        new_action.setToolTip("Create a new model (Ctrl+N)")
         new_action.triggered.connect(self.new_model)
         toolbar.addAction(new_action)
 
         # Open
-        open_action = QAction("Open", self)
+        open_action = QAction("📁 Open", self)
+        open_action.setToolTip("Open an existing model (Ctrl+O)")
         open_action.triggered.connect(self.open_model)
         toolbar.addAction(open_action)
 
         # Save
-        save_action = QAction("Save", self)
+        save_action = QAction("💾 Save", self)
+        save_action.setToolTip("Save the current model (Ctrl+S)")
         save_action.triggered.connect(self.save_model)
         toolbar.addAction(save_action)
 
         toolbar.addSeparator()
 
+        # Undo
+        self.undo_toolbar_action = QAction("↶ Undo", self)
+        self.undo_toolbar_action.setToolTip("Undo the last action (Ctrl+Z)")
+        self.undo_toolbar_action.triggered.connect(self.undo)
+        toolbar.addAction(self.undo_toolbar_action)
+
+        # Redo
+        self.redo_toolbar_action = QAction("↷ Redo", self)
+        self.redo_toolbar_action.setToolTip("Redo the last undone action (Ctrl+Shift+Z)")
+        self.redo_toolbar_action.triggered.connect(self.redo)
+        toolbar.addAction(self.redo_toolbar_action)
+
+        toolbar.addSeparator()
+
         # Run
-        run_action = QAction("Run", self)
+        run_action = QAction("▶️ Run", self)
+        run_action.setToolTip("Run simulation (F5)")
         run_action.triggered.connect(self.run_simulation)
         toolbar.addAction(run_action)
 
         toolbar.addSeparator()
 
         # Zoom controls
-        zoom_in_action = QAction("Zoom In", self)
+        zoom_in_action = QAction("🔍+ Zoom In", self)
+        zoom_in_action.setToolTip("Zoom in (Ctrl++)")
         zoom_in_action.triggered.connect(self.zoom_in)
         toolbar.addAction(zoom_in_action)
 
-        zoom_out_action = QAction("Zoom Out", self)
+        zoom_out_action = QAction("🔍- Zoom Out", self)
+        zoom_out_action.setToolTip("Zoom out (Ctrl+-)")
         zoom_out_action.triggered.connect(self.zoom_out)
         toolbar.addAction(zoom_out_action)
+        
+        zoom_reset_action = QAction("🔍 Reset", self)
+        zoom_reset_action.setToolTip("Reset zoom to 100% (Ctrl+0)")
+        zoom_reset_action.triggered.connect(self.zoom_reset)
+        toolbar.addAction(zoom_reset_action)
+        
+        toolbar.addSeparator()
+        
+        # Grid toggle
+        self.grid_toggle_action = QAction("⊞ Grid", self)
+        self.grid_toggle_action.setCheckable(True)
+        self.grid_toggle_action.setChecked(True)
+        self.grid_toggle_action.setToolTip("Toggle grid visibility")
+        self.grid_toggle_action.triggered.connect(self.toggle_grid)
+        toolbar.addAction(self.grid_toggle_action)
+        
+        # Snap to grid toggle
+        self.snap_toggle_action = QAction("🧲 Snap", self)
+        self.snap_toggle_action.setCheckable(True)
+        self.snap_toggle_action.setChecked(True)
+        self.snap_toggle_action.setToolTip("Toggle snap to grid")
+        self.snap_toggle_action.triggered.connect(self.toggle_snap)
+        toolbar.addAction(self.snap_toggle_action)
 
         # FSM Toolbar (hidden by default, shown when in agent_internal mode)
         self.fsm_toolbar = QToolBar("FSM Editor Toolbar")
@@ -268,12 +380,31 @@ class MainWindow(QMainWindow):
 
     def setup_statusbar(self):
         """Setup status bar"""
-        self.statusBar().showMessage("Ready")
+        self.statusBar().showMessage("Ready - Ctrl+N for new model, F5 to run simulation")
+        
+        # Add permanent widgets to status bar
+        # Import QLabel at top level
+        
+        # Selection info label
+        self.selection_label = QLabel("No selection")
+        self.selection_label.setStyleSheet("padding: 0 10px;")
+        self.statusBar().addPermanentWidget(self.selection_label)
+        
+        # Zoom level label
+        self.zoom_label = QLabel("100%")
+        self.zoom_label.setStyleSheet("padding: 0 10px;")
+        self.statusBar().addPermanentWidget(self.zoom_label)
+        
+        # Grid/snap status
+        self.grid_status_label = QLabel("Grid: ON | Snap: ON")
+        self.grid_status_label.setStyleSheet("padding: 0 10px;")
+        self.statusBar().addPermanentWidget(self.grid_status_label)
 
     def connect_signals(self):
         """Connect signals between widgets"""
         # Canvas signals
         self.canvas.selection_changed.connect(self.properties_panel.show_block_properties)
+        self.canvas.selection_changed.connect(self.on_selection_changed)
         self.canvas.block_double_clicked.connect(self.open_agent_internal_view)
         self.canvas.model_changed.connect(self.on_model_changed)
         self.canvas.mode_changed.connect(self.on_canvas_mode_changed)
@@ -337,6 +468,21 @@ class MainWindow(QMainWindow):
     def on_model_changed(self):
         """Handle model changes - refresh project tree"""
         self.project_tree.refresh_instances()
+
+    def on_selection_changed(self, block):
+        """Handle selection changes - update status bar"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'scene'):
+            selected_items = current_canvas.scene.selectedItems()
+            if len(selected_items) == 0:
+                self.selection_label.setText("No selection")
+            elif len(selected_items) == 1:
+                if block:
+                    self.selection_label.setText(f"Selected: {block.name}")
+                else:
+                    self.selection_label.setText("1 item selected")
+            else:
+                self.selection_label.setText(f"{len(selected_items)} items selected")
 
     def on_canvas_mode_changed(self, mode: str):
         """Handle canvas mode changes - show/hide FSM toolbar"""
@@ -435,24 +581,51 @@ class MainWindow(QMainWindow):
         current_widget = self.canvas_tabs.currentWidget()
         if hasattr(current_widget, 'zoom_in'):
             current_widget.zoom_in()
+            self._update_zoom_label(current_widget)
 
     def zoom_out(self):
         """Zoom out the current view"""
         current_widget = self.canvas_tabs.currentWidget()
         if hasattr(current_widget, 'zoom_out'):
             current_widget.zoom_out()
+            self._update_zoom_label(current_widget)
 
     def zoom_reset(self):
         """Reset zoom to 100%"""
         current_widget = self.canvas_tabs.currentWidget()
         if hasattr(current_widget, 'zoom_reset'):
             current_widget.zoom_reset()
+            self._update_zoom_label(current_widget)
+    
+    def _update_zoom_label(self, canvas):
+        """Update zoom label in status bar"""
+        if hasattr(canvas, 'zoom_level'):
+            zoom_percent = int(canvas.zoom_level * 100)
+            self.zoom_label.setText(f"{zoom_percent}%")
 
     def toggle_grid(self, checked):
         """Toggle grid display"""
         current_widget = self.canvas_tabs.currentWidget()
         if hasattr(current_widget, 'set_grid_visible'):
             current_widget.set_grid_visible(checked)
+            self.statusBar().showMessage(f"Grid {'visible' if checked else 'hidden'}", 1000)
+            self._update_grid_status_label()
+    
+    def toggle_snap(self, checked):
+        """Toggle snap to grid"""
+        current_widget = self.canvas_tabs.currentWidget()
+        if hasattr(current_widget, 'grid_snap'):
+            current_widget.grid_snap = checked
+            self.statusBar().showMessage(f"Snap to grid {'enabled' if checked else 'disabled'}", 1000)
+            self._update_grid_status_label()
+    
+    def _update_grid_status_label(self):
+        """Update grid/snap status in status bar"""
+        grid_on = self.grid_toggle_action.isChecked()
+        snap_on = self.snap_toggle_action.isChecked()
+        self.grid_status_label.setText(
+            f"Grid: {'ON' if grid_on else 'OFF'} | Snap: {'ON' if snap_on else 'OFF'}"
+        )
 
     # Simulation operations
     def run_simulation(self):
@@ -681,9 +854,142 @@ class MainWindow(QMainWindow):
     def show_about(self):
         """Show about dialog"""
         QMessageBox.about(
-            self, "About hsim Model Designer",
-            "<h2>hsim Model Designer</h2>"
-            "<p>Visual designer for discrete event simulation models</p>"
-            "<p>Version 0.1.0</p>"
-            "<p>Built with PyQt6 and hsim framework</p>"
+            self, f"About {__app_name__}",
+            f"<h2>{__app_name__}</h2>"
+            "<p><b>Visual designer for discrete event simulation models</b></p>"
+            f"<p>Version {__version__}</p>"
+            "<hr>"
+            "<p>Features:</p>"
+            "<ul>"
+            "<li>🎨 AnyLogic-style interface with dark theme</li>"
+            "<li>🔧 Visual block-based modeling</li>"
+            "<li>🔄 FSM editor for agent behaviors</li>"
+            "<li>⚡ Hierarchical agent composition</li>"
+            "<li>↶ Undo/Redo support</li>"
+            "<li>📋 Copy/Paste functionality</li>"
+            "<li>⬌ Alignment and distribution tools</li>"
+            "<li>🧲 Grid snapping</li>"
+            "<li>🐍 Python code export</li>"
+            "</ul>"
+            "<hr>"
+            "<p>Built with PyQt6 and the hsim framework</p>"
+            f"<p>{__copyright__}</p>"
         )
+    
+    def undo(self):
+        """Undo the last action"""
+        description = self.undo_stack.undo()
+        if description:
+            self.statusBar().showMessage(f"Undone: {description}", 2000)
+            self.update_undo_redo_actions()
+            self.on_model_changed()
+    
+    def redo(self):
+        """Redo the last undone action"""
+        description = self.undo_stack.redo()
+        if description:
+            self.statusBar().showMessage(f"Redone: {description}", 2000)
+            self.update_undo_redo_actions()
+            self.on_model_changed()
+    
+    def update_undo_redo_actions(self):
+        """Update undo/redo action states and tooltips"""
+        can_undo = self.undo_stack.can_undo()
+        can_redo = self.undo_stack.can_redo()
+        
+        self.undo_action.setEnabled(can_undo)
+        self.redo_action.setEnabled(can_redo)
+        self.undo_toolbar_action.setEnabled(can_undo)
+        self.redo_toolbar_action.setEnabled(can_redo)
+        
+        if can_undo:
+            undo_text = self.undo_stack.get_undo_text()
+            self.undo_action.setToolTip(f"Undo: {undo_text}")
+            self.undo_toolbar_action.setToolTip(f"Undo: {undo_text}")
+        else:
+            self.undo_action.setToolTip("Nothing to undo")
+            self.undo_toolbar_action.setToolTip("Nothing to undo")
+        
+        if can_redo:
+            redo_text = self.undo_stack.get_redo_text()
+            self.redo_action.setToolTip(f"Redo: {redo_text}")
+            self.redo_toolbar_action.setToolTip(f"Redo: {redo_text}")
+        else:
+            self.redo_action.setToolTip("Nothing to redo")
+            self.redo_toolbar_action.setToolTip("Nothing to redo")
+    
+    def copy_selected(self):
+        """Copy selected blocks"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'copy_selected'):
+            count = current_canvas.copy_selected()
+            if count > 0:
+                self.statusBar().showMessage(f"Copied {count} block(s)", 2000)
+            else:
+                self.statusBar().showMessage("No blocks selected to copy", 2000)
+    
+    def paste_from_clipboard(self):
+        """Paste blocks from clipboard"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'paste_from_clipboard'):
+            count = current_canvas.paste_from_clipboard()
+            if count > 0:
+                self.statusBar().showMessage(f"Pasted {count} block(s)", 2000)
+            else:
+                self.statusBar().showMessage("Nothing to paste", 2000)
+    
+    def align_left(self):
+        """Align selected blocks to the left"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'align_left'):
+            current_canvas.align_left()
+            self.statusBar().showMessage("Aligned to left", 1000)
+    
+    def align_right(self):
+        """Align selected blocks to the right"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'align_right'):
+            current_canvas.align_right()
+            self.statusBar().showMessage("Aligned to right", 1000)
+    
+    def align_top(self):
+        """Align selected blocks to the top"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'align_top'):
+            current_canvas.align_top()
+            self.statusBar().showMessage("Aligned to top", 1000)
+    
+    def align_bottom(self):
+        """Align selected blocks to the bottom"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'align_bottom'):
+            current_canvas.align_bottom()
+            self.statusBar().showMessage("Aligned to bottom", 1000)
+    
+    def align_horizontal_center(self):
+        """Align selected blocks to horizontal center"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'align_horizontal_center'):
+            current_canvas.align_horizontal_center()
+            self.statusBar().showMessage("Aligned to horizontal center", 1000)
+    
+    def align_vertical_center(self):
+        """Align selected blocks to vertical center"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'align_vertical_center'):
+            current_canvas.align_vertical_center()
+            self.statusBar().showMessage("Aligned to vertical center", 1000)
+    
+    def distribute_horizontally(self):
+        """Distribute selected blocks horizontally"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'distribute_horizontally'):
+            current_canvas.distribute_horizontally()
+            self.statusBar().showMessage("Distributed horizontally", 1000)
+    
+    def distribute_vertically(self):
+        """Distribute selected blocks vertically"""
+        current_canvas = self.canvas_tabs.currentWidget()
+        if hasattr(current_canvas, 'distribute_vertically'):
+            current_canvas.distribute_vertically()
+            self.statusBar().showMessage("Distributed vertically", 1000)

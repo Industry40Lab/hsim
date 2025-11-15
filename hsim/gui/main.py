@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 
 from hsim.gui.views.main_window import MainWindow
+from hsim.gui.styles.modern_style import apply_modern_style
 
 
 def main():
@@ -25,6 +26,9 @@ def main():
 
     # Set application style
     app.setStyle("Fusion")
+    
+    # Apply modern dark theme
+    apply_modern_style(app)
 
     # Create and show main window
     window = MainWindow()

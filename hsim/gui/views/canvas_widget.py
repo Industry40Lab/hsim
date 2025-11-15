@@ -30,6 +30,9 @@ class CanvasWidget(QGraphicsView):
         self.model = model
         self.scene = QGraphicsScene()
         self.setScene(self.scene)
+        
+        # Enable rubber band selection for multi-select
+        self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
 
         # State
         self.block_items = {}  # block_id -> BlockItem
@@ -40,6 +43,9 @@ class CanvasWidget(QGraphicsView):
         self.grid_visible = True
         self.grid_snap = True  # Enable grid snapping by default
         self.zoom_level = 1.0
+        
+        # Clipboard for copy/paste
+        self.clipboard = []  # List of copied block data
 
         # Canvas mode (main process flow or agent internal FSM view)
         self.current_mode = "main"  # "main" or "agent_internal"
@@ -593,6 +599,85 @@ class CanvasWidget(QGraphicsView):
         for item in self.block_items.values():
             item.setSelected(True)
 
+    def copy_selected(self):
+        """Copy selected blocks to clipboard"""
+        selected_items = self.scene.selectedItems()
+        self.clipboard = []
+        
+        for item in selected_items:
+            if isinstance(item, BlockItem):
+                block = item.block
+                block_data = {
+                    'type': block.type,
+                    'name': block.name,
+                    'position': {'x': block.position.x, 'y': block.position.y},
+                    'size': {'width': block.size.width, 'height': block.size.height},
+                    'properties': block.properties.copy() if block.properties else {}
+                }
+                self.clipboard.append(block_data)
+        
+        if self.clipboard:
+            return len(self.clipboard)
+        return 0
+    
+    def paste_from_clipboard(self):
+        """Paste blocks from clipboard"""
+        if not self.clipboard:
+            return 0
+        
+        # Clear current selection
+        for item in self.scene.selectedItems():
+            item.setSelected(False)
+        
+        pasted_count = 0
+        offset = 30  # Offset to avoid pasting on top of original
+        
+        for block_data in self.clipboard:
+            # Create new block with offset position
+            new_id = str(uuid.uuid4())
+            position = Position(
+                block_data['position']['x'] + offset,
+                block_data['position']['y'] + offset
+            )
+            size = Size(
+                block_data['size']['width'],
+                block_data['size']['height']
+            )
+            
+            # Generate unique name
+            base_name = block_data['name']
+            counter = 1
+            new_name = f"{base_name}_copy"
+            while any(b.name == new_name for b in self.model.blocks.values()):
+                counter += 1
+                new_name = f"{base_name}_copy{counter}"
+            
+            new_block = Block(
+                id=new_id,
+                type=block_data['type'],
+                name=new_name,
+                position=position,
+                size=size,
+                properties=block_data['properties'].copy()
+            )
+            
+            # Add to model
+            self.model.blocks[new_id] = new_block
+            
+            # Add to canvas
+            self.add_block_to_canvas(new_block)
+            
+            # Select the new block
+            if new_id in self.block_items:
+                self.block_items[new_id].setSelected(True)
+            
+            pasted_count += 1
+        
+        if pasted_count > 0:
+            self.model_changed.emit()
+        
+        return pasted_count
+
     def delete_selected(self):
         """Delete selected items"""
         selected_items = self.scene.selectedItems()
@@ -601,6 +686,160 @@ class CanvasWidget(QGraphicsView):
                 self.on_block_deleted(item.block.id)
             elif isinstance(item, ConnectionItem):
                 self.on_connection_deleted(item.connection.id)
+
+    # Alignment operations
+    def align_left(self):
+        """Align selected blocks to the leftmost block"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 2:
+            return
+        
+        # Find leftmost position
+        min_x = min(item.pos().x() for item in selected_blocks)
+        
+        # Move all blocks to that x position
+        for item in selected_blocks:
+            item.setPos(min_x, item.pos().y())
+            # Update model
+            item.block.position.x = min_x
+        
+        self.model_changed.emit()
+    
+    def align_right(self):
+        """Align selected blocks to the rightmost block"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 2:
+            return
+        
+        # Find rightmost position (accounting for width)
+        max_x = max(item.pos().x() + item.block.size.width for item in selected_blocks)
+        
+        # Move all blocks to that x position
+        for item in selected_blocks:
+            new_x = max_x - item.block.size.width
+            item.setPos(new_x, item.pos().y())
+            item.block.position.x = new_x
+        
+        self.model_changed.emit()
+    
+    def align_top(self):
+        """Align selected blocks to the topmost block"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 2:
+            return
+        
+        # Find topmost position
+        min_y = min(item.pos().y() for item in selected_blocks)
+        
+        # Move all blocks to that y position
+        for item in selected_blocks:
+            item.setPos(item.pos().x(), min_y)
+            item.block.position.y = min_y
+        
+        self.model_changed.emit()
+    
+    def align_bottom(self):
+        """Align selected blocks to the bottommost block"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 2:
+            return
+        
+        # Find bottommost position (accounting for height)
+        max_y = max(item.pos().y() + item.block.size.height for item in selected_blocks)
+        
+        # Move all blocks to that y position
+        for item in selected_blocks:
+            new_y = max_y - item.block.size.height
+            item.setPos(item.pos().x(), new_y)
+            item.block.position.y = new_y
+        
+        self.model_changed.emit()
+    
+    def align_horizontal_center(self):
+        """Align selected blocks to horizontal center"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 2:
+            return
+        
+        # Calculate center y position
+        min_y = min(item.pos().y() for item in selected_blocks)
+        max_y = max(item.pos().y() + item.block.size.height for item in selected_blocks)
+        center_y = (min_y + max_y) / 2
+        
+        # Move all blocks to center
+        for item in selected_blocks:
+            new_y = center_y - item.block.size.height / 2
+            item.setPos(item.pos().x(), new_y)
+            item.block.position.y = new_y
+        
+        self.model_changed.emit()
+    
+    def align_vertical_center(self):
+        """Align selected blocks to vertical center"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 2:
+            return
+        
+        # Calculate center x position
+        min_x = min(item.pos().x() for item in selected_blocks)
+        max_x = max(item.pos().x() + item.block.size.width for item in selected_blocks)
+        center_x = (min_x + max_x) / 2
+        
+        # Move all blocks to center
+        for item in selected_blocks:
+            new_x = center_x - item.block.size.width / 2
+            item.setPos(new_x, item.pos().y())
+            item.block.position.x = new_x
+        
+        self.model_changed.emit()
+    
+    def distribute_horizontally(self):
+        """Distribute selected blocks evenly horizontally"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 3:
+            return
+        
+        # Sort by x position
+        sorted_blocks = sorted(selected_blocks, key=lambda item: item.pos().x())
+        
+        # Calculate spacing
+        first_x = sorted_blocks[0].pos().x()
+        last_x = sorted_blocks[-1].pos().x()
+        total_space = last_x - first_x
+        num_gaps = len(sorted_blocks) - 1
+        spacing = total_space / num_gaps
+        
+        # Distribute
+        for i, item in enumerate(sorted_blocks[1:-1], start=1):
+            new_x = first_x + spacing * i
+            item.setPos(new_x, item.pos().y())
+            item.block.position.x = new_x
+        
+        self.model_changed.emit()
+    
+    def distribute_vertically(self):
+        """Distribute selected blocks evenly vertically"""
+        selected_blocks = [item for item in self.scene.selectedItems() if isinstance(item, BlockItem)]
+        if len(selected_blocks) < 3:
+            return
+        
+        # Sort by y position
+        sorted_blocks = sorted(selected_blocks, key=lambda item: item.pos().y())
+        
+        # Calculate spacing
+        first_y = sorted_blocks[0].pos().y()
+        last_y = sorted_blocks[-1].pos().y()
+        total_space = last_y - first_y
+        num_gaps = len(sorted_blocks) - 1
+        spacing = total_space / num_gaps
+        
+        # Distribute
+        for i, item in enumerate(sorted_blocks[1:-1], start=1):
+            new_y = first_y + spacing * i
+            item.setPos(item.pos().x(), new_y)
+            item.block.position.y = new_y
+        
+        self.model_changed.emit()
 
     # View operations
     def zoom_in(self):
