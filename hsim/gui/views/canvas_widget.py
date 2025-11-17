@@ -377,6 +377,12 @@ class CanvasWidget(QGraphicsView):
                     self.create_mode = None
                     self.setCursor(Qt.CursorShape.ArrowCursor)
                     return
+                elif self.create_mode == "fsm_container":
+                    # Create FSM container
+                    self._create_fsm_container_at(scene_pos.x(), scene_pos.y())
+                    self.create_mode = None
+                    self.setCursor(Qt.CursorShape.ArrowCursor)
+                    return
                 else:
                     # Standard block creation
                     self.create_block_at(self.create_mode, scene_pos.x(), scene_pos.y())
@@ -891,13 +897,9 @@ class CanvasWidget(QGraphicsView):
                 y += grid_size
 
     def enter_agent_view(self, block_id: str):
-        """Enter agent internal view - show FSM statechart"""
+        """Enter agent internal view - show FSMs, states, and sub-agents"""
         block = self.model.get_block_by_id(block_id)
-        if not block or not block.fsm_id:
-            return
-
-        fsm = self.model.get_fsm_by_id(block.fsm_id)
-        if not fsm:
+        if not block:
             return
 
         # Push current scene state onto stack
@@ -905,29 +907,32 @@ class CanvasWidget(QGraphicsView):
             self.scene,
             self.current_mode,
             self.current_agent_id,
-            self.current_fsm
+            self.selected_fsm_id
         ))
 
-        # Create NEW scene for this agent's FSM
-        fsm_scene = QGraphicsScene()
-        fsm_scene.setSceneRect(0, 0, 2000, 2000)
-        fsm_scene.setBackgroundBrush(QBrush(QColor("#F5F3FF")))  # Slight purple tint
+        # Create NEW scene for this agent's internal view
+        agent_scene = QGraphicsScene()
+        agent_scene.setSceneRect(0, 0, 2000, 2000)
+        agent_scene.setBackgroundBrush(QBrush(QColor("#F5F3FF")))  # Slight purple tint
 
         # Switch to new scene
-        self.setScene(fsm_scene)
-        self.scene = fsm_scene
+        self.setScene(agent_scene)
+        self.scene = agent_scene
 
         # Update mode
         self.current_mode = "agent_internal"
         self.current_agent_id = block_id
-        self.current_fsm = fsm
+        # Set current_fsm to first FSM for backward compatibility
+        self.current_fsm = self.model.get_fsm_by_id(block.fsm_id) if block.fsm_id else None
+        self.selected_fsm_id = block.fsm_id  # Auto-select first FSM if exists
 
-        # Clear state/transition items from previous view
+        # Clear items from previous view
         self.state_items.clear()
         self.transition_items.clear()
+        self.fsm_items.clear()
 
-        # Load FSM into NEW scene
-        self._load_fsm_graphics()
+        # Load all FSM containers for this agent
+        self._load_agent_fsms(block)
 
         # Load sub-agents as blocks (AnyLogic style)
         self._load_sub_agents(block)
@@ -949,7 +954,7 @@ class CanvasWidget(QGraphicsView):
             return
 
         # Pop previous scene from stack
-        previous_scene, previous_mode, previous_agent_id, previous_fsm = self.scene_stack.pop()
+        previous_scene, previous_mode, previous_agent_id, previous_selected_fsm = self.scene_stack.pop()
 
         # Current scene will be garbage collected, no need to manually clear
         # This prevents the rendering issues from leftover items
@@ -961,11 +966,14 @@ class CanvasWidget(QGraphicsView):
         # Restore mode
         self.current_mode = previous_mode
         self.current_agent_id = previous_agent_id
-        self.current_fsm = previous_fsm
+        self.selected_fsm_id = previous_selected_fsm
+        # Restore current_fsm for backward compatibility
+        self.current_fsm = self.model.get_fsm_by_id(previous_selected_fsm) if previous_selected_fsm else None
 
-        # Clear state/transition items (they belong to the discarded scene)
+        # Clear items (they belong to the discarded scene)
         self.state_items.clear()
         self.transition_items.clear()
+        self.fsm_items.clear()
 
         # Emit mode change signal
         self.mode_changed.emit(self.current_mode)
@@ -1088,6 +1096,147 @@ class CanvasWidget(QGraphicsView):
                 label.setZValue(5)
                 self.scene.addItem(label)
 
+    def _create_fsm_container_at(self, x, y):
+        """Create a new FSM container at the specified position"""
+        if self.current_mode != "agent_internal" or not self.current_agent_id:
+            main_window = self._get_main_window()
+            if main_window:
+                main_window.statusBar().showMessage("FSM containers can only be created inside an agent view", 5000)
+            return
+
+        # Snap to grid
+        x, y = self.snap_to_grid(x, y)
+
+        # Create FSM data model
+        fsm = FSM(
+            id=str(uuid.uuid4()),
+            name=f"FSM_{len(self.model.fsms) + 1}",
+            owner_block_id=self.current_agent_id,
+            position=Position(x, y),
+            size=Size(400, 300)
+        )
+
+        # Add to model
+        self.model.add_fsm(fsm)
+
+        # Add FSM ID to owner block's list
+        owner_block = self.model.get_block_by_id(self.current_agent_id)
+        if owner_block:
+            if fsm.id not in owner_block.fsm_ids:
+                owner_block.fsm_ids.append(fsm.id)
+
+        # Create visual item
+        fsm_item = FSMItem(fsm)
+        fsm_item.signals.selected.connect(self._on_fsm_selected)
+        fsm_item.signals.properties_requested.connect(self._on_fsm_properties_requested)
+        fsm_item.signals.deleted.connect(self._on_fsm_deleted)
+
+        self.scene.addItem(fsm_item)
+        self.fsm_items[fsm.id] = fsm_item
+
+        # Auto-select this FSM
+        self.selected_fsm_id = fsm.id
+        fsm_item.setSelected(True)
+
+        main_window = self._get_main_window()
+        if main_window:
+            main_window.statusBar().showMessage(f"Created FSM: {fsm.name}. States will be added to this FSM.", 3000)
+
+        self.model_changed.emit()
+
+    def _on_fsm_selected(self, fsm_id):
+        """Handle FSM selection - this FSM becomes the target for new states"""
+        self.selected_fsm_id = fsm_id
+        main_window = self._get_main_window()
+        if main_window:
+            fsm = self.model.get_fsm_by_id(fsm_id)
+            if fsm:
+                main_window.statusBar().showMessage(f"Selected FSM: {fsm.name}. New states will be added here.", 2000)
+
+    def _on_fsm_properties_requested(self, fsm):
+        """Handle request to edit FSM properties"""
+        # TODO: Show FSM properties in properties panel
+        main_window = self._get_main_window()
+        if main_window:
+            # For now, just show in properties panel
+            if hasattr(main_window.properties_panel, 'show_fsm_properties'):
+                main_window.properties_panel.show_fsm_properties(fsm)
+
+    def _on_fsm_deleted(self, fsm_id):
+        """Handle FSM deletion"""
+        if fsm_id in self.fsm_items:
+            fsm_item = self.fsm_items[fsm_id]
+            self.scene.removeItem(fsm_item)
+            del self.fsm_items[fsm_id]
+
+        # Remove from model
+        if fsm_id in self.model.fsms:
+            fsm = self.model.fsms[fsm_id]
+            # Remove from owner block
+            if fsm.owner_block_id:
+                owner_block = self.model.get_block_by_id(fsm.owner_block_id)
+                if owner_block and fsm_id in owner_block.fsm_ids:
+                    owner_block.fsm_ids.remove(fsm_id)
+            del self.model.fsms[fsm_id]
+
+        # Deselect if this was the selected FSM
+        if self.selected_fsm_id == fsm_id:
+            self.selected_fsm_id = None
+
+        self.model_changed.emit()
+
+    def _load_agent_fsms(self, owner_block):
+        """Load all FSM containers for this agent"""
+        # Load all FSMs that belong to this agent
+        for fsm_id in owner_block.fsm_ids:
+            fsm = self.model.get_fsm_by_id(fsm_id)
+            if fsm:
+                # Create FSM container item
+                fsm_item = FSMItem(fsm)
+                fsm_item.signals.selected.connect(self._on_fsm_selected)
+                fsm_item.signals.properties_requested.connect(self._on_fsm_properties_requested)
+                fsm_item.signals.deleted.connect(self._on_fsm_deleted)
+
+                self.scene.addItem(fsm_item)
+                self.fsm_items[fsm.id] = fsm_item
+
+                # Load states and transitions for this FSM
+                self._load_fsm_states_and_transitions(fsm)
+
+    def _load_fsm_states_and_transitions(self, fsm):
+        """Load states and transitions for a specific FSM"""
+        from hsim.gui.items.state_item import StateItem
+        from hsim.gui.items.transition_item import TransitionItem
+
+        # Load states
+        for state in fsm.states.values():
+            state_item = StateItem(state)
+            state_item.setPos(state.position.x, state.position.y)
+
+            # Connect signals
+            state_item.signals.position_changed.connect(
+                lambda sid, x, y: self._on_fsm_state_moved(sid)
+            )
+            state_item.signals.selected.connect(self._on_fsm_state_selected)
+            state_item.signals.deleted.connect(self._on_fsm_state_deleted)
+
+            self.scene.addItem(state_item)
+            self.state_items[state.id] = state_item
+
+        # Load transitions
+        for transition in fsm.transitions:
+            from_state_item = self.state_items.get(transition.from_state)
+            to_state_item = self.state_items.get(transition.to_state)
+
+            if from_state_item and to_state_item:
+                transition_item = TransitionItem(transition, from_state_item, to_state_item)
+                transition_item.signals.properties_requested.connect(
+                    lambda t: self._on_transition_properties_requested(t)
+                )
+
+                self.scene.addItem(transition_item)
+                self.transition_items[transition.id] = transition_item
+
     def _load_sub_agents(self, parent_block):
         """Load sub-agents as blocks inside parent (AnyLogic style)"""
         for child_id in parent_block.children:
@@ -1110,32 +1259,38 @@ class CanvasWidget(QGraphicsView):
 
     def _create_state_at(self, x, y):
         """Create a new FSM state at the specified position"""
-        if not self.current_fsm:
+        # Check if there's a selected FSM
+        if not self.selected_fsm_id:
             main_window = self._get_main_window()
             if main_window:
-                main_window.statusBar().showMessage("Cannot add state: No FSM context (open an agent first)", 5000)
+                main_window.statusBar().showMessage("No FSM selected. Create or select an FSM container first.", 5000)
             return
 
-        from hsim.gui.models.model import State as FSMState
-        import uuid
+        # Get the selected FSM
+        current_fsm = self.model.get_fsm_by_id(self.selected_fsm_id)
+        if not current_fsm:
+            main_window = self._get_main_window()
+            if main_window:
+                main_window.statusBar().showMessage("Selected FSM not found", 5000)
+            return
 
         # Snap to grid
         x, y = self.snap_to_grid(x - 60, y - 30)  # Center on click, then snap
 
         # Create new state
-        state = FSMState(
+        state = State(
             id=str(uuid.uuid4()),
-            name=f"State{len(self.current_fsm.states) + 1}",
+            name=f"State{len(current_fsm.states) + 1}",
             position=Position(x, y),
             size=Size(120, 60),
-            is_initial=len(self.current_fsm.states) == 0,  # First state is initial
+            is_initial=len(current_fsm.states) == 0,  # First state is initial
             on_enter="# Enter actions",
             on_exit="# Exit actions",
             color="#3B82F6"  # Blue
         )
 
         # Add to FSM model
-        self.current_fsm.add_state(state)
+        current_fsm.add_state(state)
 
         # Create visual item
         from hsim.gui.items.state_item import StateItem
