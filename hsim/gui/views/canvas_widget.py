@@ -6,11 +6,12 @@ from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QWidget
 from PyQt6.QtCore import Qt, pyqtSignal, QPointF
 from PyQt6.QtGui import QPainter, QColor, QPen, QBrush
 
-from hsim.gui.models.model import SimulationModel, Block, Connection, Position, Size, FSM
+from hsim.gui.models.model import SimulationModel, Block, Connection, Position, Size, FSM, State, Transition
 from hsim.gui.models.block_definitions import BlockType, get_block_definition
 from hsim.gui.items.block_item import BlockItem  # Use new version
 from hsim.gui.items.connection_item import ConnectionItem
 from hsim.gui.items.port_item import PortItem
+from hsim.gui.items.fsm_item import FSMItem
 import uuid
 
 
@@ -50,7 +51,9 @@ class CanvasWidget(QGraphicsView):
         # Canvas mode (main process flow or agent internal FSM view)
         self.current_mode = "main"  # "main" or "agent_internal"
         self.current_agent_id = None  # ID of agent being edited in internal view
-        self.current_fsm = None  # FSM being displayed in internal view
+        self.current_fsm = None  # FSM being displayed in internal view (backward compat)
+        self.selected_fsm_id = None  # Currently selected FSM for adding states
+        self.fsm_items = {}  # fsm_id -> FSMItem (visual FSM containers)
         self.state_items = {}  # state_id -> StateItem (in FSM view)
         self.transition_items = {}  # transition_id -> TransitionItem (in FSM view)
 

@@ -753,6 +753,7 @@ class MainWindow(QMainWindow):
         fsm_elements = QTreeWidgetItem(library, ["🔄 FSM Elements"])
         fsm_elements.setFont(0, font)
         fsm_elements.setExpanded(True)
+        QTreeWidgetItem(fsm_elements, ["📊 FSM Container"])
         QTreeWidgetItem(fsm_elements, ["⭕ State"])
         QTreeWidgetItem(fsm_elements, ["➡️ Transition"])
         QTreeWidgetItem(fsm_elements, ["⏱️ Timeout Event"])
@@ -801,6 +802,7 @@ class MainWindow(QMainWindow):
 
         # FSM Elements and Connectors
         fsm_element_mapping = {
+            "📊 FSM Container": "fsm_container",
             "⭕ State": "state",
             "➡️ Transition": "transition",
             "⏱️ Timeout Event": "timeout_event",
@@ -820,8 +822,10 @@ class MainWindow(QMainWindow):
             current_canvas.set_create_mode(element_type)
 
             # Different messages for different element types
-            if element_type == "state":
-                self.statusBar().showMessage("Click canvas to place State", 3000)
+            if element_type == "fsm_container":
+                self.statusBar().showMessage("Click canvas to place FSM Container (states will be added to it)", 3000)
+            elif element_type == "state":
+                self.statusBar().showMessage("Click canvas to place State (will be added to selected FSM)", 3000)
             elif element_type == "transition":
                 self.statusBar().showMessage("Click source state, then target state to create Transition", 5000)
             elif element_type == "timeout_event":

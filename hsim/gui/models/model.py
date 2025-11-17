@@ -38,9 +38,14 @@ class Block:
     position: Position = field(default_factory=lambda: Position(0, 0))
     size: Size = field(default_factory=lambda: Size(100, 80))
     properties: Dict[str, Any] = field(default_factory=dict)
-    fsm_id: Optional[str] = None  # Reference to FSM if this block has one
+    fsm_ids: List[str] = field(default_factory=list)  # References to FSMs (agents can have multiple)
     parent_id: Optional[str] = None  # Parent agent ID (for hierarchical structure)
     children: List[str] = field(default_factory=list)  # Child agent IDs
+
+    @property
+    def fsm_id(self) -> Optional[str]:
+        """Backward compatibility: return first FSM ID"""
+        return self.fsm_ids[0] if self.fsm_ids else None
 
     def to_dict(self) -> dict:
         """Serialize to dictionary"""
@@ -51,7 +56,7 @@ class Block:
             'position': {'x': self.position.x, 'y': self.position.y},
             'size': {'width': self.size.width, 'height': self.height},
             'properties': self.properties,
-            'fsm_id': self.fsm_id,
+            'fsm_ids': self.fsm_ids,
             'parent_id': self.parent_id,
             'children': self.children
         }
@@ -59,6 +64,11 @@ class Block:
     @staticmethod
     def from_dict(data: dict) -> 'Block':
         """Deserialize from dictionary"""
+        # Backward compatibility: convert old fsm_id to fsm_ids
+        fsm_ids = data.get('fsm_ids', [])
+        if not fsm_ids and 'fsm_id' in data and data['fsm_id']:
+            fsm_ids = [data['fsm_id']]
+
         return Block(
             id=data['id'],
             type=data['type'],
@@ -66,7 +76,7 @@ class Block:
             position=Position(data['position']['x'], data['position']['y']),
             size=Size(data['size']['width'], data['size']['height']),
             properties=data.get('properties', {}),
-            fsm_id=data.get('fsm_id'),
+            fsm_ids=fsm_ids,
             parent_id=data.get('parent_id'),
             children=data.get('children', [])
         )
@@ -194,10 +204,12 @@ class Transition:
 
 @dataclass
 class FSM:
-    """Finite State Machine"""
+    """Finite State Machine - visual container for states and transitions"""
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     name: str = "FSM"
     owner_block_id: Optional[str] = None  # Block that owns this FSM
+    position: Position = field(default_factory=lambda: Position(100, 100))  # Visual position
+    size: Size = field(default_factory=lambda: Size(400, 300))  # Visual size
     states: Dict[str, State] = field(default_factory=dict)
     transitions: List[Transition] = field(default_factory=list)
 
@@ -227,6 +239,8 @@ class FSM:
             'id': self.id,
             'name': self.name,
             'owner_block_id': self.owner_block_id,
+            'position': {'x': self.position.x, 'y': self.position.y},
+            'size': {'width': self.size.width, 'height': self.size.height},
             'states': {sid: state.to_dict() for sid, state in self.states.items()},
             'transitions': [t.to_dict() for t in self.transitions]
         }
@@ -234,10 +248,22 @@ class FSM:
     @staticmethod
     def from_dict(data: dict) -> 'FSM':
         """Deserialize from dictionary"""
+        # Backward compatibility: default position/size if not present
+        position = Position(
+            data.get('position', {}).get('x', 100),
+            data.get('position', {}).get('y', 100)
+        )
+        size = Size(
+            data.get('size', {}).get('width', 400),
+            data.get('size', {}).get('height', 300)
+        )
+
         fsm = FSM(
             id=data['id'],
             name=data['name'],
-            owner_block_id=data.get('owner_block_id')
+            owner_block_id=data.get('owner_block_id'),
+            position=position,
+            size=size
         )
         fsm.states = {sid: State.from_dict(sdata)
                      for sid, sdata in data.get('states', {}).items()}
