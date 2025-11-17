@@ -3,10 +3,18 @@ from __future__ import annotations
 if __name__ == "__main__":
     import sys
     import os
+    # Cross-platform path handling
+    abs_path = os.path.abspath(__file__)
+    parts = abs_path.split(os.sep)
     try:
-        sys.path.append("/".join(os.path.abspath(__file__).split("/")[:os.path.abspath(__file__).split("/").index("hsim")+1]))
-    except:
-        sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+        if "hsim" in parts:
+            hsim_index = parts.index("hsim")
+            hsim_path = os.sep.join(parts[:hsim_index + 1])
+            if hsim_path not in sys.path:
+                sys.path.append(hsim_path)
+    except ValueError:
+        pass
+        
 from enum import Enum, auto
 from typing import Any, Callable, Iterable, List, Optional, Union
 import numpy as np

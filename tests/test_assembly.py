@@ -5,8 +5,12 @@ from hsim.core.agent.q import Queue
 from hsim.core.agent.agent import Agent
 from hsim.core.des.pymulate import Generator, Store, Server, Terminator, EmptyBuffer
 
+
 class TestAssembly(unittest.TestCase):
-    def test1(self):
+    """Test cases for Assembly component."""
+    
+    def test_basic_assembly(self):
+        """Test basic assembly with two inputs."""
         env = Environment()
         a = Assembly(env, size=2)
         q = Queue(env, 10)
@@ -15,8 +19,11 @@ class TestAssembly(unittest.TestCase):
         a.take(Agent(env, "test1"))
         a.take(Agent(env, "test2"), 1)
         env.run(20)
+        # Verify environment ran successfully
+        self.assertGreater(env.now, 0)
 
-    def test2(self):
+    def test_assembly_with_generators(self):
+        """Test assembly with multiple generator inputs."""
         env = Environment()
         g1 = Generator(env, Agent)
         g2 = Generator(env, Agent)
@@ -32,8 +39,11 @@ class TestAssembly(unittest.TestCase):
         x2 = Agent(env, "test2")
         a.take(x2)
         env.run(30)
+        # Verify simulation completed
+        self.assertGreater(env.now, 20)
 
-    def test3(self):
+    def test_simple_production_line(self):
+        """Test a simple production line with generator, buffers, server, and terminator."""
         env = Environment()
         g = Generator(env, Agent, serviceTime=1)
         q = EmptyBuffer(env, capacity=10)
@@ -46,9 +56,13 @@ class TestAssembly(unittest.TestCase):
         s.connections["next"] = t
         env.run(1)
         env.run(20)
-        print("Test 3 done")
+        # Verify components were created and simulation ran
+        self.assertEqual(env.now, 21)
+        self.assertIsNotNone(g)
+        self.assertIsNotNone(s)
 
-    def test4(self):
+    def test_frame_composition(self):
+        """Test Frame composition pattern for complex structures."""
         env = Environment()
 
         class F1(Frame):
@@ -69,7 +83,10 @@ class TestAssembly(unittest.TestCase):
         g.connections["next"] = a.input_ports[0]
         a.output_ports[0].connections["next"] = t
         env.run(30)
-        print("done")
+        # Verify frame was created and simulation completed
+        self.assertEqual(env.now, 30)
+        self.assertEqual(len(a.input_ports), 1)
+        self.assertEqual(len(a.output_ports), 1)
 
 
 if __name__ == "__main__":

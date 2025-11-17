@@ -279,3 +279,4 @@ if __name__ == "__main__":
     test5()
     test6()
     test7()
+    print("Tests completed.")

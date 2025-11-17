@@ -1,8 +1,7 @@
-# from .pymulate import *
-# from .core import *
-# from .stores import *
-# # from .chfsm import hfsm
-# from .chfsm import *
-# from .pymulate import *
-# import c
-# import lib
+"""
+hsim - Discrete Event Simulation Framework
+
+A comprehensive simulation framework for manufacturing systems and discrete event modeling.
+"""
+
+__version__ = "0.0.1"

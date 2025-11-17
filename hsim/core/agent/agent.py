@@ -1,6 +1,13 @@
 if __name__ == "__main__":
     import sys; import os
-    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+    # Cross-platform path handling
+    abs_path = os.path.abspath(__file__)
+    parts = abs_path.split(os.sep)
+    if "hsim" in parts:
+        hsim_index = parts.index("hsim")
+        hsim_path = os.sep.join(parts[:hsim_index + 1])
+        if hsim_path not in sys.path:
+            sys.path.append(hsim_path)
 
 
 from abc import ABC

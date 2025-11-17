@@ -1,12 +1,23 @@
 if __name__ == "__main__":
     import sys
     import os
-    sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
+    # Cross-platform path handling
+    abs_path = os.path.abspath(__file__)
+    parts = abs_path.split(os.sep)
+    if "hsim" in parts:
+        hsim_index = parts.index("hsim")
+        hsim_path = os.sep.join(parts[:hsim_index + 1])
+        if hsim_path not in sys.path:
+            sys.path.append(hsim_path)
 
 
 from abc import abstractmethod
 import types
+import logging
 from typing import Any, Callable, Iterable, OrderedDict, Tuple
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 from sortedcontainers import SortedList
 from hsim.core.core.event import BaseEvent, RecurringEvent, Status
@@ -87,10 +98,16 @@ class MessageQueue:
         self._trigger()
         
     def cancel(self, message: Message):
+        """
+        Cancel a message in the queue.
+        
+        Args:
+            message: Message to cancel
+        """
         try:
             self.queue.remove(message)
         except ValueError:
-            print("Message not found in receiver, just deleting it")
+            logger.warning("Message not found in receiver queue, deleting message object")
             for event in message.receipts.values():
                 event.cancel()
             del message

@@ -9,8 +9,12 @@ if __name__ == '__main__' or 'routes.main':
         if hsim_path not in sys.path:
             sys.path.append(hsim_path)
 
+import logging
 from unittest import result
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, send_file, jsonify, send_from_directory, abort
+
+# Setup logging
+logger = logging.getLogger(__name__)
 import sqlite3
 import pandas as pd
 import os
@@ -48,13 +52,14 @@ def get_db_connection():
 
 # Function to clean up old result files for a user
 def clean_user_temp_files(username):
+    """Clean up old session files for the user."""
     try:
         user_files = [f for f in os.listdir(TEMP_FOLDER) 
                       if f.startswith(f"{username}_") and f.endswith(".xlsx")]
         for file in user_files:
             os.remove(os.path.join(TEMP_FOLDER, file))
     except Exception as e:
-        print(f"Error cleaning up files: {e}")
+        logger.error(f"Error cleaning up files: {e}")
 
 # Function to run simulation in background
 def run_simulation_task(file_path, username):
@@ -88,7 +93,7 @@ def run_simulation_task(file_path, username):
             
             return res
     except Exception as e:
-        print(f"Simulation error: {e}")  # Log the error for debugging
+        logger.error(f"Simulation error: {e}", exc_info=True)
         return {
             'success': False,
             'error': str(e)
@@ -104,7 +109,7 @@ def dashboard():
     username = session.get('username')
     
     # Debug current session state
-    print(f"Session state: simulation_success={session.get('simulation_success')}, result_filename={session.get('result_filename')}")
+    logger.debug(f"Session state: simulation_success={session.get('simulation_success')}, result_filename={session.get('result_filename')}")
     
     if session.get('simulation_failed',False):
         flash('Simulation failed!', 'error')
