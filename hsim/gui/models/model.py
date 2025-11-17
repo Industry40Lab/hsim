@@ -54,7 +54,7 @@ class Block:
             'type': self.type,
             'name': self.name,
             'position': {'x': self.position.x, 'y': self.position.y},
-            'size': {'width': self.size.width, 'height': self.height},
+            'size': {'width': self.size.width, 'height': self.size.height},
             'properties': self.properties,
             'fsm_ids': self.fsm_ids,
             'parent_id': self.parent_id,

@@ -40,7 +40,7 @@ class CodeGenerator:
 
         # Create connections
         lines.append("    # Create connections")
-        for connection in self.model.connections:
+        for connection in self.model.connections.values():
             from_block = self.model.get_block_by_id(connection.from_block)
             to_block = self.model.get_block_by_id(connection.to_block)
             if from_block and to_block:
