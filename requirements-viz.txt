@@ -1,0 +1,9 @@
+# Visualization Dependencies for hsim
+
+# Pygame renderer (desktop visualization)
+pygame>=2.5.0
+
+# Web renderer (browser-based visualization)
+fastapi>=0.104.0
+uvicorn>=0.24.0
+websockets>=12.0
