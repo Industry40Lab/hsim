@@ -10,17 +10,27 @@ from enum import Enum
 
 class BlockType(Enum):
     """DES Block Types"""
+    # Basic DES
     GENERATOR = "generator"
     BUFFER = "buffer"
     SERVER = "server"
     STORE = "store"
     TERMINATOR = "terminator"
+    EMPTY_BUFFER = "empty_buffer"
+
+    # Resources
     UNRELIABLE_MACHINE = "unreliable_machine"
     QUALITY_MACHINE = "quality_machine"
     SU_MACHINE = "su_machine"
-    ASSEMBLY = "assembly"
-    AGENT = "agent"
     MANUAL_STATION = "manual_station"
+    OPERATOR = "operator"
+
+    # Advanced
+    ASSEMBLY = "assembly"
+    SWITCH = "switch"
+
+    # Agents
+    AGENT = "agent"
 
 
 class PropertyType(Enum):
@@ -192,6 +202,28 @@ BLOCK_DEFINITIONS = {
         properties=[]
     ),
 
+    BlockType.EMPTY_BUFFER: BlockDefinition(
+        type=BlockType.EMPTY_BUFFER,
+        name="EmptyBuffer",
+        category="DES Blocks",
+        description="Buffer that starts empty and refills",
+        color="#06B6D4",  # Cyan
+        shape="rectangle",
+        icon="📭",
+        python_class="EmptyBuffer",
+        python_module="hsim.core.des.pymulate",
+        has_fsm=True,
+        properties=[
+            PropertyDefinition(
+                name="capacity",
+                label="Capacity",
+                type=PropertyType.STRING,
+                default="inf",
+                description="Maximum number of entities (or 'inf')",
+            ),
+        ]
+    ),
+
     BlockType.UNRELIABLE_MACHINE: BlockDefinition(
         type=BlockType.UNRELIABLE_MACHINE,
         name="Unreliable Machine",
@@ -320,7 +352,7 @@ BLOCK_DEFINITIONS = {
         shape="rectangle",
         icon="👷",
         python_class="ManualStation",
-        python_module="hsim.core.des.resources",
+        python_module="hsim.core.des.manual",
         has_fsm=True,
         properties=[
             PropertyDefinition(
@@ -343,6 +375,29 @@ BLOCK_DEFINITIONS = {
         ]
     ),
 
+    BlockType.OPERATOR: BlockDefinition(
+        type=BlockType.OPERATOR,
+        name="Operator",
+        category="Resources",
+        description="Human operator for manual stations",
+        color="#FB923C",  # Light orange
+        shape="circle",
+        icon="👤",
+        python_class="Operator",
+        python_module="hsim.core.des.manual",
+        has_fsm=True,
+        properties=[
+            PropertyDefinition(
+                name="skillLevel",
+                label="Skill Level",
+                type=PropertyType.CHOICE,
+                default="medium",
+                description="Operator skill level",
+                choices=["low", "medium", "high"]
+            ),
+        ]
+    ),
+
     BlockType.ASSEMBLY: BlockDefinition(
         type=BlockType.ASSEMBLY,
         name="Assembly",
@@ -361,6 +416,30 @@ BLOCK_DEFINITIONS = {
                 type=PropertyType.INT,
                 default=2,
                 description="Number of input connections required",
+                min_value=2,
+                max_value=10
+            ),
+        ]
+    ),
+
+    BlockType.SWITCH: BlockDefinition(
+        type=BlockType.SWITCH,
+        name="Switch",
+        category="Advanced",
+        description="Routes entities based on conditions",
+        color="#06B6D4",  # Cyan
+        shape="rectangle",
+        icon="🔀",
+        python_class="Switch",
+        python_module="hsim.core.des.switch",
+        has_fsm=True,
+        properties=[
+            PropertyDefinition(
+                name="num_outputs",
+                label="Number of Outputs",
+                type=PropertyType.INT,
+                default=2,
+                description="Number of output paths",
                 min_value=2,
                 max_value=10
             ),

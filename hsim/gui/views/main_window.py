@@ -735,7 +735,8 @@ class MainWindow(QMainWindow):
         QTreeWidgetItem(process, ["📦 Buffer"])
         QTreeWidgetItem(process, ["🔧 Server"])
         QTreeWidgetItem(process, ["📥 Store"])
-        QTreeWidgetItem(process, ["🗑️ Terminator"])
+        QTreeWidgetItem(process, ["📭 EmptyBuffer"])
+        QTreeWidgetItem(process, ["🛑 Terminator"])
 
         # Resources
         resources = QTreeWidgetItem(des_blocks, ["🔧 Resources"])
@@ -743,11 +744,18 @@ class MainWindow(QMainWindow):
         QTreeWidgetItem(resources, ["✓ Quality Machine"])
         QTreeWidgetItem(resources, ["🔄 SUMachine"])
         QTreeWidgetItem(resources, ["👷 Manual Station"])
+        QTreeWidgetItem(resources, ["👤 Operator"])
 
         # Advanced
         advanced = QTreeWidgetItem(des_blocks, ["🔀 Advanced"])
         QTreeWidgetItem(advanced, ["🔗 Assembly"])
-        QTreeWidgetItem(advanced, ["🤖 Agent"])
+        QTreeWidgetItem(advanced, ["🔀 Switch"])
+
+        # Agents category
+        agents = QTreeWidgetItem(library, ["🤖 Agents"])
+        agents.setFont(0, font)
+        agents.setExpanded(True)
+        QTreeWidgetItem(agents, ["🤖 Agent"])
 
         # FSM Elements category
         fsm_elements = QTreeWidgetItem(library, ["🔄 FSM Elements"])
@@ -786,17 +794,23 @@ class MainWindow(QMainWindow):
 
         # Map library items to block types
         block_mapping = {
-            # DES Blocks
+            # DES Blocks - Process Flow
             "⚙️ Generator": "generator",
             "📦 Buffer": "buffer",
             "🔧 Server": "server",
             "📥 Store": "store",
-            "🗑️ Terminator": "terminator",
+            "📭 EmptyBuffer": "empty_buffer",
+            "🛑 Terminator": "terminator",
+            # Resources
             "⚠️ Unreliable Machine": "unreliable_machine",
             "✓ Quality Machine": "quality_machine",
             "🔄 SUMachine": "su_machine",
             "👷 Manual Station": "manual_station",
+            "👤 Operator": "operator",
+            # Advanced
             "🔗 Assembly": "assembly",
+            "🔀 Switch": "switch",
+            # Agents
             "🤖 Agent": "agent"
         }
 
