@@ -18,6 +18,7 @@ except ImportError:
     PYGAME_AVAILABLE = False
 
 from hsim.core.graphics import GraphicsMixin, Shape
+from hsim.core.graphics.simulation_controller import SimulationController, SimulationState
 
 
 class PygameRendererEnhanced:
@@ -53,6 +54,7 @@ class PygameRendererEnhanced:
     def __init__(
         self,
         env,
+        controller: Optional[SimulationController] = None,
         width: int = 1200,
         height: int = 800,
         fps: int = 60,
@@ -65,12 +67,14 @@ class PygameRendererEnhanced:
         show_grid: bool = True,
         show_labels: bool = True,
         show_states: bool = True,
+        show_controls: bool = True,
         grid_spacing: int = 50
     ):
         if not PYGAME_AVAILABLE:
             raise ImportError("pygame is required. Install with: pip install pygame")
 
         self.env = env
+        self.controller = controller
         self.width = width
         self.height = height
         self.fps = fps
@@ -85,15 +89,16 @@ class PygameRendererEnhanced:
         self.show_grid = show_grid
         self.show_labels = show_labels
         self.show_states = show_states
+        self.show_controls = show_controls
         self.grid_spacing = grid_spacing
 
         # Rendering state
         self.running = False
-        self.paused = False
         self.screen = None
         self.clock = None
         self.font = None
         self.font_small = None
+        self.font_large = None
         self.thread = None
 
         # Camera/viewport
@@ -139,6 +144,7 @@ class PygameRendererEnhanced:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 20)
         self.font_small = pygame.font.Font(None, 16)
+        self.font_large = pygame.font.Font(None, 36)
 
     def _render_loop(self):
         """Main rendering loop."""
@@ -176,6 +182,10 @@ class PygameRendererEnhanced:
 
             self._draw_selected_agent_info()
             self._draw_controls()
+
+            # Draw pause overlay if paused
+            if self.controller and self.controller.is_paused:
+                self._draw_pause_overlay()
 
             # Update display
             pygame.display.flip()
@@ -225,9 +235,28 @@ class PygameRendererEnhanced:
 
     def _handle_keypress(self, key):
         """Handle keyboard input."""
-        if key == pygame.K_SPACE:
-            self.paused = not self.paused
-        elif key == pygame.K_ESCAPE:
+        # Simulation controls (if controller available)
+        if self.controller:
+            if key == pygame.K_SPACE:
+                if self.controller.is_running:
+                    self.controller.pause()
+                else:
+                    self.controller.play()
+            elif key == pygame.K_PERIOD or key == pygame.K_RIGHT:
+                self.controller.step(1)
+            elif key == pygame.K_r and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                self.controller.reset()
+            elif key == pygame.K_1:
+                self.controller.set_speed(0.5)
+            elif key == pygame.K_2:
+                self.controller.set_speed(1.0)
+            elif key == pygame.K_3:
+                self.controller.set_speed(2.0)
+            elif key == pygame.K_4:
+                self.controller.set_speed(5.0)
+
+        # View controls
+        if key == pygame.K_ESCAPE:
             if self.selected_agent:
                 self.selected_agent = None
             else:
@@ -236,6 +265,8 @@ class PygameRendererEnhanced:
             self.zoom_target = min(5.0, self.zoom_target * 1.2)
         elif key == pygame.K_MINUS:
             self.zoom_target = max(0.1, self.zoom_target / 1.2)
+
+        # Layer toggles
         elif key == pygame.K_g:
             self.show_grid = not self.show_grid
         elif key == pygame.K_t:
@@ -536,6 +567,19 @@ class PygameRendererEnhanced:
             f"Zoom: {self.zoom:.2f}x",
         ]
 
+        # Add controller stats if available
+        if self.controller:
+            status = self.controller.get_status()
+            state_emoji = {
+                'running': '▶️',
+                'paused': '⏸️',
+                'stopped': '⏹️',
+                'stepping': '⏭️',
+            }
+            emoji = state_emoji.get(status['state'], '')
+            stats.insert(1, f"{emoji} {status['state'].upper()}")
+            stats.insert(3, f"Speed: {status['speed']:.1f}x")
+
         if self.frame_times:
             avg_frame_time = sum(self.frame_times) / len(self.frame_times)
             stats.append(f"Frame: {avg_frame_time*1000:.1f}ms")
@@ -585,18 +629,51 @@ class PygameRendererEnhanced:
 
     def _draw_controls(self):
         """Draw control instructions."""
-        controls = [
-            "SPACE: Pause | ESC: Deselect/Quit | +/-: Zoom",
-            "G: Grid | T: Trails | C: Connections | M: Minimap",
-            "L: Labels | S: States | I: Stats | F12: Screenshot",
-            "Right-drag: Pan | Scroll: Zoom | Click: Select"
-        ]
+        if self.controller:
+            controls = [
+                "SPACE: Play/Pause | →: Step | Ctrl+R: Reset",
+                "1-4: Speed (0.5x, 1x, 2x, 5x) | ESC: Quit",
+                "G: Grid | T: Trails | C: Connections | M: Minimap",
+                "L: Labels | S: States | I: Stats | F12: Screenshot",
+                "Right-drag: Pan | Scroll: Zoom | Click: Select"
+            ]
+        else:
+            controls = [
+                "SPACE: Pause | ESC: Deselect/Quit | +/-: Zoom",
+                "G: Grid | T: Trails | C: Connections | M: Minimap",
+                "L: Labels | S: States | I: Stats | F12: Screenshot",
+                "Right-drag: Pan | Scroll: Zoom | Click: Select"
+            ]
 
-        y_offset = self.height - 80
+        y_offset = self.height - (len(controls) * 18 + 10)
         for control in controls:
             text = self.font_small.render(control, True, (100, 100, 100))
             self.screen.blit(text, (10, y_offset))
             y_offset += 18
+
+    def _draw_pause_overlay(self):
+        """Draw pause overlay in center of screen."""
+        # Semi-transparent overlay
+        overlay = pygame.Surface((self.width, self.height))
+        overlay.set_alpha(100)
+        overlay.fill((0, 0, 0))
+        self.screen.blit(overlay, (0, 0))
+
+        # Pause text
+        pause_text = self.font_large.render("⏸ PAUSED", True, (255, 255, 255))
+        text_rect = pause_text.get_rect(center=(self.width // 2, self.height // 2))
+
+        # Background for text
+        bg_rect = text_rect.inflate(40, 20)
+        pygame.draw.rect(self.screen, (50, 50, 50), bg_rect, border_radius=10)
+        pygame.draw.rect(self.screen, (255, 255, 255), bg_rect, 3, border_radius=10)
+
+        self.screen.blit(pause_text, text_rect)
+
+        # Instructions
+        instruction = self.font_small.render("Press SPACE to resume | → to step", True, (200, 200, 200))
+        inst_rect = instruction.get_rect(center=(self.width // 2, self.height // 2 + 40))
+        self.screen.blit(instruction, inst_rect)
 
     def screenshot(self, filename: Optional[str] = None):
         """Save a screenshot."""
