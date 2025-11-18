@@ -9,16 +9,20 @@ from .graphics_mixin import GraphicsMixin, Shape
 # Import renderers with optional dependencies
 try:
     from .pygame_renderer import PygameRenderer, PygameRendererSync, PYGAME_AVAILABLE
+    from .pygame_renderer_enhanced import PygameRendererEnhanced
 except ImportError:
     PYGAME_AVAILABLE = False
     PygameRenderer = None
     PygameRendererSync = None
+    PygameRendererEnhanced = None
 
 try:
     from .web_renderer import WebRenderer, FASTAPI_AVAILABLE as WEB_AVAILABLE
+    from .web_renderer_enhanced import WebRendererEnhanced
 except ImportError:
     WEB_AVAILABLE = False
     WebRenderer = None
+    WebRendererEnhanced = None
 
 from .visualizer import Visualizer, visualize
 
@@ -27,7 +31,9 @@ __all__ = [
     'Shape',
     'PygameRenderer',
     'PygameRendererSync',
+    'PygameRendererEnhanced',
     'WebRenderer',
+    'WebRendererEnhanced',
     'Visualizer',
     'visualize',
     'PYGAME_AVAILABLE',
