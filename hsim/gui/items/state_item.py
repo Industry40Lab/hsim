@@ -3,7 +3,7 @@ State graphics item for FSM/Agent editor
 """
 
 from PyQt6.QtWidgets import QGraphicsRectItem, QGraphicsTextItem, QGraphicsItem
-from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QObject
+from PyQt6.QtCore import Qt, QRectF, pyqtSignal, QObject, QPointF
 from PyQt6.QtGui import QPen, QBrush, QColor, QFont, QPainter, QPainterPath
 
 from hsim.gui.models.model import State as FSMState

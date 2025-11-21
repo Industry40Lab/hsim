@@ -21,8 +21,8 @@ from PyQt6.QtGui import QColor, QBrush
 
 from hsim.gui.models.model import SimulationModel, Block, Position, Size
 from hsim.gui.models.block_definitions import BlockType, get_block_definition
-from hsim.gui.items.block_item_v2 import BlockItemV2
-from hsim.gui.views.properties_panel_v2 import PropertiesPanelV2
+from hsim.gui.items.block_item import BlockItem
+from hsim.gui.views.properties_panel import PropertiesPanel
 import uuid
 
 
@@ -65,7 +65,7 @@ class SimpleVisualEditor(QMainWindow):
         self.view.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # Right: Properties panel
-        self.properties_panel = PropertiesPanelV2()
+        self.properties_panel = PropertiesPanel()
         self.properties_panel.model = self.model
         self.properties_panel.setMinimumWidth(300)
         self.properties_panel.setMaximumWidth(400)
@@ -163,7 +163,7 @@ class SimpleVisualEditor(QMainWindow):
         self.model.add_block(block)
 
         # Create visual item
-        item = BlockItemV2(block)
+        item = BlockItem(block)
         item.signals.properties_requested.connect(self.on_properties_requested)
         item.signals.deleted.connect(self.on_block_deleted)
 
@@ -183,7 +183,7 @@ class SimpleVisualEditor(QMainWindow):
         selected = self.scene.selectedItems()
         if selected:
             for item in selected:
-                if isinstance(item, BlockItemV2):
+                if isinstance(item, BlockItem):
                     self.properties_panel.show_block_properties(item.block)
                     return
         self.properties_panel.show_block_properties(None)
@@ -197,7 +197,7 @@ class SimpleVisualEditor(QMainWindow):
         self.model.remove_block(block_id)
         # Remove from scene
         for item in self.scene.items():
-            if isinstance(item, BlockItemV2) and item.block.id == block_id:
+            if isinstance(item, BlockItem) and item.block.id == block_id:
                 self.scene.removeItem(item)
                 break
 

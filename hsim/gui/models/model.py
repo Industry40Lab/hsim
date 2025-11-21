@@ -47,6 +47,19 @@ class Block:
         """Backward compatibility: return first FSM ID"""
         return self.fsm_ids[0] if self.fsm_ids else None
 
+    @fsm_id.setter
+    def fsm_id(self, value: Optional[str]) -> None:
+        """Allow setting a single FSM id for backward compatibility.
+
+        If a value is provided we replace the fsm_ids list with a single item.
+        If None or empty, clear the list.
+        """
+        if value:
+            # ensure the primary FSM id is the first in the list
+            self.fsm_ids = [value]
+        else:
+            self.fsm_ids = []
+
     def to_dict(self) -> dict:
         """Serialize to dictionary"""
         return {
