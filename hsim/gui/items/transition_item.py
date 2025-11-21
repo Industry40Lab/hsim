@@ -31,7 +31,9 @@ class TransitionItem(QGraphicsPathItem):
 
         # Appearance
         self.setPen(QPen(QColor("#6B7280"), 2))
-        self.setZValue(-1)  # Behind states
+        # Keep transitions above connection lines but below states so they are clickable
+        self.setZValue(0)
+        self.setAcceptHoverEvents(True)
 
         # Label
         self.label = None

@@ -65,6 +65,22 @@ class CanvasWidget(QGraphicsView):
         self.setup_view()
         self.load_model()
 
+    def on_port_click_started(self, block_id, port_name):
+        """Handle click-started connection from a port (click-click behaviour)"""
+        # Use same internal state as drag-started: store tuple (block_id, port_name)
+        self.connection_mode = True
+        self.connection_from = (block_id, port_name)
+        self.setCursor(Qt.CursorShape.CrossCursor)
+
+        # Show status message
+        from_block = self.model.get_block_by_id(block_id)
+        if from_block:
+            window = self._get_main_window()
+            if window:
+                window.statusBar().showMessage(
+                    f"Creating connection from '{from_block.name}' - Click target block"
+                )
+
     def setup_scene(self):
         """Setup the graphics scene"""
         # Set scene size
@@ -96,7 +112,8 @@ class CanvasWidget(QGraphicsView):
             self.add_block_item(block)
 
         # Add connections
-        for connection in self.model.connections:
+        # model.connections is a dict mapping id->Connection
+        for connection in self.model.connections.values():
             self.add_connection_item(connection)
 
     def set_model(self, model: SimulationModel):
@@ -117,6 +134,9 @@ class CanvasWidget(QGraphicsView):
         for port_name, port in item.ports.items():
             port.signals.connection_drag_started.connect(self.on_port_drag_started)
             port.signals.connection_drag_ended.connect(self.on_port_drag_ended)
+            # Click-click behaviour: start connection by clicking an output port
+            if hasattr(port.signals, 'connection_clicked'):
+                port.signals.connection_clicked.connect(self.on_port_click_started)
 
         self.scene.addItem(item)
         self.block_items[block.id] = item
@@ -281,12 +301,15 @@ class CanvasWidget(QGraphicsView):
 
     def start_connection_mode(self, from_block_id: str):
         """Start connection creation mode"""
+        # Accept either a block id string or a tuple/list (block_id, port_name)
         self.connection_mode = True
         self.connection_from = from_block_id
         self.setCursor(Qt.CursorShape.CrossCursor)
 
         # Show status message
-        from_block = self.model.get_block_by_id(from_block_id)
+        # Resolve block id for messaging
+        resolved_from = from_block_id[0] if isinstance(from_block_id, (tuple, list)) else from_block_id
+        from_block = self.model.get_block_by_id(resolved_from)
         if from_block:
             window = self._get_main_window()
             if window:
@@ -296,14 +319,21 @@ class CanvasWidget(QGraphicsView):
 
     def complete_connection(self, to_block_id: str):
         """Complete connection creation"""
-        if not self.connection_from or to_block_id == self.connection_from:
+        if not self.connection_from:
+            self.cancel_connection_mode()
+            return
+
+        # Support connection_from being either a block_id (str) or a tuple (block_id, port_name)
+        from_block_id = self.connection_from[0] if isinstance(self.connection_from, (tuple, list)) else self.connection_from
+
+        if to_block_id == from_block_id:
             self.cancel_connection_mode()
             return
 
         # Create connection in model
         conn = Connection(
             id=str(uuid.uuid4()),
-            from_block=self.connection_from,
+            from_block=from_block_id,
             to_block=to_block_id,
             label="next"
         )

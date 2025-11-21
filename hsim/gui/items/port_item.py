@@ -11,6 +11,7 @@ class PortItemSignals(QObject):
     """Signals for PortItem"""
     connection_drag_started = pyqtSignal(str, str)  # block_id, port_name
     connection_drag_ended = pyqtSignal(str, str, object)  # block_id, port_name, target_port
+    connection_clicked = pyqtSignal(str, str)  # block_id, port_name (click-click behavior)
 
 
 class PortItem(QGraphicsEllipseItem):
@@ -74,14 +75,15 @@ class PortItem(QGraphicsEllipseItem):
 
     def mousePressEvent(self, event):
         """Start dragging connection from this port"""
+        # Implement click-click behaviour: click on an output port to start connection mode,
+        # then click on target block/input to complete the connection.
         if event.button() == Qt.MouseButton.LeftButton and self.port_type == "output":
-            self.is_dragging = True
+            # Visual feedback
             self.setBrush(QBrush(self.active_color))
-            self.signals.connection_drag_started.emit(self.block_id, self.port_name)
-
-            # Update tooltip during drag
-            self.setToolTip("Release on target input port to connect")
-
+            # Emit connection clicked signal (start connection mode)
+            self.signals.connection_clicked.emit(self.block_id, self.port_name)
+            # Update tooltip during connection mode
+            self.setToolTip("Click target block or input port to connect")
             event.accept()
         else:
             super().mousePressEvent(event)
@@ -100,6 +102,28 @@ class PortItem(QGraphicsEllipseItem):
                 if isinstance(item, PortItem) and item != self and item.port_type == "input":
                     target_port = item
                     break
+
+            # Fallback: if released on a block (not directly on its port), try to use that block's input port
+            if target_port is None:
+                try:
+                    from hsim.gui.items.block_item import BlockItem
+                    for item in items:
+                        # If user released on a BlockItem or its children, find the BlockItem
+                        if isinstance(item, BlockItem):
+                            # Prefer the named 'input' port if present
+                            if 'input' in item.ports:
+                                target_port = item.ports['input']
+                                break
+                            # Otherwise pick any input-type port
+                            for p in item.ports.values():
+                                if p.port_type == 'input':
+                                    target_port = p
+                                    break
+                        if target_port:
+                            break
+                except Exception:
+                    # Non-fatal: if BlockItem can't be imported, continue without fallback
+                    target_port = target_port
 
             self.signals.connection_drag_ended.emit(self.block_id, self.port_name, target_port)
 
