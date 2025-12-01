@@ -373,6 +373,53 @@ class AzureBlobStorage:
             logger.error(f"Failed to get file size for {filename}: {e}")
             return None
 
+    def delete_all_user_files(self, username: str) -> int:
+        """
+        Delete ALL files for a specific user across all containers.
+        This includes temp files and workspace files.
+
+        Args:
+            username: Username
+
+        Returns:
+            Total number of files deleted
+        """
+        total_deleted = 0
+
+        try:
+            # Delete temp files (prefix: username_)
+            temp_container_client = self.blob_service_client.get_container_client(
+                self.TEMP_CONTAINER
+            )
+            temp_blobs = temp_container_client.list_blobs(name_starts_with=f"{username}_")
+            for blob in temp_blobs:
+                try:
+                    temp_container_client.delete_blob(blob.name)
+                    total_deleted += 1
+                    logger.debug(f"Deleted temp file: {blob.name}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete temp file {blob.name}: {e}")
+
+            # Delete user results (prefix: username/)
+            results_container_client = self.blob_service_client.get_container_client(
+                self.USER_RESULTS_CONTAINER
+            )
+            results_blobs = results_container_client.list_blobs(name_starts_with=f"{username}/")
+            for blob in results_blobs:
+                try:
+                    results_container_client.delete_blob(blob.name)
+                    total_deleted += 1
+                    logger.debug(f"Deleted user result: {blob.name}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete user result {blob.name}: {e}")
+
+            logger.info(f"Deleted {total_deleted} total files for user {username}")
+            return total_deleted
+
+        except Exception as e:
+            logger.error(f"Failed to delete all user files for {username}: {e}")
+            return total_deleted
+
 
 # Global storage instance (initialized in app.py)
 storage: Optional[AzureBlobStorage] = None
