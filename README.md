@@ -70,7 +70,7 @@ Create a `.env` file in the project root (never commit this file):
 FLASK_SECRET_KEY=your-secure-random-key-here
 
 # Azure Communication Services
-AZURE_CONNECTION_STRING=your-azure-connection-string
+AZURE_EMAIL_CONNECTION_STRING=your-azure-connection-string
 
 # Database Configuration
 USERS_DB=hsim/GSOM/flask/static/db/users.db

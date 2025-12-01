@@ -60,12 +60,24 @@ def set_security_headers(response):
     return response
 
 # Configure upload folder
-from hsim.GSOM.flask.config import TEMP_FOLDER_NAME, USERS_DB
+from hsim.GSOM.flask.config import TEMP_FOLDER_NAME, USERS_DB, USE_AZURE_STORAGE, AZURE_STORAGE_CONNECTION_STRING
 TEMP_FOLDER = os.path.join(tempfile.gettempdir(), TEMP_FOLDER_NAME)
 # app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER  # No longer needed
 
-# Ensure temp directory exists
+# Ensure temp directory exists (still needed for local fallback)
 os.makedirs(TEMP_FOLDER, exist_ok=True)
+
+# Initialize Azure Blob Storage
+if USE_AZURE_STORAGE:
+    try:
+        from hsim.GSOM.flask.azure_storage import init_storage
+        init_storage(AZURE_STORAGE_CONNECTION_STRING)
+        logger.info("Azure Blob Storage enabled and initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize Azure Blob Storage: {e}")
+        logger.warning("Falling back to local filesystem storage")
+else:
+    logger.info("Using local filesystem storage")
 
 # Initialize SQLite database for user authentication
 def init_db():
