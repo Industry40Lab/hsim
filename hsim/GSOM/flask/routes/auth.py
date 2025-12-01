@@ -217,6 +217,68 @@ def forgot_password():
     
     return render_template('auth/forgot_password.html')
 
+# API endpoint to check if username exists
+@auth_bp.route('/api/check_username', methods=['POST'])
+def check_username():
+    """API endpoint to check if username is available."""
+    from flask import jsonify
+    username = request.json.get('username', '').strip()
+
+    if not username:
+        return jsonify({'available': False, 'message': 'Username is required'})
+
+    conn = get_db_connection()
+    existing = conn.execute(
+        'SELECT username FROM users WHERE username = ?',
+        (username,)
+    ).fetchone()
+    conn.close()
+
+    if existing:
+        return jsonify({'available': False, 'message': 'Username already taken'})
+    else:
+        return jsonify({'available': True, 'message': 'Username is available'})
+
+# API endpoint to check if email exists
+@auth_bp.route('/api/check_email', methods=['POST'])
+def check_email():
+    """API endpoint to check if email is already registered."""
+    from flask import jsonify
+    email = request.json.get('email', '').strip()
+
+    if not email:
+        return jsonify({'valid': False, 'available': False, 'message': 'Email is required'})
+
+    # Validate email format
+    if not re.match(EMAIL_REGEX, email):
+        return jsonify({'valid': False, 'available': False, 'message': 'Invalid email format'})
+
+    conn = get_db_connection()
+    existing = conn.execute(
+        'SELECT email FROM users WHERE email = ?',
+        (email,)
+    ).fetchone()
+    conn.close()
+
+    if existing:
+        return jsonify({'valid': True, 'available': False, 'message': 'Email already registered'})
+    else:
+        return jsonify({'valid': True, 'available': True, 'message': 'Email is available'})
+
+# API endpoint to validate password
+@auth_bp.route('/api/validate_password', methods=['POST'])
+def validate_password_api():
+    """API endpoint to validate password strength."""
+    from flask import jsonify
+    password = request.json.get('password', '')
+
+    is_valid, error_msg = validate_password_strength(password)
+
+    if is_valid:
+        return jsonify({'valid': True, 'message': 'Password meets requirements'})
+    else:
+        return jsonify({'valid': False, 'message': error_msg})
+
 # Logout route
 @auth_bp.route('/logout')
 def logout():
