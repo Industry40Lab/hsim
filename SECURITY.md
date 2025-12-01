@@ -24,7 +24,7 @@ When reporting a vulnerability, please include:
 Never commit sensitive information to version control. Always use environment variables for:
 
 - `FLASK_SECRET_KEY`: Flask session secret key
-- `AZURE_CONNECTION_STRING`: Azure Communication Services connection string
+- `AZURE_EMAIL_CONNECTION_STRING`: Azure Communication Services connection string
 - Database credentials
 - API keys and tokens
 
