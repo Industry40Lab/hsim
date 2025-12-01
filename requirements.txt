@@ -3,6 +3,7 @@ azure-common
 azure-communication-email
 azure-core
 azure-mgmt-core
+azure-storage-blob>=12.19.0
 dill==0.3.9
 Django==5.2
 flask
