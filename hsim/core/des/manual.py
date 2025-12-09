@@ -29,7 +29,9 @@ class ManualStation(Server):
         class Starving(State):
             initial_state=True
         class Idle(State):
-            pass
+            def on_enter(self):
+                print(f"{self._env.now}: {self._agent} is now Idle.")
+                print([self.env._agents[i].stateMachine.current_state[0].name for i in range(73,79)])
         class Working(State):
             def on_enter(self):
                 self.var.item, self.var.message = self.store.inspect()

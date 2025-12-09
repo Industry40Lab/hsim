@@ -5,7 +5,6 @@ if __name__ == "__main__":
 
 
 from typing import Any, Callable, Union
-import numpy as np
 import logging
 from hsim.core.core.event import ConditionEvent, BaseEvent, DelayEvent, TimedEvent, ConditionedEvent
 
@@ -104,10 +103,34 @@ class ConditionTransition(Transition):
     _condition = lambda *args : True
     def __init__(self, fsm, source:'State', target:'State', condition:Callable[[], bool] = None):
         super().__init__(fsm,  source, target)
-        self.condition = self._condition if condition is None else condition 
+        self.condition = self._condition if condition is None else condition
+        self._condition = condition if condition is not None else self._condition
+        self._condition_created = False  # Track if we've created the ObservableExpression yet
     def start(self):
-        if callable(self.condition) or self.condition is None:
-            self.condition = self._condition() if callable(self._condition) else self._condition
+        # Only create the condition ONCE - the first time start() is called
+        # After that, reuse the same ObservableExpression to maintain notification chain
+        if not self._condition_created:
+            if callable(self._condition) or self.condition is None:
+                # Call _condition() - Python automatically binds self for class attribute lambdas
+                self.condition = self._condition() if callable(self._condition) else self._condition
+            self._condition_created = True
+            print(f"[FIRST START] Created condition for {self._fsm}: id={id(self.condition)}")
+        else:
+            print(f"[REUSE] Reusing existing condition for {self._fsm}: id={id(self.condition)}")
         self.event = ConditionedEvent(self._env, condition=self.condition, action=self).add()
-        
+        # CRITICAL: If condition is already True, trigger immediately
+        # recalc() won't fire because _stored_value hasn't changed
+        if self.condition:
+            print(f"[IMMEDIATE] Condition already True, triggering event at {self._env.now}")
+            self.event.trigger()
+    def __call__(self):
+        print(f"[DEBUG] ConditionTransition.__call__ at time {self._env.now}: condition={bool(self.condition)}, {self.source.name}->{self.target.name}, FSM={self._fsm}")
+        if self.condition:
+            super().__call__()
+        else:
+            # Race condition: create new event for the same condition
+            # Call .add() to properly register with scheduler and set condition._event
+            print(f"[RACE] Creating new event for existing condition id={id(self.condition)}")
+            self.event = ConditionedEvent(self._env, condition=self.condition, action=self).add()
+
 from .states import State
