@@ -159,12 +159,12 @@ def testlog(agent):
                 agent.store._message_history
 
 def joiner(df1,df2,colnames1,colnames2):
-    res = pd.concat([df1[colnames1 + ["timeIn"]], df2[colnames2 + ["timeIn"]]], ignore_index=True).sort_values('timeIn').reset_index(drop=True)
+    res = pd.concat([df1[colnames1 + ["timeIn"]], df2[colnames2 + ["timeIn"]]], ignore_index=True, copy=False).sort_values('timeIn').reset_index(drop=True)
     for col in colnames1+colnames2:
         res[col] = res[col].ffill()
     res['timeOut'] = res['timeIn'].shift(-1)
-    res.fillna({"timeOut":max(df1['timeOut'].max(), df2['timeOut'].max())},inplace=True)
-    res[colnames1+colnames2].fillna("",inplace=True)
+    res = res.fillna({"timeOut":max(df1['timeOut'].max(), df2['timeOut'].max())})
+    res.loc[:, colnames1+colnames2] = res[colnames1+colnames2].fillna("")
     res = res[colnames1+colnames2+["timeIn","timeOut"]]
     return res
 
