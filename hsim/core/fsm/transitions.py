@@ -106,6 +106,7 @@ class ConditionTransition(Transition):
         self.condition = self._condition if condition is None else condition
         self._condition = condition if condition is not None else self._condition
     def start(self):
+        print(self.env.now, ": Starting ConditionTransition with condition:", self._condition)
         if callable(self._condition):
             self.condition = self._condition()
             self._condition = self.condition
@@ -113,14 +114,7 @@ class ConditionTransition(Transition):
             super().__call__()
             return
         self.event = ConditionedEvent(self._env, condition=self.condition, action=self).add()
-            # print(f"[DEBUG] ConditionTransition.start at time {self._env.now}: condition={bool(self.condition)}, {self.source.name}->{self.target.name}, FSM={self._fsm}")
-            # self.event.trigger()
-    def __call__(self):
-        super().__call__() if self.condition else self.event.reset()
-        # print(f"[DEBUG] ConditionTransition.__call__ at time {self._env.now}: condition={bool(self.condition)}, {self.source.name}->{self.target.name}, FSM={self._fsm}")
-        # if self.condition:
-        #     super().__call__()
-        # else:
-        #     self.event.reset() # = ConditionedEvent(self._env, condition=self.condition, action=self).add()
+    # def __call__(self):
+    #     super().__call__() if self.condition else self.event.reset()
 
 from .states import State

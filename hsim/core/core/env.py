@@ -59,11 +59,14 @@ class Scheduler():
             elif "StopSimulation" in event.kwargs:
                 return
             else:
-                if event._conditioned:
-                    if not event.verify():
-                        event._status, event.time = Status.CONDITIONED, np.inf
-                        event.add()
-                        continue
+                # if event._conditioned:
+                #     if not event.verify():
+                #         event._status, event.time = Status.CONDITIONED, np.inf
+                #         event.add()
+                #         continue
+                if hasattr(event, "condition") and not event.condition:
+                    event.reset()
+                    continue
                 event.trigger()
                 self.execute(event)
                 # delayfunc(0)
