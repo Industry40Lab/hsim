@@ -106,7 +106,6 @@ class ConditionTransition(Transition):
         self.condition = self._condition if condition is None else condition
         self._condition = condition if condition is not None else self._condition
     def start(self):
-        print(self.env.now, ": Starting ConditionTransition with condition:", self._condition)
         if callable(self._condition):
             self.condition = self._condition()
             self._condition = self.condition

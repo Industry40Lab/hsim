@@ -29,7 +29,7 @@ class Scheduler():
         self._lock = Context()
         self._past = list()
         self._env = env
-        self._queue = SortedList(key=lambda event: (event.time, event.priority, event.sequence))
+        self._queue = SortedList(key=lambda event: (event.time, event.priority, -event.sequence))
         self._conditions = SortedList(key=lambda event: (event.time, event.priority, event.sequence))
         self._sequence_generator = Counter()
         self.timefunc = timefunc
@@ -64,9 +64,6 @@ class Scheduler():
                 #         event._status, event.time = Status.CONDITIONED, np.inf
                 #         event.add()
                 #         continue
-                if hasattr(event, "condition") and not event.condition:
-                    event.reset()
-                    continue
                 event.trigger()
                 self.execute(event)
                 # delayfunc(0)
