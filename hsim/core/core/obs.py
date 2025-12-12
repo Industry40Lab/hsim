@@ -366,7 +366,7 @@ class ObservableExpression(Observable):
         # Find environment from operands first
         env = None
         operands = list(operands)  # Convert to list to allow modifications
-        for el in [idx for idx, operand in enumerate(operands) if isinstance(operand, Iterable) and not isinstance(operand, Observable) and not isinstance(operand, str)][::-1]:
+        for el in [idx for idx, operand in enumerate(operands) if isinstance(operand, Iterable) and not isinstance(operand, (Observable, str))][::-1]:
             operands.extend(operands[el])
             operands.pop(el)
         operands = tuple(operands)  # Convert back to tuple after modifications
@@ -381,7 +381,8 @@ class ObservableExpression(Observable):
         super().__init__(env)
 
         self.op = op
-        self.operands = operands
+        self.operands = operands[0] if len(operands) == 1 and isinstance(operands[0],Iterable) else operands
+        self._operands_observables = [isinstance(op, Observable) for op in operands]
         self._dependencies = set()
         self._collect_dependencies()
         # Initialize the cached value by evaluating
@@ -398,36 +399,24 @@ class ObservableExpression(Observable):
         for operand in self.operands:
             if isinstance(operand, ObservableVariable):
                 self._dependencies.add(operand)
-            elif isinstance(operand, ObservableExpression) or isinstance(operand, ObservableProxy):
+            elif isinstance(operand, (ObservableExpression, ObservableProxy)):
                 self._dependencies.update(operand._dependencies)
     
     def _evaluate(self) -> Any:
         """Internal method to evaluate the expression using current values of operands."""
         # Special handling for ObservableCollection
-        if hasattr(self, 'filter_func'):
-            # Return filtered elements (not their values)
-            result = []
-            for element in self.elements:
-                if isinstance(element, Observable):
-                    element_value = element.value
-                else:
-                    element_value = element
-
-                if self.filter_func(element_value):
-                    result.append(element)  # Return the element itself, not its value
-            return result
+        # if hasattr(self, 'filter_func'):
+        #     # Return filtered elements (not their values)
+        #     result = []
+        #     for element, observable in zip(self.elements, self._elements_observables):
+        #         element_value = element.value if observable else element
+        #         if self.filter_func(element_value):
+        #             result.append(element)  # Return the element itself, not its value
+        #     return result
 
         # Regular expression evaluation
-        values = []
-        for operand in self.operands:
-            if isinstance(operand, (Observable, ObservableExpression)):
-                values.append(operand.value)
-            elif isinstance(operand,Iterable) and len(self.operands) == 1:
-                "If there's only one operand and it's iterable, use it directly"
-                values = operand
-                break
-            else:
-                values.append(operand)
+        # res, ops, flags = [], self.operands, self._operands_observables
+        values = [op.value if m else op for op, m in zip(self.operands, self._operands_observables)]
 
         try:
             if self.op in [any, all]:
@@ -495,7 +484,7 @@ class ObservableExpression(Observable):
     
     def _format_operand(self, operand) -> str:
         """Format a single operand (Observable, ObservableExpression, or constant)."""
-        if isinstance(operand, (Observable, ObservableExpression)):
+        if isinstance(operand, Observable):
             return str(operand)
         else:
             return str(operand)
@@ -542,6 +531,7 @@ class ObservableCollection(ObservableExpression):
         """
         # Create a filter operation that will be evaluated by the parent class
         self.elements = list(elements)
+        self._elements_observables = [isinstance(el, Observable) for el in self.elements]
         self.filter_func = filter_func if filter_func is not None else lambda val: True
         
         # Create a custom operation that filters the elements
@@ -565,12 +555,24 @@ class ObservableCollection(ObservableExpression):
                     if isinstance(value, Observable):
                         self._register_observable(value)
                         break
+        self._update_operands()
             
 
     def _update_operands(self):
         """Update operands tuple and recalculate after list operations."""
         self.operands = tuple(self.elements)
+        self._elements_observables = [isinstance(el, Observable) for el in self.elements]
         self.recalc()
+        
+    def _evaluate(self):
+        """Internal method to evaluate the expression using current values of operands."""
+        # Special handling for ObservableCollection
+        result = []
+        for element, observable in zip(self.elements, self._elements_observables):
+            element_value = element.value if observable else element
+            if self.filter_func(element_value):
+                result.append(element)  # Return the element itself, not its value
+        return result
         
     def recalc(self):
         old_hash = getattr(self, '_stored_hash', None)
@@ -705,7 +707,10 @@ class ObservableProxy(ObservableExpression):
         self.target = target
         self.accessor = accessor
         self.attr_name = attr_name
-        
+
+        # Cache type check for performance
+        self._target_is_observable = isinstance(target, Observable)
+
         # Create appropriate access operation
         if accessor is not None:
             # Use case 1: Collection element access
@@ -734,8 +739,7 @@ class ObservableProxy(ObservableExpression):
     
     def _evaluate(self) -> Any:
         """Internal method to evaluate by applying the operation to the target."""
-        target_value = self.target.value if isinstance(self.target, Observable) else self.target
-        return self.operation(target_value)
+        return self.operation(self.target.value if self._target_is_observable else self.target)
 
     def recalc(self):
         """Recalculate the value and notify observers."""

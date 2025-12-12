@@ -6,8 +6,7 @@ if __name__ == "__main__":
 
 from typing import Any, Callable, Union
 import logging
-from hsim.core.core.event import BaseEvent, DelayEvent, TimedEvent, ConditionedEvent
-from hsim.core.core.obs import ObservableExpression
+from hsim.core.core.event import BaseEvent, DelayEvent, ConditionedEvent
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -24,20 +23,7 @@ class Transition:
         self.event = None
     def start(self):
         self.on_start()
-        env, guard = self._env, self.guard
-        if isinstance(guard, (float, int)):
-            self.event = TimedEvent(env, time=guard, action=self)
-        elif isinstance(guard, ObservableExpression):
-            # Use ConditionedEvent with guard=True for GUARD semantics
-            self.event = ConditionedEvent(env, condition=guard, action=self, guard=True)
-        elif isinstance(guard, Callable):
-            # Legacy Callable guards are not supported with reactive system
-            raise TypeError(
-                "Callable guards are not supported. Use ObservableExpression instead. "
-                "Example: Instead of 'lambda: x > 5', use 'obs_var > 5' where obs_var is an ObservableVariable."
-            )
-        else:
-            self.event = BaseEvent(env, action=self)
+        self.event = BaseEvent(self._env, action=self)
     def stop(self):
         self.event.cancel(safe=False) if self.event is not None and not self.event.triggered else None 
     def _on_transition(self):
