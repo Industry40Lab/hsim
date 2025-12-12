@@ -79,13 +79,16 @@ class Observable(ABC):
         # Notify all expressions that depend on this observable
         for expr in self._expressions:
             expr.recalc()
-        # Trigger the event if it exists
+        # Trigger or reset the event based on condition value
         if self.watchable:
-            if reset == None or reset == True:
+            if reset == True:
                 self._event.trigger()
-            if reset == None or reset == False:
-                self._event.reset() if reset else None
-    
+            elif reset == False:
+                # Only reset ConditionedEvents with Transition actions
+                # Direct attribute access - flag is set during ConditionedEvent construction
+                if self._event._should_reset_on_false:
+                    self._event.reset()
+            # elif reset is None: do nothing (non-boolean value change) 
     def __repr__(self):
         return f"{self.value} (O: {id(self)})"
     
@@ -376,16 +379,17 @@ class ObservableExpression(Observable):
                     assert operand._env is env, f"All operands must share the same environment"
         
         super().__init__(env)
-        
+
         self.op = op
         self.operands = operands
         self._dependencies = set()
         self._collect_dependencies()
-        self._stored_value = self.value
-        if self.value is True:
+        # Initialize the cached value by evaluating
+        self._stored_value = self._evaluate()
+        if self._stored_value is True:
             self._stored_value = False
             self.recalc()
-               
+
         for operand in operands:
             operand.add_dependency(self) if isinstance(operand, Observable) else None
 
@@ -397,16 +401,8 @@ class ObservableExpression(Observable):
             elif isinstance(operand, ObservableExpression) or isinstance(operand, ObservableProxy):
                 self._dependencies.update(operand._dependencies)
     
-    def recalc(self):
-        old, new = self._stored_value, self.value
-        self._stored_value = new
-        if old != new:
-            reset = new if type(old) == type(new) == bool else None
-            self.notify(reset)
-                    
-    @property
-    def value(self) -> Any:
-        """Evaluate the expression using current values of operands."""
+    def _evaluate(self) -> Any:
+        """Internal method to evaluate the expression using current values of operands."""
         # Special handling for ObservableCollection
         if hasattr(self, 'filter_func'):
             # Return filtered elements (not their values)
@@ -416,11 +412,11 @@ class ObservableExpression(Observable):
                     element_value = element.value
                 else:
                     element_value = element
-                
+
                 if self.filter_func(element_value):
                     result.append(element)  # Return the element itself, not its value
             return result
-        
+
         # Regular expression evaluation
         values = []
         for operand in self.operands:
@@ -432,7 +428,7 @@ class ObservableExpression(Observable):
                 break
             else:
                 values.append(operand)
-        
+
         try:
             if self.op in [any, all]:
                 return self.op(values)
@@ -444,6 +440,18 @@ class ObservableExpression(Observable):
                 return self.op(*values)
         except TypeError as e:
             return None
+
+    def recalc(self):
+        old, new = self._stored_value, self._evaluate()
+        self._stored_value = new
+        if old != new:
+            reset = new if type(old) == type(new) == bool else None
+            self.notify(reset)
+
+    @property
+    def value(self) -> Any:
+        """Get the cached value of the expression."""
+        return self._stored_value
             
             
     
@@ -546,8 +554,11 @@ class ObservableCollection(ObservableExpression):
         
         # Initialize with the filter operation and all elements as operands
         super().__init__(filter_operation, *elements)
-        
-        self._stored_value = hash(tuple(self.value))
+
+        # ObservableCollection uses hash for change detection
+        # _stored_value contains the actual filtered list (set by parent)
+        # _stored_hash contains the hash for comparison
+        self._stored_hash = hash(tuple(self._stored_value))
         for operand in self.operands:
             if not isinstance(operand, Observable):
                 for value in operand.__dict__.values():
@@ -562,11 +573,14 @@ class ObservableCollection(ObservableExpression):
         self.recalc()
         
     def recalc(self):
-        old, new = self._stored_value, hash(tuple(self.value))
-        self._stored_value = new
-        if old != new:
-            reset = new if type(old) == type(new) == bool else None
-            self.notify(reset)
+        old_hash = getattr(self, '_stored_hash', None)
+        new_value = self._evaluate()
+        new_hash = hash(tuple(new_value))
+        self._stored_value = new_value
+        self._stored_hash = new_hash
+        if old_hash != new_hash:
+            # For collections, reset is not boolean-based
+            self.notify(reset=None)
 
     
     def _register_observable(self, element):
@@ -718,21 +732,25 @@ class ObservableProxy(ObservableExpression):
         self.operation = operation
         super().__init__(operation, target)
     
+    def _evaluate(self) -> Any:
+        """Internal method to evaluate by applying the operation to the target."""
+        target_value = self.target.value if isinstance(self.target, Observable) else self.target
+        return self.operation(target_value)
+
     def recalc(self):
         """Recalculate the value and notify observers."""
         old_value = self._stored_value
-        new_value = self.value
+        new_value = self._evaluate()
         self._stored_value = new_value
-        
+
         if old_value != new_value:
             reset = new_value if type(old_value) == type(new_value) == bool else None
             self.notify(reset)
-    
+
     @property
     def value(self) -> Any:
-        """Get the current value by applying the operation to the target."""
-        target_value = self.target.value if isinstance(self.target, Observable) else self.target
-        return self.operation(target_value)
+        """Get the cached value."""
+        return self._stored_value
     
     @classmethod
     def item(cls, target: Observable, accessor: Any):

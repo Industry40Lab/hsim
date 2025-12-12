@@ -27,7 +27,7 @@ class Status(Enum):
     CONDITIONED = auto()
     
 class BaseEvent():
-    __slots__ = ('env', 'sequence', 'time', 'priority', '_status', 'action', 'arguments', 'kwargs', '_conditioned', '_canceled')
+    __slots__ = ('env', 'sequence', 'time', 'priority', '_status', 'action', 'arguments', 'kwargs', '_conditioned', '_canceled', '_should_reset_on_false')
     def __init__(self, env: 'Environment', priority: Union[float,int]=1, action: Union[Iterable[Callable[..., Any]], Callable[..., Any]] = object, arguments: Any = None, **kwargs: Any): # type: ignore
         self.env = env
         self.sequence = next(env.scheduler._sequence_generator)
@@ -40,6 +40,7 @@ class BaseEvent():
         self.kwargs = kwargs
         self._conditioned = False
         self._canceled = False  # Add canceled flag
+        self._should_reset_on_false = False  # Default for all events
     def add(self) -> BaseEvent:
         # If event is still in the queue, just unflag canceled
         self._canceled = False
@@ -189,11 +190,26 @@ class VerifiableEvent(ConditionEvent):
 
 
 class ConditionedEvent(BaseEvent):
-    def __init__(self, env: 'Environment', condition: 'ObservableExpression[[], bool]', priority: Union[float,int] = 1, action:Union[Iterable[Callable[..., Any]], Callable[..., Any]]=object, arguments: Any = [], **kwargs: Any): # type: ignore
+    def __init__(self, env: 'Environment', condition: 'ObservableExpression[[], bool]', priority: Union[float,int] = 1, action:Union[Iterable[Callable[..., Any]], Callable[..., Any]]=object, arguments: Any = [], guard: bool = False, **kwargs: Any): # type: ignore
+        """
+        Create a reactive ConditionedEvent that triggers when an ObservableExpression becomes True.
+
+        Args:
+            env: Simulation environment
+            condition: ObservableExpression that triggers this event
+            priority: Event priority
+            action: Callable(s) to execute when triggered
+            arguments: Arguments for action
+            guard: If True, condition must remain True until execution (GUARD semantics).
+                   If False, condition becoming True triggers action once (TRIGGER semantics).
+        """
         super().__init__(env, priority, action, arguments, **kwargs)
         self.condition = condition
         self.condition._event = self
         self.condition.add_environment(env)
+        # GUARD semantics: reset when condition becomes False before execution
+        # TRIGGER semantics: execute once triggered, even if condition becomes False
+        self._should_reset_on_false = guard
 
             
 class RecurringEvent(BaseEvent):
