@@ -58,9 +58,8 @@ class ObservableExpression(Computed):
         return self.__ishift__(other)
 
 class ObservableVariable(Signal):
-    def __init__(self, initial: Any, env=None):
+    def __init__(self, initial: Any):
         super().__init__(initial)
-        self._env = env
         
     def link(self, event): 
         self._event = event
@@ -237,54 +236,6 @@ class ObservableCollection(ObservableExpression):
         """Extend collection with elements from iterable."""
         self.set(self() + list(iterable))
 
-
-class ObservableProxy(ObservableExpression):
-    """
-    Use case 1: I get an element out of a collection, e.g., collection[0], and I want to observe changes to that element (i.e., if the element at position 0 changes, I want to be notified).
-    Use case 2: I want to observe a specific property of a watchable object, such that if the object changes, I am notified.
-    """
-    
-    def __init__(self, target: Union[ObservableVariable, ObservableExpression, ObservableCollection], accessor: Any = None, attr_name: str = None):
-        """
-        Create a proxy that observes a specific part of an observable object.
-        
-        Args:
-            target: The observable object to proxy
-            accessor: Index or key for collection access (use case 1)  
-            attr_name: Attribute name for property access (use case 2)
-        """
-        self.target = target
-        self.accessor = accessor
-        self.attr_name = attr_name
-
-        # Cache type check for performance
-        self._target_is_observable = isinstance(target, (ObservableVariable, ObservableExpression, ObservableCollection))
-
-        # Create appropriate access operation
-        if accessor is not None:
-            # Use case 1: Collection element access
-            def access_element(target_value):
-                try:
-                    return target_value[accessor]
-                except (IndexError, KeyError, TypeError):
-                    return None
-            operation = access_element
-            
-        elif attr_name is not None:
-            # Use case 2: Attribute access
-            def access_attribute(target_value):
-                try:
-                    return getattr(target_value, attr_name)
-                except AttributeError:
-                    return None
-            operation = access_attribute
-            
-        else:
-            # Direct proxy - just return the target value
-            operation = lambda x: x
-        
-        self.operation = operation
-        super().__init__(operation, target)
 
 if __name__ == "__main__":
     a = ObservableVariable(10)
