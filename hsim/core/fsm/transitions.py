@@ -102,7 +102,7 @@ class ConditionTransition(Transition):
     def start(self):
         if callable(self._condition):
             self.condition = self._condition()
-            self._condition = self.condition
+            # self._condition = self.condition
         if self.condition:
             super().__call__()
             return

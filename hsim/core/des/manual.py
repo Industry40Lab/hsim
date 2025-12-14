@@ -45,7 +45,7 @@ class ManualStation(Server):
         def onW2B(self):
             try:
                 _, msg = self.give(self.connections["next"], self._agent.var.item)
-                self.connections["operator"].free()
+                self.connections["operator"]().free()
                 self.connections["operator"] <<= None
                 msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
             except AttributeError as e:
@@ -71,7 +71,9 @@ class Operator(Agent):
             pass
         
         S2W=ConditionTransition.define(Sleep, Working)
-        S2W._condition = lambda self: ObservableExpression.any([(a.connections["operator"] == None) & (ObservableProxy(a.stateMachine.current_state).item(0).attr("name") == "Idle") for a in self._agent.connections["stations"]])
+        # S2W._condition = lambda self: ObservableExpression.any([(a.connections["operator"] == None) & (ObservableProxy(a.stateMachine.current_state).item(0).attr("name") == "Idle") for a in self._agent.connections["stations"]])
+        # S2W._condition = lambda self: ObservableExpression.any([(a.connections["operator"] == None) & [s for s in a.stateMachine._states if s.name == "Idle"][-1]._active for a in self._agent.connections["stations"]])
+        S2W._condition = lambda self: ObservableExpression.any([(a.connections["operator"] == None) & a.stateMachine.current_state[0].name == "Idle" for a in self._agent.connections["stations"]])
         S2W.on_transition = lambda self: self.pick().add_operator(self._agent)
         W2I=MessageTransition.define(Working, Sleep)
         W2I._message = "free"

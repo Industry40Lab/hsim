@@ -6,66 +6,139 @@ import operator
 import functools
 
 
-
-class ObservableExpression(Computed):
-    def __init__(self, op: Callable, *operands: Union['ObservableVariable','ObservableExpression']):
-        super().__init__(lambda: op(*[operand() if isinstance(operand, (ObservableVariable, ObservableExpression)) else operand for operand in operands]))
-
-    def __iadd__(self, other: Any):
-        self.value += other
-        return self
+class Observable(ABC):
     
-       
-    def __isub__(self, other: Any):
-        self.value -= other
-        return self
-    
-
-    def __imul__(self, other: Any):
-        self.value *= other
-        return self
-    
-
-    def __itruediv__(self, other: Any):
-        self.value /= other
-        return self
-    
-
-    def __ifloordiv__(self, other: Any):
-        self.value //= other
-        return self
-    
-
-    def __imod__(self, other: Any):
-        self.value %= other
-        return self
-    
-
-    def __ipow__(self, other: Any):
-        self.value **= other
-        return self
-    
- 
-    def __ishift__(self, other: Any):
-        """Shift operator."""
-        self.value = other
-        return self
-    
-    def __ilshift__(self, other: Any):
-        return self.__ishift__(other)
-    
-    def __irshift__(self, other: Any):
-        return self.__ishift__(other)
-
-class ObservableVariable(Signal):
-    def __init__(self, initial: Any, env=None):
-        super().__init__(initial)
+    def add_environment(self, env) -> None:
         self._env = env
         
     def link(self, event): 
         self._event = event
         self._effect = Effect(lambda: event.trigger() if self() else event.reset())  # Dummy effect to trigger updates
+
+        
+    def __eq__(self, other):
+        return ObservableExpression(operator.eq, self, other)
+        
+    def __ne__(self, other: Any):
+        return ObservableExpression(operator.ne, self, other)
     
+    def __lt__(self, other: Any):
+        return ObservableExpression(operator.lt, self, other)
+    
+    def __le__(self, other: Any):
+        return ObservableExpression(operator.le, self, other)
+    
+    def __gt__(self, other: Any):
+        return ObservableExpression(operator.gt, self, other)
+    
+    def __ge__(self, other: Any):
+        return ObservableExpression(operator.ge, self, other)
+
+    def __ishift__(self, other: Any):
+        """Shift operator."""
+        self.set(other)
+        return self
+
+    def __ilshift__(self, other: Any):
+        return self.__ishift__(other)
+    
+    def __irshift__(self, other: Any):
+        return self.__ishift__(other)
+    
+        # Boolean operators
+    def __and__(self, other: Any):
+        return ObservableExpression(operator.and_, self, other)
+    
+    def __rand__(self, other: Any):
+        return ObservableExpression(operator.and_, other, self)
+    
+    def __or__(self, other: Any):
+        return ObservableExpression(operator.or_, self, other)
+    
+    def __ror__(self, other: Any):
+        return ObservableExpression(operator.or_, other, self)
+    
+    # Unary operators
+    def __neg__(self):
+        return ObservableExpression(operator.neg, self)
+    
+    def __pos__(self):
+        return ObservableExpression(operator.pos, self)
+    
+    def __abs__(self):
+        return ObservableExpression(operator.abs, self)
+    
+    def __bool__(self):
+        """Return True if the observable's value is truthy, False otherwise."""
+        return bool(self())
+    
+    def __len__(self):
+        if not hasattr(self(), "__len__"):
+            # raise TypeError(f"object of type '{type(self.value).__name__}' has no len()")
+            print(f"Warning: object of type '{type(self.value).__name__}' has no len(), returning 0")
+            return self()
+        return len(self())
+
+    @staticmethod
+    def any(*predicate: 'Observable') -> 'ObservableExpression':
+        """
+        Returns an ObservableExpression that is True if any element of the value is true (or satisfies the predicate).
+        """
+        return ObservableExpression(any,*predicate)
+    
+    @staticmethod    
+    def all(*predicate: 'Observable') -> 'ObservableExpression':
+        """
+        Returns an ObservableExpression that is True if all elements of the value are true (or satisfy the predicate).
+        """
+        return ObservableExpression(all, *predicate)
+
+    def __hash__(self):
+        return hash(id(self))
+    
+    def add(self, other: Any):
+        self.value.add(other)
+        
+    def pop(self, index=-1):
+        return self.value.pop(index)
+    
+    def remove(self, element):
+        self.value.remove(element)
+    
+    def __getitem__(self, key):
+        return self.value[key]
+    
+
+class ObservableExpression(Computed, Observable):
+    def __init__(self, op: Callable, *operands: Union['ObservableVariable','ObservableExpression'],env=None):
+        if op in [all, any]:
+            super().__init__(lambda: op([operand() if isinstance(operand, (ObservableVariable, ObservableExpression)) else operand for operand in operands[0]]))
+        else:
+            super().__init__(lambda: op(*[operand() if isinstance(operand, (ObservableVariable, ObservableExpression)) else operand for operand in operands]))
+        self.op = op
+        self.operands = operands
+        self.env = env
+
+    @property
+    def value(self):
+        """Backward compatibility - delegate to Reaktiv's call syntax"""
+        return self()  # Computed.__call__ returns cached value
+
+class ObservableVariable(Signal, Observable):
+    def __init__(self, initial: Any, env=None):
+        super().__init__(initial)
+        self._env = env
+
+    @property
+    def value(self):
+        """Backward compatibility - delegate to Reaktiv's call syntax"""
+        return self()  # Signal.__call__ returns _value
+
+    @value.setter
+    def value(self, new_value):
+        """Backward compatibility - delegate to Signal.set()"""
+        self.set(new_value)
+            
     def __repr__(self):
         return f"{self._value} (Obs: {id(self)})"
     
@@ -134,52 +207,6 @@ class ObservableVariable(Signal):
     def __rpow__(self, other: Any):
         return ObservableExpression(operator.pow, other, self)
     
-    # Comparison operators
-    def __eq__(self, other):
-        return ObservableExpression(operator.eq, self, other)
-        
-    def __ne__(self, other: Any):
-        return ObservableExpression(operator.ne, self, other)
-    
-    def __lt__(self, other: Any):
-        return ObservableExpression(operator.lt, self, other)
-    
-    def __le__(self, other: Any):
-        return ObservableExpression(operator.le, self, other)
-    
-    def __gt__(self, other: Any):
-        return ObservableExpression(operator.gt, self, other)
-    
-    def __ge__(self, other: Any):
-        return ObservableExpression(operator.ge, self, other)
-    
-    # Boolean operators
-    def __and__(self, other: Any):
-        return ObservableExpression(operator.and_, self, other)
-    
-    def __rand__(self, other: Any):
-        return ObservableExpression(operator.and_, other, self)
-    
-    def __or__(self, other: Any):
-        return ObservableExpression(operator.or_, self, other)
-    
-    def __ror__(self, other: Any):
-        return ObservableExpression(operator.or_, other, self)
-    
-    # Unary operators
-    def __neg__(self):
-        return ObservableExpression(operator.neg, self)
-    
-    def __pos__(self):
-        return ObservableExpression(operator.pos, self)
-    
-    def __abs__(self):
-        return ObservableExpression(operator.abs, self)
-    
-    def __bool__(self):
-        """Return True if the observable's value is truthy, False otherwise."""
-        return bool(self._value)
-    
     @staticmethod
     def any(*predicate: 'ObservableVariable') -> 'ObservableExpression':
         """
@@ -193,14 +220,22 @@ class ObservableVariable(Signal):
         Returns an ObservableExpression that is True if all elements of the value are true (or satisfy the predicate).
         """
         return ObservableExpression(all, *predicate)
+    
+    def length(self):
+        """Return an ObservableExpression representing the length of the collection."""
+        return ObservableExpression(len, self)
+    
+    def __iter__(self):
+        """Iterate over the filtered collection."""
+        return iter(self.value)
 
 class ObservableCollection(ObservableExpression):
-    def __init__(self, initial: Optional[Iterable] = None):
+    def __init__(self, initial: Optional[Iterable], filter_func = lambda x: True, env=None):
         if initial is None:
             initial = []
         elif not isinstance(initial, Iterable):
-            raise TypeError("Initial value must be an iterable or None.")
-        super().__init__(lambda: list(initial))
+            raise TypeError("Initial value must be an iterable.")
+        super().__init__(lambda: type(initial)(i for i in initial if filter_func(i)), env=env)
     
     def append(self, element):
         """Append an element to the collection."""
@@ -219,7 +254,6 @@ class ObservableCollection(ObservableExpression):
         except IndexError:
             raise IndexError("pop index out of range")
     
-
     def remove(self, element):
         """Remove first occurrence of element."""
         try:
@@ -227,17 +261,30 @@ class ObservableCollection(ObservableExpression):
         except ValueError:
             raise ValueError("element not in collection")
     
-
     def clear(self):
         """Remove all elements from the collection."""
         self.set([])
     
-
     def extend(self, iterable):
         """Extend collection with elements from iterable."""
         self.set(self() + list(iterable))
 
-
+    def length(self):
+        """Return an ObservableExpression representing the length of the collection."""
+        return ObservableExpression(len, self)
+    
+    def __iter__(self):
+        """Iterate over the filtered collection."""
+        return iter(self.value)
+    
+    # def any(self):
+    #     """Return an ObservableExpression that is True if any element in the collection is truthy."""
+    #     return ObservableExpression(any, self)
+    
+    # def all(self):
+    #     """Return an ObservableExpression that is True if all elements in the collection are truthy."""
+    #     return ObservableExpression(all, self)
+    
 class ObservableProxy(ObservableExpression):
     """
     Use case 1: I get an element out of a collection, e.g., collection[0], and I want to observe changes to that element (i.e., if the element at position 0 changes, I want to be notified).

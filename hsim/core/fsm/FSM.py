@@ -27,7 +27,7 @@ class FSM:
         self.add_element(get_class_dict(self, Pseudostate))
         self.add_element(get_class_dict(self, Transition))
         self.active, self.startable, self.stoppable = False, True, True
-        self._current_state = ObservableCollection(*self._states, filter_func=lambda x: x.active)
+        self._current_state = ObservableCollection(self._states, filter_func=lambda x: x.active)
     def start(self):
         for state in self._states:
             state.start() if state.initial_state else None

@@ -77,7 +77,7 @@ class BaseEvent():
     def trigger(self,priority=0) -> None:
         self._status = Status.TRIGGERED
         if self.time == np.inf:
-            self.env.scheduler._queue.remove(self)
+            self.env.scheduler._queue.remove(self) if self in self.env.scheduler._queue else None
             self.time = self.env.now
             self.priority = priority
             self.env.scheduler._queue.add(self)
@@ -205,7 +205,7 @@ class ConditionedEvent(BaseEvent):
         """
         super().__init__(env, priority, action, arguments, **kwargs)
         self.condition = condition
-        self.condition._event = self
+        self.condition.link(self)
         self.condition.add_environment(env)
         # GUARD semantics: reset when condition becomes False before execution
         # TRIGGER semantics: execute once triggered, even if condition becomes False
