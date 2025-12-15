@@ -73,7 +73,7 @@ class Operator(Agent):
         S2W=ConditionTransition.define(Sleep, Working)
         # S2W._condition = lambda self: ObservableExpression.any([(a.connections["operator"] == None) & (ObservableProxy(a.stateMachine.current_state).item(0).attr("name") == "Idle") for a in self._agent.connections["stations"]])
         # S2W._condition = lambda self: ObservableExpression.any([(a.connections["operator"] == None) & [s for s in a.stateMachine._states if s.name == "Idle"][-1]._active for a in self._agent.connections["stations"]])
-        S2W._condition = lambda self: ObservableExpression.any([(a.connections["operator"] == None) & a.stateMachine.current_state[0].name == "Idle" for a in self._agent.connections["stations"]])
+        S2W._condition = lambda self: ObservableExpression.any([(a.connections["operator"] == None) & ObservableExpression(lambda: a.stateMachine.current_state[0].name == "Idle")() for a in self._agent.connections["stations"]])
         S2W.on_transition = lambda self: self.pick().add_operator(self._agent)
         W2I=MessageTransition.define(Working, Sleep)
         W2I._message = "free"

@@ -15,6 +15,63 @@ class Observable(ABC):
         self._event = event
         self._effect = Effect(lambda: event.trigger() if self() else event.reset())  # Dummy effect to trigger updates
 
+    def __add__(self, other: Any):
+        return ObservableExpression(operator.add, self, other)
+    
+    def __radd__(self, other: Any):
+        return self + other
+    
+    def __iadd__(self, other: Any):
+        self.set(self._value + other)
+        return self
+    
+    def __sub__(self, other: Any):
+        return ObservableExpression(operator.sub, self, other)
+    
+    def __rsub__(self, other: Any):
+        return ObservableExpression(operator.sub, other, self)
+    
+    def __isub__(self, other: Any):
+        self.set(self._value - other)
+        return self
+    
+    def __mul__(self, other: Any):
+        return ObservableExpression(operator.mul, self, other)
+    
+    def __rmul__(self, other: Any):
+        return self * other
+    
+    def __imul__(self, other: Any):
+        self.set(self._value * other)
+        return self
+    
+    def __truediv__(self, other: Any):
+        return ObservableExpression(operator.truediv, self, other)
+    
+    def __rtruediv__(self, other: Any):
+        return ObservableExpression(operator.truediv, other, self)
+    
+    def __itruediv__(self, other: Any):
+        self.set(self._value / other)
+        return self
+    
+    def __floordiv__(self, other: Any):
+        return ObservableExpression(operator.floordiv, self, other)
+    
+    def __rfloordiv__(self, other: Any):
+        return ObservableExpression(operator.floordiv, other, self)
+    
+    def __mod__(self, other: Any):
+        return ObservableExpression(operator.mod, self, other)
+    
+    def __rmod__(self, other: Any):
+        return ObservableExpression(operator.mod, other, self)
+    
+    def __pow__(self, other: Any):
+        return ObservableExpression(operator.pow, self, other)
+    
+    def __rpow__(self, other: Any):
+        return ObservableExpression(operator.pow, other, self)
         
     def __eq__(self, other):
         return ObservableExpression(operator.eq, self, other)
@@ -97,22 +154,38 @@ class Observable(ABC):
         return hash(id(self))
     
     def add(self, other: Any):
-        self.value.add(other)
+        self().add(other)
+        self.set(self.value)
         
     def pop(self, index=-1):
-        return self.value.pop(index)
+        popped = self().pop(index)
+        self.set(self.value)
+        return popped
     
     def remove(self, element):
-        self.value.remove(element)
+        self().remove(element)
+        self.set(self.value)
     
     def __getitem__(self, key):
         return self.value[key]
+    
+    def proxy(self, accessor: Any = None, attr_name: str = None) -> 'ObservableProxy':
+        """
+        Create an ObservableProxy to observe a specific part of this observable.
+        
+        Args:
+            accessor: Index or key for collection access  
+            attr_name: Attribute name for property access
+        """
+        return ObservableProxy(self, accessor=accessor, attr_name=attr_name)
     
 
 class ObservableExpression(Computed, Observable):
     def __init__(self, op: Callable, *operands: Union['ObservableVariable','ObservableExpression'],env=None):
         if op in [all, any]:
             super().__init__(lambda: op([operand() if isinstance(operand, (ObservableVariable, ObservableExpression)) else operand for operand in operands[0]]))
+        elif len(operands) == 0:
+            super().__init__(op)
         else:
             super().__init__(lambda: op(*[operand() if isinstance(operand, (ObservableVariable, ObservableExpression)) else operand for operand in operands]))
         self.op = op
@@ -149,63 +222,6 @@ class ObservableVariable(Signal, Observable):
         return hash(id(self))
     
     # Mathematical operators that return ObservableExpression
-    def __add__(self, other: Any):
-        return ObservableExpression(operator.add, self, other)
-    
-    def __radd__(self, other: Any):
-        return self + other
-    
-    def __iadd__(self, other: Any):
-        self.set(self._value + other)
-        return self
-    
-    def __sub__(self, other: Any):
-        return ObservableExpression(operator.sub, self, other)
-    
-    def __rsub__(self, other: Any):
-        return ObservableExpression(operator.sub, other, self)
-    
-    def __isub__(self, other: Any):
-        self.set(self._value - other)
-        return self
-    
-    def __mul__(self, other: Any):
-        return ObservableExpression(operator.mul, self, other)
-    
-    def __rmul__(self, other: Any):
-        return self * other
-    
-    def __imul__(self, other: Any):
-        self.set(self._value * other)
-        return self
-    
-    def __truediv__(self, other: Any):
-        return ObservableExpression(operator.truediv, self, other)
-    
-    def __rtruediv__(self, other: Any):
-        return ObservableExpression(operator.truediv, other, self)
-    
-    def __itruediv__(self, other: Any):
-        self.set(self._value / other)
-        return self
-    
-    def __floordiv__(self, other: Any):
-        return ObservableExpression(operator.floordiv, self, other)
-    
-    def __rfloordiv__(self, other: Any):
-        return ObservableExpression(operator.floordiv, other, self)
-    
-    def __mod__(self, other: Any):
-        return ObservableExpression(operator.mod, self, other)
-    
-    def __rmod__(self, other: Any):
-        return ObservableExpression(operator.mod, other, self)
-    
-    def __pow__(self, other: Any):
-        return ObservableExpression(operator.pow, self, other)
-    
-    def __rpow__(self, other: Any):
-        return ObservableExpression(operator.pow, other, self)
     
     @staticmethod
     def any(*predicate: 'ObservableVariable') -> 'ObservableExpression':
@@ -235,7 +251,7 @@ class ObservableCollection(ObservableExpression):
             initial = []
         elif not isinstance(initial, Iterable):
             raise TypeError("Initial value must be an iterable.")
-        super().__init__(lambda: type(initial)(i for i in initial if filter_func(i)), env=env)
+        super().__init__(lambda: type(initial)(i() for i in initial if filter_func(i())), env=env)
     
     def append(self, element):
         """Append an element to the collection."""

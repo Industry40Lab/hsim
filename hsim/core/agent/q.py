@@ -18,7 +18,6 @@ import numpy as np
 from hsim.core.agent.agent import Agent
 from hsim.core.core.msg import MessageQueue, Message, PriorityMessageQueue
 from hsim.core.core.event import BaseEvent, ConditionedEvent
-from hsim.core.core.obs import ObservableVariable, ObservableExpression
 
 
 # def heappush(obs, item):

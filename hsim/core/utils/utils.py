@@ -6,7 +6,13 @@ from hsim.core.des.frame import Frame
 from hsim.core.core.env import Environment
 
 
-
+pd.set_option('future.no_silent_downcasting', True)
+import warnings
+warnings.filterwarnings(
+        "ignore",
+        category=FutureWarning,
+        message=r"The behavior of DataFrame concatenation with empty or all-NA entries is deprecated.*"
+)
 
 
 def create_connection_chart(objects, output_file="graph.html",remove_operators=True):
