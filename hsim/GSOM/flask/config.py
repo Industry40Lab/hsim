@@ -1,8 +1,18 @@
+import os
+import logging
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Setup logging
+logger = logging.getLogger(__name__)
+
 RESULTS_FOLDER = "hsim/GSOM/flask/static/results/"
 RESULTS_FILENAME = "results.csv"
 RESULTS_CSV = RESULTS_FOLDER + RESULTS_FILENAME
 
-USERS_DB = "hsim/GSOM/flask/static/db/users.db"
+USERS_DB = os.getenv("USERS_DB", "hsim/GSOM/flask/static/db/users.db")
 
 # UPLOAD_FOLDER removed, uploads now use TEMP_FOLDER
 ALLOWED_EXTENSIONS = {'xlsx'}
@@ -22,7 +32,7 @@ if not AZURE_STORAGE_CONNECTION_STRING:
 # Enable Azure Blob Storage (set to False to use local filesystem)
 USE_AZURE_STORAGE = os.getenv("USE_AZURE_STORAGE", "True").lower() == "true" and bool(AZURE_STORAGE_CONNECTION_STRING)
 
-POLLER_WAIT_TIME = 15 # seconds
+POLLER_WAIT_TIME = int(os.getenv("POLLER_WAIT_TIME", "15"))  # seconds
 
-USE_GANTT = True
-TIMEOUT = 180 # seconds, max sim time
+USE_GANTT = os.getenv("USE_GANTT", "True").lower() == "true"
+TIMEOUT = int(os.getenv("TIMEOUT", "180"))  # seconds, max sim time
