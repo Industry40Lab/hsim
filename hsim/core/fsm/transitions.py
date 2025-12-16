@@ -99,16 +99,15 @@ class ConditionTransition(Transition):
         super().__init__(fsm,  source, target)
         self.condition = self._condition if condition is None else condition
         self._condition = condition if condition is not None else self._condition
+        self._started = False
     def start(self):
-        if callable(self._condition):
+        if not self._started and callable(self._condition):
             self.condition = self._condition()
-            # self._condition = self.condition
+            self._started = True
         if self.condition:
             super().__call__()
             return
         # Use guard=True: condition must remain True until execution (GUARD semantics)
         self.event = ConditionedEvent(self._env, condition=self.condition, action=self, guard=True).add()
-    # def __call__(self):
-    #     super().__call__() if self.condition else self.event.reset()
 
 from .states import State
