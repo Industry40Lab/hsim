@@ -3,6 +3,71 @@ from typing import Any, Callable, Iterable, Optional, Type, Union
 from reaktiv import Signal, Computed, Effect
 import operator
 
+# Monkey-patch Reaktiv's Signal.get() to avoid expensive f-string evaluation in debug_log
+# The issue: debug_log(f"...{self._value}") evaluates the f-string even when debugging is disabled,
+# causing __repr__() to be called on SortedList values (~125k times), consuming ~9 seconds
+_original_signal_get = Signal.get
+
+def _patched_signal_get(self):
+    """Optimized Signal.get() that avoids f-string evaluation when debug logging is disabled."""
+    from reaktiv._debug import _debug_enabled
+    from reaktiv import graph
+
+    if self._lock is not None:
+        with self._lock:
+            edge = graph.add_dependency(self)
+            if edge is not None:
+                edge.version = self._version
+            # Only format debug message if debugging is actually enabled
+            if _debug_enabled:
+                from reaktiv._debug import debug_log
+                debug_log(f"Signal get() returning value: {self._value}")
+            return self._value
+    else:
+        edge = graph.add_dependency(self)
+        if edge is not None:
+            edge.version = self._version
+        # Only format debug message if debugging is actually enabled
+        if _debug_enabled:
+            from reaktiv._debug import debug_log
+            debug_log(f"Signal get() returning value: {self._value}")
+        return self._value
+
+Signal.get = _patched_signal_get
+
+# Also patch Signal.set() which has the same debug_log issue
+_original_signal_set = Signal.set
+
+def _patched_signal_set(self, new_value):
+    """Optimized Signal.set() that avoids f-string evaluation when debug logging is disabled."""
+    from reaktiv._debug import _debug_enabled
+
+    # Only format debug message if debugging is actually enabled
+    if _debug_enabled:
+        from reaktiv._debug import debug_log
+        debug_log(f"Signal set() called with new_value: {new_value} (old_value: {self._value})")
+
+    # Call original _set_internal logic
+    from reaktiv import graph
+    from reaktiv.signal import ComputeSignal
+
+    # Disallow side effects from within a ComputeSignal's computation
+    active = graph.active_consumer.get()
+    if active is not None:
+        if isinstance(active, ComputeSignal):
+            raise RuntimeError(
+                "Side effect detected: Cannot set Signal from within a ComputeSignal computation"
+            )
+
+    # Use lock to protect the entire set operation when thread safety is enabled
+    if self._lock is not None:
+        with self._lock:
+            self._set_internal(new_value)
+    else:
+        self._set_internal(new_value)
+
+Signal.set = _patched_signal_set
+
 
 
 class Observable(ABC):
@@ -161,7 +226,7 @@ class Observable(ABC):
         return hash(id(self))
     
     def __getitem__(self, key):
-        return self._value[key]
+        return self()[key]
     
     def proxy(self, accessor: Any = None, attr_name: str = None) -> 'ObservableProxy':
         """

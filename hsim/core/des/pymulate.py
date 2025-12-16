@@ -286,6 +286,7 @@ def test8():
         s1.connections["next"] = s2
         s2.connections["next"] = t
         env.run(50000)
+        pass
     profiler = cProfile.Profile()
     try:
         profiler.runcall(run_test)

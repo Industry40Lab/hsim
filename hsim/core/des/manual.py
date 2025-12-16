@@ -71,9 +71,7 @@ class Operator(Agent):
             pass
         
         S2W=ConditionTransition.define(Sleep, Working)
-        # S2W._condition = lambda self: ObservableExpression.any([(a.connections["operator"] == None) & (ObservableProxy(a.stateMachine.current_state).item(0).attr("name") == "Idle") for a in self._agent.connections["stations"]])
-        # S2W._condition = lambda self: ObservableExpression.any([(a.connections["operator"] == None) & [s for s in a.stateMachine._states if s.name == "Idle"][-1]._active for a in self._agent.connections["stations"]])
-        S2W._condition = lambda self: ObservableExpression.any([(a.connections["operator"] == None) & ObservableExpression(lambda: a.stateMachine.current_state[0].name == "Idle")() for a in self._agent.connections["stations"]])
+        S2W._condition = lambda self: ObservableExpression.any([(a.connections["operator"] == None) & ObservableExpression(lambda: ObservableExpression(lambda: a.stateMachine._current_state()[0].name if len(a.stateMachine._current_state())>0 else None)() == "Idle") for a in self._agent.connections["stations"]])
         S2W.on_transition = lambda self: self.pick().add_operator(self._agent)
         W2I=MessageTransition.define(Working, Sleep)
         W2I._message = "free"
@@ -110,8 +108,21 @@ def test1():
     a.take(x2)
     env.run(30)
     
+def test2():
+    from hsim.core.des.pymulate import Generator
+    env = Environment()
+    g = Generator(env, serviceTime=5)
+    a = ManualStation(env,serviceTime=10)
+    b = Store(env)
+    q = Queue(env,10)
+    op = Operator(env)
+    g.connections["next"] = a    
+    a.connections["next"] = b
+    b.connections["next"] = q
+    op.connections["stations"].append(a)
+    env.run(50)
+    pass
 
 if __name__ == "__main__":
-
-    test1()
+    test2()
     print("Test completed.")
