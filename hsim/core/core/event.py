@@ -210,6 +210,22 @@ class ConditionedEvent(BaseEvent):
         # GUARD semantics: reset when condition becomes False before execution
         # TRIGGER semantics: execute once triggered, even if condition becomes False
         self._should_reset_on_false = guard
+    def trigger(self, priority=0) -> None:
+        if self.arguments:
+            pass
+        super().trigger(priority)
+        
+    def process(self) -> None:
+        super().process()
+        if len(self.arguments) > 0 or self.action is object:
+            cond = self.condition
+            cond.unlink(self)
+            cond._unsubscribe_edge(cond._sources), cond._unsubscribe_edge(cond._targets)
+            del self.condition
+        elif hasattr(self,"__transition"):
+            print("Warning: how do we handle this?")
+        else:
+            print("Warning: what is this?")
 
             
 class RecurringEvent(BaseEvent):

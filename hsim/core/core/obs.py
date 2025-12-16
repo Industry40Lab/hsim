@@ -1,12 +1,16 @@
 from abc import ABC, abstractmethod
-from hmac import new
 from typing import Any, Callable, Iterable, Optional, Type, Union
 from reaktiv import Signal, Computed, Effect
 import operator
-import functools
+
 
 
 class Observable(ABC):
+    
+    @property
+    def value(self):
+        """Backward compatibility - delegate to Reaktiv's call syntax"""
+        return self()  # Signal.__call__ returns _value
     
     def add_environment(self, env) -> None:
         self._env = env
@@ -15,6 +19,9 @@ class Observable(ABC):
         self._event = event
         self._effect = Effect(lambda: event.trigger() if self() else event.reset())  # Dummy effect to trigger updates
 
+    def unlink(self, event):
+        self._effect.dispose()
+    
     def __add__(self, other: Any):
         return ObservableExpression(operator.add, self, other)
     
@@ -153,21 +160,8 @@ class Observable(ABC):
     def __hash__(self):
         return hash(id(self))
     
-    def add(self, other: Any):
-        self().add(other)
-        self.set(self.value)
-        
-    def pop(self, index=-1):
-        popped = self().pop(index)
-        self.set(self.value)
-        return popped
-    
-    def remove(self, element):
-        self().remove(element)
-        self.set(self.value)
-    
     def __getitem__(self, key):
-        return self.value[key]
+        return self._value[key]
     
     def proxy(self, accessor: Any = None, attr_name: str = None) -> 'ObservableProxy':
         """
@@ -192,16 +186,18 @@ class ObservableExpression(Computed, Observable):
         self.operands = operands
         self.env = env
 
-    @property
-    def value(self):
-        """Backward compatibility - delegate to Reaktiv's call syntax"""
-        return self()  # Computed.__call__ returns cached value
+    # @property
+    # def value(self):
+    #     """Backward compatibility - delegate to Reaktiv's call syntax"""
+    #     return self()  # Computed.__call__ returns cached value
 
 class ObservableVariable(Signal, Observable):
     def __init__(self, initial: Any, env=None):
         super().__init__(initial)
-        self._env = env
-
+        self._env = env         
+        if isinstance(initial, Iterable):
+            self._equal = lambda x, y : False 
+        
     @property
     def value(self):
         """Backward compatibility - delegate to Reaktiv's call syntax"""
@@ -244,18 +240,43 @@ class ObservableVariable(Signal, Observable):
     def __iter__(self):
         """Iterate over the filtered collection."""
         return iter(self.value)
-
-class ObservableCollection(ObservableExpression):
-    def __init__(self, initial: Optional[Iterable], filter_func = lambda x: True, env=None):
-        if initial is None:
-            initial = []
-        elif not isinstance(initial, Iterable):
-            raise TypeError("Initial value must be an iterable.")
-        super().__init__(lambda: type(initial)(i() for i in initial if filter_func(i())), env=env)
     
     def append(self, element):
         """Append an element to the collection."""
-        self.set(self() + [element])
+        self.update(lambda x:x.append(element) or x)
+        # self.set(self._value + [element])
+
+    def add(self, other: Any):
+        self.update(lambda x: x.add(other) or x)
+        
+    def pop(self, index=-1):
+        popped = self._value.pop(index)
+        self.set(self._value)
+        return popped
+    
+    def remove(self, element):
+        self.update(lambda x: x.remove(element) or x)
+        
+    def extend(self, iterable):
+        self.set(self._value + iterable)
+    
+    def clear(self):
+        if isinstance(self._value, Iterable):
+            self.set(type(self._value)())
+        else:
+            self.set(None)
+
+
+class ObservableCollection(ObservableExpression):
+    def __init__(self, initial: Optional[Iterable], filter_func = lambda x: True, env=None):
+        self._elements = ObservableVariable(initial)
+        if not isinstance(initial, Iterable):
+            raise TypeError("Initial value must be an iterable.")
+        super().__init__(lambda: type(initial)(i() for i in self._elements() if filter_func(i())), env=env)
+        
+    def append(self, element):
+        """Append an element to the collection."""
+        self._elements.set(self._elements() + [element])
 
     
     def insert(self, index, element):
@@ -293,6 +314,9 @@ class ObservableCollection(ObservableExpression):
         """Iterate over the filtered collection."""
         return iter(self.value)
     
+    def __getitem__(self, key):
+        return self._elements[key]
+    
     # def any(self):
     #     """Return an ObservableExpression that is True if any element in the collection is truthy."""
     #     return ObservableExpression(any, self)
@@ -307,7 +331,7 @@ class ObservableProxy(ObservableExpression):
     Use case 2: I want to observe a specific property of a watchable object, such that if the object changes, I am notified.
     """
     
-    def __init__(self, target: Union[ObservableVariable, ObservableExpression, ObservableCollection], accessor: Any = None, attr_name: str = None):
+    def __init__(self, target: Union[ObservableVariable, ObservableExpression, ObservableCollection], accessor: lambda x: x, filter_func = lambda x: True):
         """
         Create a proxy that observes a specific part of an observable object.
         
@@ -317,60 +341,49 @@ class ObservableProxy(ObservableExpression):
             attr_name: Attribute name for property access (use case 2)
         """
         self.target = target
-        self.accessor = accessor
-        self.attr_name = attr_name
-
-        # Cache type check for performance
-        self._target_is_observable = isinstance(target, (ObservableVariable, ObservableExpression, ObservableCollection))
-
-        # Create appropriate access operation
-        if accessor is not None:
-            # Use case 1: Collection element access
-            def access_element(target_value):
-                try:
-                    return target_value[accessor]
-                except (IndexError, KeyError, TypeError):
-                    return None
-            operation = access_element
-            
-        elif attr_name is not None:
-            # Use case 2: Attribute access
-            def access_attribute(target_value):
-                try:
-                    return getattr(target_value, attr_name)
-                except AttributeError:
-                    return None
-            operation = access_attribute
-            
-        else:
-            # Direct proxy - just return the target value
-            operation = lambda x: x
         
-        self.operation = operation
-        super().__init__(operation, target)
 
 if __name__ == "__main__":
-    a = ObservableVariable(10)
-    b = ObservableVariable(5)
-    c = a * 2 + b
-    b + 1
-    b += 1
-    d = a > b
-    e = ObservableVariable.all(a > 0, b > 0)
-    f = ObservableVariable.any(a < 0, b > 0)
-    
-    print(f"a: {a}, b: {b}")
-    print(f"c (a + b * 2): {c}")
-    print(f"d (a > b): {d}")
-    print(f"e (all(a > 0, b > 0)): {e}")
-    print(f"f (any(a < 0, b > 0)): {f}")
-    
-    a.set(3)
-    b.set(7)
-    
-    print("\nAfter updating a and b:")
-    print(f"a: {a}, b: {b}")
-    print(f"c (a + b * 2): {c}")
-    print(f"d (a > b): {d}")
-    print(f"e (all(a > 0, b > 0)): {e}")
-    print(f"f (any(a < 0, b > 0)): {f}")
+    if False:
+        a = ObservableVariable(1)
+        b = ObservableVariable(2)
+        fil = lambda x: x % 2 == 1
+        c = ObservableCollection([a,b], fil)
+        e = Effect(lambda: print(c()))
+        c.append(ObservableVariable(3))
+    if False:
+        k = ObservableCollection([])
+        f = k.length()>0
+        e2 = Effect(lambda: print("Length > 0:", f()))
+        k.append(ObservableVariable(10))
+    if True:
+        a = ObservableVariable([10,20,30])
+        b = ObservableExpression(lambda: len(a()))
+        e3 = Effect(lambda: print("Length of a:", b()))
+        a.append(40)
+        a.pop()
+        a.remove(10)
+        a.extend([50,60])
+        a.clear()
+    if False:
+        import time
+        N = 1000
+        t0 = time.time()
+        for _ in range(N):
+            a.append(10)
+        print(f"Time for {N} appends:", time.time()-t0)
+        t0 = time.time()
+        for _ in range(N):
+            a.pop()
+        print(f"Time for {N} pops:", time.time()-t0)
+        t0 = time.time()
+        l = list()
+        for _ in range(N):
+            l.append(10)
+        print(f"Time for {N} appends:", time.time()-t0)
+        t0 = time.time()
+        for _ in range(N):
+            l.pop()
+        print(f"Time for {N} pops:", time.time()-t0)
+
+            

@@ -11,7 +11,7 @@ from typing import Any, Iterable, List, Type, Union
 import pandas as pd
 
 from hsim.core.core.msg import Message, MessageQueue
-from hsim.core.core.obs import ObservableCollection
+from hsim.core.core.obs import ObservableExpression
 
 class FSM:
     def __init__(self, env):
@@ -27,7 +27,7 @@ class FSM:
         self.add_element(get_class_dict(self, Pseudostate))
         self.add_element(get_class_dict(self, Transition))
         self.active, self.startable, self.stoppable = False, True, True
-        self._current_state = ObservableCollection(self._states, filter_func=lambda x: x.active)
+        self._current_state = ObservableExpression(lambda: [t for t in self._states if t._active()])
     def start(self):
         for state in self._states:
             state.start() if state.initial_state else None

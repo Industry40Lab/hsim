@@ -1,109 +1,28 @@
 from abc import ABC, abstractmethod
-from hmac import new
-from typing import Any, Callable, Iterable, Optional, Type
-
-from numpy import add
-
-if __name__ == "__main__":
-    import sys
-    import os
-    # Cross-platform path handling
-    abs_path = os.path.abspath(__file__)
-    parts = abs_path.split(os.sep)
-    try:
-        if "hsim" in parts:
-            hsim_index = parts.index("hsim")
-            hsim_path = os.sep.join(parts[:hsim_index + 1])
-            if hsim_path not in sys.path:
-                sys.path.append(hsim_path)
-    except ValueError:
-        pass
-
-
-from hsim.core.core.event import BaseEvent
-from hsim.core.core.env import Environment
+from typing import Any, Callable, Iterable, Optional, Type, Union
+from reaktiv import Signal, Computed, Effect
 import operator
 import functools
 
 
-
-
-
-# "change" wrapper that triggers notify after the execution of the method
-def change(func):
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        result = func(self, *args, **kwargs)
-        self.notify()
-        return result
-    return wrapper
-
-
 class Observable(ABC):
-    """Abstract base class for all observable types"""
     
-    def __init__(self, env: Optional[Environment] = None):
-        """Initialize shared observable infrastructure"""
-        self._expressions = set()  # Track expressions that depend on this variable
+    def add_environment(self, env) -> None:
         self._env = env
-        self._event = BaseEvent(env).add() if env is not None else None
-
-    def add_dependency(self, expr: 'Observable'):
-        """Add an expression that depends on this observable"""
-        if isinstance(expr, Observable):
-            self._expressions.add(expr)
-            expr._dependencies.add(self)
-        else:
-            raise TypeError("Only Observables can be added as dependencies")
         
-    def add_environment(self, env: Environment):
-        """Add an environment to this observable"""
-        assert isinstance(env, Environment), "env must be an instance of Environment"
-        if self._env is not None and self._env is not env:
-            raise ValueError("Observable already has a different environment")
-        self._env = env
-        self._event = BaseEvent(env).add() if self._event is None else self._event
-    
-    @property
-    def watchable(self) -> bool:
-        return self._env is not None
-    
-    @property
-    @abstractmethod
-    def value(self) -> Any:
-        """Get the current value - must be implemented by subclasses"""
-        pass
-    
-    def notify(self,reset=False):
-        """Notify observers of value change"""
-        # Notify all expressions that depend on this observable
-        for expr in self._expressions:
-            expr.recalc()
-        # Trigger or reset the event based on condition value
-        if self.watchable:
-            if reset == True:
-                self._event.trigger()
-            elif reset == False:
-                # Only reset ConditionedEvents with Transition actions
-                # Direct attribute access - flag is set during ConditionedEvent construction
-                if self._event._should_reset_on_false:
-                    self._event.reset()
-            # elif reset is None: do nothing (non-boolean value change) 
-    def __repr__(self):
-        return f"{self.value} (O: {id(self)})"
-    
-    def __str__(self):
-        return f"{self.value} (O)"
-    
-    def __hash__(self):
-        return hash(id(self))
-    
-    # Mathematical operators that return ObservableExpression
+    def link(self, event): 
+        self._event = event
+        self._effect = Effect(lambda: event.trigger() if self() else event.reset())  # Dummy effect to trigger updates
+
     def __add__(self, other: Any):
         return ObservableExpression(operator.add, self, other)
     
     def __radd__(self, other: Any):
         return self + other
+    
+    def __iadd__(self, other: Any):
+        self.set(self._value + other)
+        return self
     
     def __sub__(self, other: Any):
         return ObservableExpression(operator.sub, self, other)
@@ -111,17 +30,29 @@ class Observable(ABC):
     def __rsub__(self, other: Any):
         return ObservableExpression(operator.sub, other, self)
     
+    def __isub__(self, other: Any):
+        self.set(self._value - other)
+        return self
+    
     def __mul__(self, other: Any):
         return ObservableExpression(operator.mul, self, other)
     
     def __rmul__(self, other: Any):
         return self * other
     
+    def __imul__(self, other: Any):
+        self.set(self._value * other)
+        return self
+    
     def __truediv__(self, other: Any):
         return ObservableExpression(operator.truediv, self, other)
     
     def __rtruediv__(self, other: Any):
         return ObservableExpression(operator.truediv, other, self)
+    
+    def __itruediv__(self, other: Any):
+        self.set(self._value / other)
+        return self
     
     def __floordiv__(self, other: Any):
         return ObservableExpression(operator.floordiv, self, other)
@@ -140,8 +71,7 @@ class Observable(ABC):
     
     def __rpow__(self, other: Any):
         return ObservableExpression(operator.pow, other, self)
-    
-    # Comparison operators
+        
     def __eq__(self, other):
         return ObservableExpression(operator.eq, self, other)
         
@@ -159,8 +89,19 @@ class Observable(ABC):
     
     def __ge__(self, other: Any):
         return ObservableExpression(operator.ge, self, other)
+
+    def __ishift__(self, other: Any):
+        """Shift operator."""
+        self.set(other)
+        return self
+
+    def __ilshift__(self, other: Any):
+        return self.__ishift__(other)
     
-    # Boolean operators
+    def __irshift__(self, other: Any):
+        return self.__ishift__(other)
+    
+        # Boolean operators
     def __and__(self, other: Any):
         return ObservableExpression(operator.and_, self, other)
     
@@ -185,8 +126,15 @@ class Observable(ABC):
     
     def __bool__(self):
         """Return True if the observable's value is truthy, False otherwise."""
-        return bool(self.value)
+        return bool(self())
     
+    def __len__(self):
+        if not hasattr(self(), "__len__"):
+            # raise TypeError(f"object of type '{type(self.value).__name__}' has no len()")
+            print(f"Warning: object of type '{type(self.value).__name__}' has no len(), returning 0")
+            return self()
+        return len(self())
+
     @staticmethod
     def any(*predicate: 'Observable') -> 'ObservableExpression':
         """
@@ -200,475 +148,93 @@ class Observable(ABC):
         Returns an ObservableExpression that is True if all elements of the value are true (or satisfy the predicate).
         """
         return ObservableExpression(all, *predicate)
-    
-    def proxy_item(self, key):
-        """Create a reactive proxy for item access."""
-        return ObservableProxy.item(self, key)
-    
-    def proxy_attr(self, name):
-        """Create a reactive proxy for attribute access.""" 
-        return ObservableProxy.attr(self, name)
-    
-    def item(self, key):
-        """Create a reactive proxy for item access. More convenient than proxy_item()."""
-        return ObservableProxy(self).item(key)
-    
-    def attr(self, name):
-        """Create a reactive proxy for attribute access. More convenient than proxy_attr()."""
-        return ObservableProxy(self).attr(name)
 
-
-class ObservableVariable(Observable):
-    def __init__(self, value: Any = None, env: Optional[Environment] = None):
-        super().__init__(env)
-        self._value = value
+    def __hash__(self):
+        return hash(id(self))
     
-    @property
-    def value(self) -> Any:
-        return self._value
-    
-    @value.setter
-    def value(self, new_value: Any):
-        if new_value != self._value:
-            self._value = new_value
-            self.notify()
-            
-    @change       
-    def __iadd__(self, other: Any):
-        self.value += other
-        return self
-    
-    @change       
-    def __isub__(self, other: Any):
-        self.value -= other
-        return self
-    
-    @change
-    def __imul__(self, other: Any):
-        self.value *= other
-        return self
-    
-    @change
-    def __itruediv__(self, other: Any):
-        self.value /= other
-        return self
-    
-    @change
-    def __ifloordiv__(self, other: Any):
-        self.value //= other
-        return self
-    
-    @change
-    def __imod__(self, other: Any):
-        self.value %= other
-        return self
-    
-    @change
-    def __ipow__(self, other: Any):
-        self.value **= other
-        return self
-    
-    @change 
-    def __ishift__(self, other: Any):
-        """Shift operator."""
-        self.value = other
-        return self
-    
-    def __ilshift__(self, other: Any):
-        return self.__ishift__(other)
-    
-    def __irshift__(self, other: Any):
-        return self.__ishift__(other)
-    
-    def __getattribute__(self, name: str) -> Any:
-        """Get attribute from the value if it supports attributes."""
-        try:
-            return object.__getattribute__(self, name)
-        except AttributeError as e1:
-            try:
-                return object.__getattribute__(self._value, name)
-            except AttributeError:
-                raise AttributeError(f"'{type(self._value).__name__}' object has no attribute '{name}'") from e1
-    
-    def __getitem__(self, key: Any) -> Any:
-        """Get item from the value if it supports indexing."""
-        if hasattr(self._value, "__getitem__"):
-            return self._value[key]
-        else:
-            raise TypeError(f"object of type '{type(self._value).__name__}' is not subscriptable")
-    
-    def __len__(self):
-        if not hasattr(self._value, "__len__"):
-            raise TypeError(f"object of type '{type(self._value).__name__}' has no len()")
-        return len(self._value)
-    
-    def length(self):
-        assert hasattr(self._value, "__len__"), TypeError(f"object of type '{type(self._value).__name__}' has no len()")
-        return ObservableExpression(len, self)
-    
-    @change
-    def __setitem__(self, index, value):
-        self._value.__setitem__(index, value)  # Call the original __setitem__ method
-     
-    @change
-    def append(self, item):
-        self._value.append(item)
-    
-    @change
-    def add(self, item):
-        """Add an item to the observable variable."""
-        if hasattr(self._value, "add"):
-            self._value.add(item)
-        else:
-            raise TypeError(f"object of type '{type(self._value).__name__}' does not support 'add' method")
-    
-    @change
-    def remove(self, item):
-        self._value.remove(item)
-    
-    @change
-    def pop(self, idx: Optional[int] = None):
-        return self._value.pop() if idx is None else self._value.pop(idx)
-
-    @change
-    def update(self, key:str, value: Any):
-        self._value[key] = value
+    def add(self, other: Any):
+        self().add(other)
+        self.set(self.value)
         
-
-class ObservableExpression(Observable):
+    def pop(self, index=-1):
+        popped = self().pop(index)
+        self.set(self.value)
+        return popped
     
-    # Operator symbol mapping for mathematical notation
-    _OP_SYMBOLS = {
-        operator.add: '+',
-        operator.sub: '-',
-        operator.mul: '*',
-        operator.truediv: '/',
-        operator.floordiv: '//',
-        operator.mod: '%',
-        operator.pow: '**',
-        operator.eq: '==',
-        operator.ne: '!=',
-        operator.lt: '<',
-        operator.le: '<=',
-        operator.gt: '>',
-        operator.ge: '>=',
-        operator.and_: 'and',
-        operator.or_: 'or',
-        operator.neg: '-',
-        operator.pos: '+',
-        operator.abs: 'abs',
-        len: 'len',
-        any: 'any',
-        all: 'all',
-    }
+    def remove(self, element):
+        self().remove(element)
+        self.set(self.value)
     
-    def __init__(self, op: Callable, *operands: Observable):
-        # Find environment from operands first
-        env = None
-        operands = list(operands)  # Convert to list to allow modifications
-        for el in [idx for idx, operand in enumerate(operands) if isinstance(operand, Iterable) and not isinstance(operand, (Observable, str))][::-1]:
-            operands.extend(operands[el])
-            operands.pop(el)
-        operands = tuple(operands)  # Convert back to tuple after modifications
-        
-        for operand in operands:
-            if isinstance(operand,Observable) and operand.watchable:
-                if env is None:
-                    env = operand._env
-                else:
-                    assert operand._env is env, f"All operands must share the same environment"
-        
-        super().__init__(env)
-
-        self.op = op
-        self.operands = operands[0] if len(operands) == 1 and isinstance(operands[0],Iterable) else operands
-        self._operands_observables = [isinstance(op, Observable) for op in operands]
-        self._dependencies = set()
-        self._collect_dependencies()
-        # Initialize the cached value by evaluating
-        self._stored_value = self._evaluate()
-        if self._stored_value is True:
-            self._stored_value = False
-            self.recalc()
-
-        for operand in operands:
-            operand.add_dependency(self) if isinstance(operand, Observable) else None
-
-    def _collect_dependencies(self):
-        """Collect all observable dependencies recursively."""
-        for operand in self.operands:
-            if isinstance(operand, ObservableVariable):
-                self._dependencies.add(operand)
-            elif isinstance(operand, (ObservableExpression, ObservableProxy)):
-                self._dependencies.update(operand._dependencies)
+    def __getitem__(self, key):
+        return self.value[key]
     
-    def _evaluate(self) -> Any:
-        """Internal method to evaluate the expression using current values of operands."""
-        # Special handling for ObservableCollection
-        # if hasattr(self, 'filter_func'):
-        #     # Return filtered elements (not their values)
-        #     result = []
-        #     for element, observable in zip(self.elements, self._elements_observables):
-        #         element_value = element.value if observable else element
-        #         if self.filter_func(element_value):
-        #             result.append(element)  # Return the element itself, not its value
-        #     return result
-
-        # Regular expression evaluation
-        # res, ops, flags = [], self.operands, self._operands_observables
-        values = [op.value if m else op for op, m in zip(self.operands, self._operands_observables)]
-
-        try:
-            if self.op in [any, all]:
-                return self.op(values)
-            elif len(values) == 1:
-                return self.op(values[0])
-            elif len(values) == 2:
-                return self.op(values[0], values[1])
-            else:
-                return self.op(*values)
-        except TypeError as e:
-            return None
-
-    def recalc(self):
-        old, new = self._stored_value, self._evaluate()
-        self._stored_value = new
-        if old != new:
-            reset = new if type(old) == type(new) == bool else None
-            self.notify(reset)
-
-    @property
-    def value(self) -> Any:
-        """Get the cached value of the expression."""
-        return self._stored_value
-            
-            
-    
-    @property
-    def dependencies(self) -> set:
-        """Return all observable dependencies of this expression."""
-        return self._dependencies.copy()
-    
-    def __repr__(self):
-        return f"{self.value} = {self._format_expression()}"
-    
-    def __str__(self):
-        return self._format_expression()
-    
-    def _format_expression(self) -> str:
-        """Format the expression in mathematical notation."""
-        op_symbol = self._OP_SYMBOLS.get(self.op, str(self.op))
-        
-        if self.op in [any, all] or len(self.operands) > 2:
-            operands_str = ', '.join(self._format_operand(op) for op in self.operands)
-            return f"{op_symbol}({operands_str})"
-        elif len(self.operands) == 1:
-            # Unary operators
-            operand_str = self._format_operand(self.operands[0])
-            if self.op in [operator.abs, len]:
-                return f"{op_symbol}({operand_str})"
-            else:
-                return f"{op_symbol}{operand_str}"
-        else:
-            # Binary operators
-            left_str = self._format_operand(self.operands[0])
-            right_str = self._format_operand(self.operands[1])
-            
-            # Add parentheses for complex expressions to maintain precedence
-            if isinstance(self.operands[0], ObservableExpression) and self._needs_parentheses(self.operands[0], True):
-                left_str = f"({left_str})"
-            if isinstance(self.operands[1], ObservableExpression) and self._needs_parentheses(self.operands[1], False):
-                right_str = f"({right_str})"
-            
-            return f"{left_str} {op_symbol} {right_str}"
-    
-    def _format_operand(self, operand) -> str:
-        """Format a single operand (Observable, ObservableExpression, or constant)."""
-        if isinstance(operand, Observable):
-            return str(operand)
-        else:
-            return str(operand)
-    
-    def _needs_parentheses(self, expr: 'ObservableExpression', is_left: bool) -> bool:
-        """Determine if parentheses are needed for operator precedence."""
-        # Only ObservableExpressions need parentheses
-        if not isinstance(expr, ObservableExpression):
-            return False
-            
-        # Operator precedence (higher number = higher precedence)
-        precedence = {
-            operator.pow: 6,
-            operator.neg: 5, operator.pos: 5, operator.abs: 5,
-            operator.mul: 4, operator.truediv: 4, operator.floordiv: 4, operator.mod: 4,
-            operator.add: 3, operator.sub: 3,
-            operator.eq: 2, operator.ne: 2, operator.lt: 2, operator.le: 2, operator.gt: 2, operator.ge: 2,
-            operator.and_: 1,
-            operator.or_: 0,
-        }
-        
-        current_prec = precedence.get(self.op, 1)
-        expr_prec = precedence.get(expr.op, 1)
-        
-        # Add parentheses if:
-        # 1. Expression has lower precedence than current
-        # 2. Same precedence and non-associative operation on the right
-        if expr_prec < current_prec:
-            return True
-        elif expr_prec == current_prec and not is_left and self.op in [operator.sub, operator.truediv, operator.pow]:
-            return True
-        
-        return False
-
-
-class ObservableCollection(ObservableExpression):
-    def __init__(self, *elements, filter_func: Callable = None):
+    def proxy(self, accessor: Any = None, attr_name: str = None) -> 'ObservableProxy':
         """
-        Create an observable collection that filters elements based on a predicate.
+        Create an ObservableProxy to observe a specific part of this observable.
         
         Args:
-            *elements: Observable variables, expressions, or regular values
-            filter_func: Function to filter elements (like f in [x for x in list if f(x)])
+            accessor: Index or key for collection access  
+            attr_name: Attribute name for property access
         """
-        # Create a filter operation that will be evaluated by the parent class
-        self.elements = list(elements)
-        self._elements_observables = [isinstance(el, Observable) for el in self.elements]
-        self.filter_func = filter_func if filter_func is not None else lambda val: True
-        
-        # Create a custom operation that filters the elements
-        def filter_operation(*operands):
-            result = []
-            for i, operand in enumerate(operands):
-                if self.filter_func(operand):
-                    result.append(operand)
-            return result
-        
-        # Initialize with the filter operation and all elements as operands
-        super().__init__(filter_operation, *elements)
+        return ObservableProxy(self, accessor=accessor, attr_name=attr_name)
+    
 
-        # ObservableCollection uses hash for change detection
-        # _stored_value contains the actual filtered list (set by parent)
-        # _stored_hash contains the hash for comparison
-        self._stored_hash = hash(tuple(self._stored_value))
-        for operand in self.operands:
-            if not isinstance(operand, Observable):
-                for value in operand.__dict__.values():
-                    if isinstance(value, Observable):
-                        self._register_observable(value)
-                        break
-        self._update_operands()
+class ObservableExpression(Computed, Observable):
+    def __init__(self, op: Callable, *operands: Union['ObservableVariable','ObservableExpression'],env=None):
+        if op in [all, any]:
+            super().__init__(lambda: op([operand() if isinstance(operand, (ObservableVariable, ObservableExpression)) else operand for operand in operands[0]]))
+        elif len(operands) == 0:
+            super().__init__(op)
+        else:
+            super().__init__(lambda: op(*[operand() if isinstance(operand, (ObservableVariable, ObservableExpression)) else operand for operand in operands]))
+        self.op = op
+        self.operands = operands
+        self.env = env
+
+    @property
+    def value(self):
+        """Backward compatibility - delegate to Reaktiv's call syntax"""
+        return self()  # Computed.__call__ returns cached value
+
+class ObservableVariable(Signal, Observable):
+    def __init__(self, initial: Any, env=None):
+        super().__init__(initial)
+        self._env = env
+
+    @property
+    def value(self):
+        """Backward compatibility - delegate to Reaktiv's call syntax"""
+        return self()  # Signal.__call__ returns _value
+
+    @value.setter
+    def value(self, new_value):
+        """Backward compatibility - delegate to Signal.set()"""
+        self.set(new_value)
             
-
-    def _update_operands(self):
-        """Update operands tuple and recalculate after list operations."""
-        self.operands = tuple(self.elements)
-        self._elements_observables = [isinstance(el, Observable) for el in self.elements]
-        self.recalc()
-        
-    def _evaluate(self):
-        """Internal method to evaluate the expression using current values of operands."""
-        # Special handling for ObservableCollection
-        result = []
-        for element, observable in zip(self.elements, self._elements_observables):
-            element_value = element.value if observable else element
-            if self.filter_func(element_value):
-                result.append(element)  # Return the element itself, not its value
-        return result
-        
-    def recalc(self):
-        old_hash = getattr(self, '_stored_hash', None)
-        new_value = self._evaluate()
-        new_hash = hash(tuple(new_value))
-        self._stored_value = new_value
-        self._stored_hash = new_hash
-        if old_hash != new_hash:
-            # For collections, reset is not boolean-based
-            self.notify(reset=None)
-
+    def __repr__(self):
+        return f"{self._value} (Obs: {id(self)})"
     
-    def _register_observable(self, element):
-        """Register an observable element as a dependency."""
-        if isinstance(element, Observable):
-            element.add_dependency(self)
-            self._collect_dependencies()
+    def __str__(self):
+        return f"{self._value} (Obs)"
     
-    def _unregister_observable(self, element):
-        """Unregister an observable element from dependencies."""
-        if isinstance(element, Observable):
-            element._expressions.discard(self)
-            if hasattr(self, '_dependencies'):
-                self._dependencies.discard(element)
+    def __hash__(self):
+        return hash(id(self))
     
-    @change
-    def append(self, element):
-        """Append an element to the collection."""
-        self.elements.append(element)
-        self._register_observable(element)
-        self._update_operands()
+    # Mathematical operators that return ObservableExpression
     
-    @change
-    def insert(self, index, element):
-        """Insert an element at the specified index."""
-        self.elements.insert(index, element)
-        self._register_observable(element)
-        self._update_operands()
+    @staticmethod
+    def any(*predicate: 'ObservableVariable') -> 'ObservableExpression':
+        """
+        Returns an ObservableExpression that is True if any element of the value is true (or satisfies the predicate).
+        """
+        return ObservableExpression(any,*predicate)
     
-    @change
-    def pop(self, index=-1):
-        """Remove and return element at index (default last)."""
-        if self.elements:
-            element = self.elements.pop(index)
-            self._unregister_observable(element)
-            self._update_operands()
-            return element
-        else:
-            raise IndexError("pop from empty collection")
-    
-    @change
-    def remove(self, element):
-        """Remove first occurrence of element."""
-        if element in self.elements:
-            self.elements.remove(element)
-            self._unregister_observable(element)
-            self._update_operands()
-        else:
-            raise ValueError("element not in collection")
-    
-    @change
-    def clear(self):
-        """Remove all elements from the collection."""
-        for element in self.elements:
-            self._unregister_observable(element)
-        self.elements.clear()
-        self._update_operands()
-    
-    @change
-    def extend(self, iterable):
-        """Extend collection with elements from iterable."""
-        for element in iterable:
-            self.elements.append(element)
-            self._register_observable(element)
-        self._update_operands()
-    
-    @change
-    def __setitem__(self, index, element):
-        """Set element at index."""
-        old_element = self.elements[index]
-        self._unregister_observable(old_element)
-        self.elements[index] = element
-        self._register_observable(element)
-        self._update_operands()
-    
-    @change
-    def __delitem__(self, index):
-        """Delete element at index."""
-        element = self.elements[index]
-        self._unregister_observable(element)
-        del self.elements[index]
-        self._update_operands()
-    
-    def __len__(self):
-        """Return the length of the filtered collection."""
-        return len(self.value)
+    @staticmethod    
+    def all(*predicate: 'ObservableVariable') -> 'ObservableExpression':
+        """
+        Returns an ObservableExpression that is True if all elements of the value are true (or satisfy the predicate).
+        """
+        return ObservableExpression(all, *predicate)
     
     def length(self):
         """Return an ObservableExpression representing the length of the collection."""
@@ -677,25 +243,70 @@ class ObservableCollection(ObservableExpression):
     def __iter__(self):
         """Iterate over the filtered collection."""
         return iter(self.value)
+
+class ObservableCollection(ObservableExpression):
+    def __init__(self, initial: Optional[Iterable], filter_func = lambda x: True, env=None):
+        if initial is None:
+            initial = []
+        elif not isinstance(initial, Iterable):
+            raise TypeError("Initial value must be an iterable.")
+        super().__init__(lambda: type(initial)(i() for i in initial if filter_func(i())), env=env)
     
-    def __getitem__(self, index):
-        """Get item from the filtered collection."""
-        return self.value[index]
+    def append(self, element):
+        """Append an element to the collection."""
+        self.set(self() + [element])
+
     
-    def __repr__(self):
-        return f"ObservableCollection({self.value}) (filtered from {len(self.elements)} elements)"
-    
-    def __str__(self):
-        return f"[{', '.join(str(v) for v in self.value)}]"
+    def insert(self, index, element):
+        """Insert an element at the specified index."""
+        self.set(self().insert(index, element))
 
 
+    def pop(self, index=-1):
+        """Remove and return element at index (default last)."""
+        try:
+            self.set(self().pop(index))
+        except IndexError:
+            raise IndexError("pop index out of range")
+    
+    def remove(self, element):
+        """Remove first occurrence of element."""
+        try:
+            self.set(self().remove(element))
+        except ValueError:
+            raise ValueError("element not in collection")
+    
+    def clear(self):
+        """Remove all elements from the collection."""
+        self.set([])
+    
+    def extend(self, iterable):
+        """Extend collection with elements from iterable."""
+        self.set(self() + list(iterable))
+
+    def length(self):
+        """Return an ObservableExpression representing the length of the collection."""
+        return ObservableExpression(len, self)
+    
+    def __iter__(self):
+        """Iterate over the filtered collection."""
+        return iter(self.value)
+    
+    # def any(self):
+    #     """Return an ObservableExpression that is True if any element in the collection is truthy."""
+    #     return ObservableExpression(any, self)
+    
+    # def all(self):
+    #     """Return an ObservableExpression that is True if all elements in the collection are truthy."""
+    #     return ObservableExpression(all, self)
+    
 class ObservableProxy(ObservableExpression):
     """
     Use case 1: I get an element out of a collection, e.g., collection[0], and I want to observe changes to that element (i.e., if the element at position 0 changes, I want to be notified).
     Use case 2: I want to observe a specific property of a watchable object, such that if the object changes, I am notified.
     """
     
-    def __init__(self, target: Observable, accessor: Any = None, attr_name: str = None):
+    def __init__(self, target: Union[ObservableVariable, ObservableExpression, ObservableCollection], accessor: Any = None, attr_name: str = None):
         """
         Create a proxy that observes a specific part of an observable object.
         
@@ -709,7 +320,7 @@ class ObservableProxy(ObservableExpression):
         self.attr_name = attr_name
 
         # Cache type check for performance
-        self._target_is_observable = isinstance(target, Observable)
+        self._target_is_observable = isinstance(target, (ObservableVariable, ObservableExpression, ObservableCollection))
 
         # Create appropriate access operation
         if accessor is not None:
@@ -736,144 +347,29 @@ class ObservableProxy(ObservableExpression):
         
         self.operation = operation
         super().__init__(operation, target)
-    
-    def _evaluate(self) -> Any:
-        """Internal method to evaluate by applying the operation to the target."""
-        return self.operation(self.target.value if self._target_is_observable else self.target)
 
-    def recalc(self):
-        """Recalculate the value and notify observers."""
-        old_value = self._stored_value
-        new_value = self._evaluate()
-        self._stored_value = new_value
-
-        if old_value != new_value:
-            reset = new_value if type(old_value) == type(new_value) == bool else None
-            self.notify(reset)
-
-    @property
-    def value(self) -> Any:
-        """Get the cached value."""
-        return self._stored_value
-    
-    @classmethod
-    def item(cls, target: Observable, accessor: Any):
-        """Create a proxy for collection item access (e.g., collection[0])."""
-        return cls(target, accessor=accessor)
-    
-    @classmethod
-    def attr(cls, target: Observable, attr_name: str):
-        """Create a proxy for attribute access (e.g., obj.property)."""
-        return cls(target, attr_name=attr_name)
-    
-    def item(self, accessor: Any):
-        """Fluent interface: Create a chained proxy for item access."""
-        return ObservableProxy(self, accessor=accessor)
-    
-    def attr(self, attr_name: str):
-        """Fluent interface: Create a chained proxy for attribute access."""
-        return ObservableProxy(self, attr_name=attr_name)
-    
-    def __getitem__(self, key):
-        """Support chained indexing: proxy[key] -> ObservableProxy(proxy, key)."""
-        return self.item(key)
-    
-    def __getattr__(self, name):
-        """Support chained attribute access: proxy.attr -> ObservableProxy(proxy, attr)."""
-        # Don't proxy internal attributes, methods, or known instance methods
-        if (name.startswith('_') or 
-            hasattr(ObservableExpression, name) or
-            name in ['target', 'accessor', 'attr_name', 'operation', 'item', 'attr']):
-            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
-        return self.attr(name)
-    
-    def __repr__(self):
-        if self.accessor is not None:
-            return f"{self.value} = {self.target}[{self.accessor}]"
-        elif self.attr_name is not None:
-            return f"{self.value} = {self.target}.{self.attr_name}"
-        else:
-            return f"{self.value} = proxy({self.target})"
-    
-    def __str__(self):
-        if self.accessor is not None:
-            return f"{self.target}[{self.accessor}]"
-        elif self.attr_name is not None:
-            return f"{self.target}.{self.attr_name}"
-        else:
-            return f"proxy({self.target})"
-
-
-# Simple functions for any() and all() - no need to use ObservableExpression.any()
-def obs_any(*args) -> 'ObservableExpression':
-    """
-    Create an ObservableExpression that returns True if any of the arguments is true.
-    More convenient than ObservableExpression.any(*args).
-    """
-    return ObservableExpression.any(*args)
-
-def obs_all(*args) -> 'ObservableExpression':
-    """
-    Create an ObservableExpression that returns True if all of the arguments are true.
-    More convenient than ObservableExpression.all(*args).
-    """
-    return ObservableExpression.all(*args)
-
-Obs = obs = Observable
-ObsVar = obsvar = ObservableVariable
-ObsExpr = obsexpr = ObservableExpression
-ObsCollection = obscollection = ObservableCollection
-ObsProxy = obsproxy = ObservableProxy
-        
-        
 if __name__ == "__main__":
-    print("=== Mathematical Programming Style Observable Expressions ===")
+    a = ObservableVariable(10)
+    b = ObservableVariable(5)
+    c = a * 2 + b
+    b + 1
+    b += 1
+    d = a > b
+    e = ObservableVariable.all(a > 0, b > 0)
+    f = ObservableVariable.any(a < 0, b > 0)
     
-    # Create an environment for testing
-    env = Environment()
+    print(f"a: {a}, b: {b}")
+    print(f"c (a + b * 2): {c}")
+    print(f"d (a > b): {d}")
+    print(f"e (all(a > 0, b > 0)): {e}")
+    print(f"f (any(a < 0, b > 0)): {f}")
     
-    # Named variables like in optimization models
-    x = ObservableVariable(10)
-    y = ObservableVariable(20) 
-    z = ObservableVariable(5)
+    a.set(3)
+    b.set(7)
     
-    print(env.now)
-    z_expr = 10 + x
-    print(env.now)
-    env.run(2)
-    print(env.now)
-
-    
-    ev = z_expr <= 100
-    ev.add_environment(env)
-    
-    coll = ObsCollection(x,y,filter_func=lambda v: v > 10)
-    L = coll.length()
-    x += 10
-    el = ObsProxy.item(coll, 2)
-    test = el + 1
-    
-    t2 = test < 30
-    coll.append(30)
-    
-    
-    obs.any(ev,False)
-    print(obs.any(ev,False))
-    q = ObservableVariable([1, 2, 3], env)
-    
-    oc = ObservableCollection(z_expr, filter_func=lambda x: x > 1)
-    
-    print(f"\nVariables: x={x.value}, y={y.value}, z={z.value}")
-    print(f"Expression z_expr: {z_expr.value}")
-    print(f"List q: {q.value}")
-    
-    # Test collection methods
-    q.append(4)
-    print(f"After append: {q.value}")
-    
-    # Test length
-    print(f"len(q): {len(q)}")
-    q_len = q.length()
-    print(f"q.length(): {q_len.value}")
-    
-    env.run()
+    print("\nAfter updating a and b:")
+    print(f"a: {a}, b: {b}")
+    print(f"c (a + b * 2): {c}")
+    print(f"d (a > b): {d}")
+    print(f"e (all(a > 0, b > 0)): {e}")
+    print(f"f (any(a < 0, b > 0)): {f}")

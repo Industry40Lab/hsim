@@ -246,6 +246,7 @@ def test5():
     s1.connections["next"] = s2
     s2.connections["next"] = t
     env.run(100)
+    pass
     
 def test6():
     env = Environment()
@@ -271,6 +272,42 @@ def test7():
     s.connections["next"] = t
     env.run(100)
     
+def test8():
+    import pandas as pd
+    import pstats
+    import cProfile
+    def run_test():
+        env = Environment()
+        g = Generator(env,"",Agent,serviceTime=10)
+        s1 = Server(env,serviceTime=10)
+        s2 = Server(env,serviceTime=10)
+        t = Terminator(env)
+        g.connections["next"] = s1
+        s1.connections["next"] = s2
+        s2.connections["next"] = t
+        env.run(50000)
+    profiler = cProfile.Profile()
+    try:
+        profiler.runcall(run_test)
+    except Exception as e:
+        print(f"Error: {e}")
+    profiler.dump_stats("output.prof")
+
+    stats = pstats.Stats(profiler)
+    stats.sort_stats("cumtime")
+    data = [
+        {
+            "Function": f"{func[0]}:{func[1]}({func[2]})",
+            "Calls": cc,
+            "Total Time": tt,
+            "Cumulative Time": ct,
+            "Per Call (Total)": tt / nc if nc else 0,
+            "Per Call (Cumulative)": ct / nc if nc else 0
+        }
+        for func, (cc, nc, tt, ct, callers) in stats.stats.items()
+    ]
+    df = pd.DataFrame(data).to_excel("profiler_stats.xlsx", index=False)
+    
 if __name__ == "__main__":
     test1()
     test2()
@@ -279,4 +316,5 @@ if __name__ == "__main__":
     test5()
     test6()
     test7()
+    test8()
     print("Tests completed.")
