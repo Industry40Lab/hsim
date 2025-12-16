@@ -218,16 +218,11 @@ class ConditionedEvent(BaseEvent):
         
     def process(self) -> None:
         super().process()
-        if len(self.arguments) > 0 or self.action is object:
-            if hasattr(self, 'condition'):
-                cond = self.condition
-                cond.unlink(self)
-                cond._unsubscribe_edge(cond._sources), cond._unsubscribe_edge(cond._targets)
-                del self.condition
-        elif hasattr(self,"__transition"):
-            print("Warning: how do we handle this?")
-        else:
-            print("Warning: what is this?")
+        if hasattr(self, 'condition'):
+            cond = self.condition
+            cond.unlink(self)
+            cond._unsubscribe_edge(cond._sources), cond._unsubscribe_edge(cond._targets)
+            del self.condition
 
             
 class RecurringEvent(BaseEvent):
