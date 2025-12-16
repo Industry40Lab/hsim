@@ -5,6 +5,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python Debugger: hsim.core.des.pymulate",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "hsim.core.des.pymulate"
+        },
+        {
+            "name": "Python Debugger: hsim.core.des.manual",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "hsim.core.des.manual"
+        },
+        {
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
