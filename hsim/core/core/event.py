@@ -27,7 +27,7 @@ class Status(Enum):
     CONDITIONED = auto()
     
 class BaseEvent():
-    __slots__ = ('env', 'sequence', 'time', 'priority', '_status', 'action', 'arguments', 'kwargs', '_conditioned', '_canceled', '_should_reset_on_false')
+    __slots__ = ('env', 'sequence', 'time', 'priority', '_status', 'action', 'arguments', 'kwargs', '_conditioned', '_canceled', '_should_reset_on_false', '_in_queue')
     def __init__(self, env: 'Environment', priority: Union[float,int]=1, action: Union[Iterable[Callable[..., Any]], Callable[..., Any]] = object, arguments: Any = None, **kwargs: Any): # type: ignore
         self.env = env
         self.sequence = next(env.scheduler._sequence_generator)
@@ -41,10 +41,11 @@ class BaseEvent():
         self._conditioned = False
         self._canceled = False  # Add canceled flag
         self._should_reset_on_false = False  # Default for all events
+        self._in_queue = False  # Track queue membership
     def add(self) -> BaseEvent:
         # If event is still in the queue, just unflag canceled
         self._canceled = False
-        if self not in self.env.scheduler._queue:
+        if not self._in_queue:
            self.env.scheduler.enter(self)
         return self
     def reset(self) -> BaseEvent:
@@ -70,14 +71,14 @@ class BaseEvent():
     def schedule(self, time=None) -> BaseEvent:
         self.time = time if time else self.time
         self._status = Status.SCHEDULED
-        if self in self.env.scheduler._queue:
+        if self._in_queue:
             self.env.scheduler._queue.remove(self)
             self.env.scheduler._queue.add(self)
         return self
     def trigger(self,priority=0) -> None:
         self._status = Status.TRIGGERED
         if self.time == np.inf:
-            self.env.scheduler._queue.remove(self) if self in self.env.scheduler._queue else None
+            self.env.scheduler._queue.remove(self) if self._in_queue else None
             self.time = self.env.now
             self.priority = priority
             self.env.scheduler._queue.add(self)
@@ -218,10 +219,11 @@ class ConditionedEvent(BaseEvent):
     def process(self) -> None:
         super().process()
         if len(self.arguments) > 0 or self.action is object:
-            cond = self.condition
-            cond.unlink(self)
-            cond._unsubscribe_edge(cond._sources), cond._unsubscribe_edge(cond._targets)
-            del self.condition
+            if hasattr(self, 'condition'):
+                cond = self.condition
+                cond.unlink(self)
+                cond._unsubscribe_edge(cond._sources), cond._unsubscribe_edge(cond._targets)
+                del self.condition
         elif hasattr(self,"__transition"):
             print("Warning: how do we handle this?")
         else:

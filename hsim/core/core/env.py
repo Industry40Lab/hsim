@@ -36,6 +36,7 @@ class Scheduler():
         self.delayfunc = delayfunc
     def enter(self, event: 'Event') -> 'Event':
         self._queue.add(event)
+        event._in_queue = True
         return event
     def enterabs(self, time, priority, action=object, argument=(), kwargs={}) -> 'Event':
         return self.enter(TimedEvent(self._env, time, priority, action, argument, **kwargs))
@@ -47,6 +48,7 @@ class Scheduler():
         delayfunc, timefunc, lock, past = self.delayfunc, self.timefunc, self._lock, self._past
         while self._queue:
             event = self._queue.pop(0)
+            event._in_queue = False
             if getattr(event, "_canceled", False):
                 continue
             elif event.time == np.inf:
@@ -116,6 +118,9 @@ class Scheduler():
 
     def cleaner(self):
         # Remove all canceled events from the queue
+        canceled_events = [e for e in self._queue if getattr(e, "_canceled", False)]
+        for event in canceled_events:
+            event._in_queue = False
         self._queue = type(self._queue)([e for e in self._queue if not getattr(e, "_canceled", False)], key=self._queue.key)
         self._conditions = type(self._conditions)([e for e in self._conditions if not getattr(e, "_canceled", False)], key=self._conditions.key)
         
