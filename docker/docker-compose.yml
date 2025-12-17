@@ -1,0 +1,17 @@
+version: "3.8"
+services:
+  web:
+    build:
+      context: ..                # build context = repo root
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - FLASK_ENV=development
+      - FLASK_APP=hsim.GSOM.flask.app
+    volumes:
+      - ..:/app                   # bind-mount repo for dev
+    command: >
+      sh -c "pip install -r requirements.txt && \
+             python -m flask run --host=0.0.0.0 --port=${PORT}"
