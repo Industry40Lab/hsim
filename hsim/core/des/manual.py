@@ -44,7 +44,7 @@ class ManualStation(Server):
 
         def onW2B(self):
             try:
-                _, msg = self.give(self.connections["next"], self._agent.var.item)
+                _, msg = self.exit(self._agent.var.item)
                 self.connections["operator"]().free()
                 self.connections["operator"] <<= None
                 msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]

@@ -7,6 +7,7 @@ if __name__ == "__main__":
         sys.path.append("//".join(os.path.abspath(__file__).split("\\")[:os.path.abspath(__file__).split("\\").index("hsim")+1]))
 
 
+from abc import abstractmethod
 from typing import Iterable, Tuple, Union
 
 import numpy as np
@@ -41,6 +42,8 @@ class DESBase(Agent):
         return self.store.post(item)
     def on_receive(self) -> None:
         raise NotImplementedError(f"on_receive method is not implemented for {self}.")
+    def exit(self,entity:Agent) -> tuple[ConditionedEvent, Message]:
+        return self.give(self.exit_strategy(entity),entity)
     class FSM(FSM):
         class Empty(State):
             initial_state=True
@@ -54,6 +57,8 @@ class DESBase(Agent):
             return tuple(store for agent in self._agents if not hasattr(agent, "_alwaysEmpty") for store in agent.store_var)
         else:
             raise AttributeError("No store attribute found.")
+    def exit_strategy(self,entity:Agent):
+        return self.connections["next"]
     
 class DESBlock(DESBase):
     __queueType = "standard" # "priority", "locked"

@@ -20,7 +20,7 @@ from hsim.core.des.des import DESBlock, TimedBlock
 
 def forwardItemB2S(self,item):
     try:
-        _, msg = self.give(self.connections["next"], item)
+        _, msg = self.exit(item)
         msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
     except AttributeError as e:
         warn(RuntimeWarning(e))
@@ -85,13 +85,13 @@ class Store(DESBlock):
 
     def _forward_item(self):
         item, _ = self.store.inspect(index = -1) # get the last item
-        _, msg = self.give(self.connections["next"], item)
+        _, msg = self.exit(item)
         msg.receipts["received"].action = self.store.pull
         msg.receipts["received"].arguments = (item,)
         
 def forwardItemEmpty(self):
     item, oldMsg = self.store.inspect(index = -1)
-    _, msg = self.give(self.connections["next"], item)
+    _, msg = self.exit(item)
     if oldMsg.receipts["received"].action is None:
         msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
     elif isinstance(oldMsg.receipts["received"].action,list):

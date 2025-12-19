@@ -69,7 +69,7 @@ class QualityMachine(Server):
     def forwardItemB2S(self,item):
         try:
             if self.quality():
-                _, msg = self.give(self.connections["next"], item)
+                _, msg = self.exit(item)
                 msg.receipts["received"].action = self.stateMachine.transitionsFrom["Blocking"][0]
             else:
                 if "quality" in self.connections.keys():
@@ -168,7 +168,7 @@ class SUMachine(ManualStation):
         SU2W.on_transition = onSU2W
         def onW2B(self):
             try:
-                _, msg = self.give(self.connections["next"], self._agent.var.item)
+                _, msg = self.exit(self._agent.var.item)
                 msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
             except AttributeError as e:
                 warn(RuntimeWarning(e))
@@ -217,7 +217,7 @@ class ManualAssembly(Assembly):
     
         def onW2B(self):
             try:
-                _, msg = self.give(self.connections["next"], self._agent.var.item)
+                _, msg = self.exit(self._agent.var.item)
                 self.connections["operator"]().free()
                 self.connections["operator"] <<= None
                 msg.receipts["received"].action = self.transitionsFrom["Blocking"][0]
