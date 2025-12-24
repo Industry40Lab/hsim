@@ -132,7 +132,7 @@ class Generator(DESBlock, TimedBlock):
                  serviceTime=0,
                  serviceTimeFunction=None,
                  # generation configuration
-                 generation_mode: str = "single",
+                 generation_mode: str = "",
                  batch_size: int = 1,
                  production_plan: Optional[List[Dict]] = None,
                  production_mix: Optional[Union[Dict[Callable, float], List[tuple]]] = None,
@@ -155,6 +155,35 @@ class Generator(DESBlock, TimedBlock):
         self.production_mix = production_mix
         # if True, times in production_plan are release times (absolute) instead of interarrival
         self.plan_release_time = bool(plan_release_time)
+
+        # allow passing pandas DataFrame for production_plan or production_mix
+        try:
+            import pandas as pd
+        except Exception:
+            pd = None
+
+        if pd is not None and isinstance(self.production_plan, pd.DataFrame):
+            # convert dataframe rows to dict records
+            try:
+                self.production_plan = self.production_plan.to_dict("records")
+            except Exception as e:
+                raise AssertionError(f"production_plan DataFrame conversion failed: {e}")
+
+        if pd is not None and isinstance(self.production_mix, pd.DataFrame):
+            # expect columns: 'agent' and 'weight' (or 'prob')
+            cols = [c.lower() for c in self.production_mix.columns]
+            if "agent" in cols and ("weight" in cols or "prob" in cols):
+                agent_col = self.production_mix.columns[cols.index("agent")]
+                weight_col = self.production_mix.columns[cols.index("weight")] if "weight" in cols else self.production_mix.columns[cols.index("prob")]
+                try:
+                    self.production_mix = [(row[agent_col], float(row[weight_col])) for _, row in self.production_mix.iterrows()]
+                except Exception as e:
+                    raise AssertionError(f"production_mix DataFrame conversion failed: {e}")
+            else:
+                raise AssertionError("production_mix DataFrame must have columns 'agent' and 'weight' (or 'prob')")
+
+        # validate coherence between declared generation_mode and provided plan/mix
+        self._validate_generation_config()
 
         # internal plan cursor
         self._plan_index = 0
@@ -182,6 +211,36 @@ class Generator(DESBlock, TimedBlock):
         # on generate, delegate to the parent Generator instance for more advanced behaviour
         T1.on_transition = lambda self: self._fsm._agent._on_generate(self)
         T2.on_transition = lambda self: None
+
+
+    def _validate_generation_config(self):
+        """Validate `generation_mode`, `production_plan`, and `production_mix` formats and coherence."""
+        allowed_modes = {"", "plan", "mix", "single", "batch"}
+        if self.generation_mode not in allowed_modes:
+            raise AssertionError(f"Unsupported generation_mode '{self.generation_mode}'")
+
+        if self.generation_mode == "plan":
+            assert self.production_plan is not None, "generation_mode 'plan' requires a production_plan"
+            assert isinstance(self.production_plan, list), "production_plan must be a list of dicts or a DataFrame"
+            for entry in self.production_plan:
+                assert isinstance(entry, dict), "each production_plan entry must be a dict"
+                if not any(k in entry for k in ("time", "release_time", "intergen", "interarrival")):
+                    raise AssertionError("production_plan entries must include 'time'/'release_time' or 'intergen'/'interarrival'")
+
+        if self.generation_mode == "mix":
+            assert self.production_mix is not None, "generation_mode 'mix' requires a production_mix"
+            if isinstance(self.production_mix, dict):
+                for k, v in self.production_mix.items():
+                    assert isinstance(v, (int, float)), "production_mix dict values must be numeric weights"
+            elif isinstance(self.production_mix, list):
+                for item in self.production_mix:
+                    assert isinstance(item, (tuple, list)) and len(item) >= 2, "production_mix list entries must be (agent, weight)"
+                    assert isinstance(item[1], (int, float)), "weights in production_mix must be numeric"
+            else:
+                raise AssertionError("production_mix must be a dict or list of (agent, weight)")
+
+        if self.generation_mode == "":
+            assert self.production_plan is None and self.production_mix is None, "Empty generation_mode requires no production_plan nor production_mix"
 
 
     def _choose_from_mix(self):
