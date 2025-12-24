@@ -1,7 +1,8 @@
 from warnings import warn
-from typing import Callable, Union
+from typing import Callable, Union, Optional, List, Dict
 import numpy as np
 import types
+import random
 if __name__ == "__main__":
     import sys
     import os
@@ -126,8 +127,19 @@ class Generator(DESBlock, TimedBlock):
     Args:
         agent_function: Callable[[],Agent] - function that generates agents.
     """
-    def __init__(self, env, name=None, agent_function:Union[Callable[[],Agent],Agent]=Agent, serviceTime=0, serviceTimeFunction=None):
+    def __init__(self, env, name=None,
+                 agent_function:Union[Callable[[],Agent],Agent]=Agent,
+                 serviceTime=0,
+                 serviceTimeFunction=None,
+                 # generation configuration
+                 generation_mode: str = "single",
+                 batch_size: int = 1,
+                 production_plan: Optional[List[Dict]] = None,
+                 production_mix: Optional[Union[Dict[Callable, float], List[tuple]]] = None,
+                 plan_release_time: bool = False,
+                 ):
         super().__init__(env, name)
+        self._counter = 0
         if not callable(agent_function):
             raise ValueError("Agent function must be a callable or an Agent class")
         elif isinstance(agent_function,type):
@@ -136,6 +148,27 @@ class Generator(DESBlock, TimedBlock):
             self.agent_function = types.MethodType(agent_function, self) 
         self.var.serviceTime = serviceTime
         self.var.serviceTimeFunction = serviceTimeFunction
+        # generation configuration
+        self.generation_mode = generation_mode
+        self.batch_size = int(batch_size) if batch_size and batch_size > 0 else 1
+        self.production_plan = production_plan
+        self.production_mix = production_mix
+        # if True, times in production_plan are release times (absolute) instead of interarrival
+        self.plan_release_time = bool(plan_release_time)
+
+        # internal plan cursor
+        self._plan_index = 0
+        self._plan_time_cursor = 0.0
+
+        # ensure production_mix normalized if provided as dict
+        if isinstance(self.production_mix, dict):
+            self._mix_items = list(self.production_mix.items())
+        elif isinstance(self.production_mix, list):
+            self._mix_items = list(self.production_mix)
+        else:
+            self._mix_items = None
+
+        # initial timeout
         self.stateMachine.transitionsFrom["Starving"][0].timeout = self.calculateServiceTime()
     class FSM(FSM):
         class Starving(State):
@@ -146,8 +179,132 @@ class Generator(DESBlock, TimedBlock):
         T2=EventTransition.define(Blocking, Starving)
 
         
-        T1.on_transition = lambda self: forwardItemB2S(self,self.agent_function())
+        # on generate, delegate to the parent Generator instance for more advanced behaviour
+        T1.on_transition = lambda self: self._fsm._agent._on_generate(self)
         T2.on_transition = lambda self: None
+
+
+    def _choose_from_mix(self):
+        """Choose an agent function from the production mix based on weights."""
+        if not self._mix_items:
+            return self.agent_function
+        # _mix_items is list of (callable, weight)
+        funcs, weights = zip(*self._mix_items)
+        total = sum(weights)
+        if total <= 0:
+            probs = [1.0 / len(weights)] * len(weights)
+        else:
+            probs = [w / total for w in weights]
+        choice = random.choices(funcs, probs, k=1)[0]
+        if isinstance(choice, type):
+            return types.MethodType(lambda self, c=choice: c(self.env), self)
+        elif callable(choice):
+            return types.MethodType(choice, self)
+        else:
+            return self.agent_function
+
+    def calculateServiceTime(self, entity:Optional[Agent]=None, attribute: str = 'serviceTime') -> Optional[float]:
+        """Wrapper for service time calculation.
+
+        - If a `production_plan` is present, compute the next interval from the current plan
+          entry (without creating agents).
+        - Otherwise defer to the original TimedBlock calculation.
+        """
+        # If there's a plan, compute from plan entry (do not create agents here)
+        if self.production_plan:
+            if self._plan_index >= len(self.production_plan):
+                return None
+            entry = self.production_plan[self._plan_index]
+            if self.plan_release_time:
+                release_time = entry.get("time") or entry.get("release_time")
+                if release_time is None:
+                    # fallback to TimedBlock behaviour
+                    from hsim.core.des.des import TimedBlock as _TimedBlock
+                    return _TimedBlock.calculateServiceTime(self, entity, attribute)
+                interval = float(release_time) - float(self.env.now)
+                return max(0.0, interval)
+            else:
+                inter = entry.get("intergen") or entry.get("interarrival")
+                if inter is None:
+                    from hsim.core.des.des import TimedBlock as _TimedBlock
+                    return _TimedBlock.calculateServiceTime(self, entity, attribute)
+                return float(inter)
+
+        # No production plan: delegate to original TimedBlock implementation
+        from hsim.core.des.des import TimedBlock as _TimedBlock
+        return _TimedBlock.calculateServiceTime(self, entity, attribute)
+
+    def _create_agents_for_entry(self, entry=None):
+        """Create list of agents for a plan entry or according to mode."""
+        agents = []
+        if entry:
+            count = int(entry.get("count", 1))
+            agent_spec = entry.get("agent", None)
+            if agent_spec is None:
+                # fallback to default agent function
+                for _ in range(count):
+                    agents.append(self.agent_function())
+            else:
+                for _ in range(count):
+                    if isinstance(agent_spec, type):
+                        agents.append(agent_spec(self.env))
+                    elif callable(agent_spec):
+                        # bind to self if required
+                        try:
+                            bound = types.MethodType(agent_spec, self)
+                            agents.append(bound())
+                        except Exception:
+                            agents.append(agent_spec())
+                    else:
+                        agents.append(self.agent_function())
+            return agents
+
+        # no entry -> use modes
+        if self.generation_mode == "plan":
+            return []
+        if self.generation_mode == "mix":
+            # pick batch_size elements from mix
+            for _ in range(self.batch_size):
+                f = self._choose_from_mix()
+                try:
+                    agents.append(f())
+                except Exception:
+                    # fallback
+                    agents.append(self.agent_function())
+            return agents
+        # default or single/batch
+        for _ in range(self.batch_size):
+            agents.append(self.agent_function())
+        return agents
+
+    def _on_generate(self, fsm_state):
+        """Called when the generator's timeout transition triggers."""
+        # If we have a production plan, use current plan entry
+        entry = None
+        if self.production_plan:
+            if self._plan_index >= len(self.production_plan):
+                return None
+            entry = self.production_plan[self._plan_index]
+
+        agents = self._create_agents_for_entry(entry)
+
+        # forward each created agent to the next block using existing helper
+        for item in agents:
+            try:
+                forwardItemB2S(fsm_state, item)
+            except Exception as e:
+                warn(RuntimeWarning(e))
+
+        # advance plan cursor if applicable
+        if self.production_plan:
+            self._plan_index += 1
+
+        # schedule next interval
+        next_interval = self.calculateServiceTime()
+        try:
+            fsm_state.transitions[0].timeout = next_interval
+        except Exception:
+            pass
 
 
 class Terminator(DESBlock):
