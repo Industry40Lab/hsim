@@ -316,6 +316,28 @@ class Generator(DESBlock, TimedBlock):
                             agents.append(agent_spec())
                     else:
                         agents.append(self.agent_function())
+            # map any extra attributes from the plan entry onto created agents
+            # skip generation-control keys
+            skip_keys = {"agent", "count", "time", "release_time", "intergen", "interarrival"}
+            for agent in agents:
+                if isinstance(entry, dict):
+                    for k, v in entry.items():
+                        if k in skip_keys:
+                            continue
+                        # treat 'route' specially: ensure it's a list on the agent
+                        if k == "route":
+                            try:
+                                setattr(agent, "route", list(v) if v is not None else [])
+                                # initialize route cursor if not present
+                                if not hasattr(agent, "route_index"):
+                                    setattr(agent, "route_index", 0)
+                            except Exception:
+                                setattr(agent, "route", v)
+                        else:
+                            try:
+                                setattr(agent, k, v)
+                            except Exception:
+                                pass
             return agents
 
         # no entry -> use modes
