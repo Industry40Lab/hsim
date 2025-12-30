@@ -51,18 +51,23 @@ def main():
     env = Environment()
 
     # use Generator to instantiate `Job` and let Generator map plan fields onto instances
-    # simple plan: create two jobs with different routes and zero intergen (generated at time 0)
+    # production plan: use absolute release times ('time') rather than interarrival; Generator
+    # will be asked to interpret plan entries as release times via plan_release_time=True.
     plan = [
-        {"route": ["M2"], "job_id": "J1", "intergen": 0},
-        {"route": ["M2"], "job_id": "J2", "intergen": 0},
+        {"route": ["M2"], "job_id": "J1"},  # no time => released immediately at t=0
+        {"route": ["M2"], "job_id": "J2", "time": 0.1},
+        {"route": ["M2"], "job_id": "J3", "time": 0.5},
+        {"route": [],      "job_id": "J4", "time": 1.0},
+        {"route": ["M2"], "job_id": "J5", "time": 1.5},
+        {"route": ["M2","M1"], "job_id": "J6", "time": 2.0},
     ]
 
-    # pass Job class so Generator instantiates Job objects; Generator will map plan fields
-    g = Generator(env, "G", Job, production_plan=plan, serviceTime=0, generation_mode="plan")
+    # pass Job class so Generator instantiates Job objects; enable plan release times
+    g = Generator(env, "G", Job, production_plan=plan, serviceTime=0, generation_mode="plan", plan_release_time=True)
 
     t = Terminator(env, "T")
-    s1 = Server(env, "S1")
-    s2 = Server(env, "S2")
+    s1 = Server(env, "S1", serviceTime=0.1)
+    s2 = Server(env, "S2", serviceTime=0.1)
 
     # wire named connections used in routes; avoid self-referential connection entries
     s1.connections["M2"] = s2

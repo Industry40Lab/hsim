@@ -224,8 +224,10 @@ class Generator(DESBlock, TimedBlock):
             assert isinstance(self.production_plan, list), "production_plan must be a list of dicts or a DataFrame"
             for entry in self.production_plan:
                 assert isinstance(entry, dict), "each production_plan entry must be a dict"
-                if not any(k in entry for k in ("time", "release_time", "intergen", "interarrival")):
-                    raise AssertionError("production_plan entries must include 'time'/'release_time' or 'intergen'/'interarrival'")
+                # If plan_release_time is True, entries may omit 'time' and are treated as immediate
+                if not self.plan_release_time:
+                    if not any(k in entry for k in ("time", "release_time", "intergen", "interarrival")):
+                        raise AssertionError("production_plan entries must include 'time'/'release_time' or 'intergen'/'interarrival'")
 
         if self.generation_mode == "mix":
             assert self.production_mix is not None, "generation_mode 'mix' requires a production_mix"
@@ -275,11 +277,17 @@ class Generator(DESBlock, TimedBlock):
                 return None
             entry = self.production_plan[self._plan_index]
             if self.plan_release_time:
-                release_time = entry.get("time") or entry.get("release_time")
+                # release_time may be missing; treat missing release_time as immediate (0.0)
+                release_time = None
+                if isinstance(entry, dict):
+                    # prefer explicit 'time', then 'release_time'
+                    if "time" in entry:
+                        release_time = entry.get("time")
+                    elif "release_time" in entry:
+                        release_time = entry.get("release_time")
                 if release_time is None:
-                    # fallback to TimedBlock behaviour
-                    from hsim.core.des.des import TimedBlock as _TimedBlock
-                    return _TimedBlock.calculateServiceTime(self, entity, attribute)
+                    # release immediately
+                    return 0.0
                 interval = float(release_time) - float(self.env.now)
                 return max(0.0, interval)
             else:
@@ -380,12 +388,24 @@ class Generator(DESBlock, TimedBlock):
         if self.production_plan:
             self._plan_index += 1
 
-        # schedule next interval
+        # schedule next interval; do not assign a None timeout (prevents scheduler errors)
         next_interval = self.calculateServiceTime()
-        try:
-            fsm_state.transitions[0].timeout = next_interval
-        except Exception:
-            pass
+        if next_interval is not None:
+            try:
+                fsm_state.transitions[0].timeout = next_interval
+            except Exception:
+                pass
+        else:
+            # no further scheduling: leave transition timeout unchanged (stop generating)
+            try:
+                # try to deactivate the generator FSM to avoid further transitions
+                if hasattr(self, "deactivate_fsm"):
+                    try:
+                        self.deactivate_fsm()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
 
 class Terminator(DESBlock):
